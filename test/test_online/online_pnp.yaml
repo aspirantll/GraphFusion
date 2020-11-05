@@ -1,0 +1,13 @@
+kMinMatches: 25
+kMinInliers: 15
+rmsThreshold: 100
+irThreshold: 0.70
+maxEGResidual: 0.0001
+maxPnPResidual: 5.991
+upperBoundResidual: 59
+maxAvgCost: 2
+costThreshold: 0.5
+overlapNum: 5
+minInlierRatio: 0.5
+vocTxtPath: /home/liulei/workspace/voc.txt
+useHashIndex: true
