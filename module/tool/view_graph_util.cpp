@@ -90,6 +90,7 @@ namespace rtf {
             fixed[0] = true;
 
             // begin to update lowCost and path
+            bool connected = true;
             for(int k=1; k<n-1; k++) {
                 // find min cost index
                 double minCost = numeric_limits<double>::infinity();
@@ -100,7 +101,10 @@ namespace rtf {
                         minIndex = v;
                     }
                 }
-                if(minIndex==-1) break;
+                if(minIndex==-1) {
+                    connected = false;
+                    break;
+                }
                 // fix min cost index path
                 u = minIndex;
                 fixed[u] = true;
@@ -121,15 +125,18 @@ namespace rtf {
                 Transform trans = Transform::Identity();
                 int k = i;
                 int j = -1;
+//                cout << cc[0] << " to " << cc[i] << " path:" << cc[i] << "<-";
                 while((j=path[k])!=-1) {
+//                    cout << cc[j] << "<-";
                     Edge edge = viewGraph.getEdge(cc[j], cc[k]);
                     LOG_ASSERT(!edge.isUnreachable()) << " error in compute transformation for connected components: the edge is unreachable!";
-                    trans = edge.getTransform() * trans;
+                    trans = edge.getTransform()*trans;
                     k = j;
                 }
+//                cout << endl;
                 transVec.emplace_back(trans);
             }
-            return true;
+            return connected;
         }
 
         // merge nodes in the same connected component
@@ -140,7 +147,6 @@ namespace rtf {
                 Node& cur = viewGraph[cc[i]];
                 for(int j=0; j<cur.getFrames().size(); j++) {
                     const auto& frame = cur.getFrames()[j];
-                    const int frameIndex = cur.getFrameIndexes()[j];
                     Transform trans = transVec[i] * frame->getTransform();
                     frame->setTransform(trans);
                     node.addFrame(frame);

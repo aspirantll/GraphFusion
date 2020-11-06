@@ -113,11 +113,25 @@ namespace rtf {
         }
     }
 
-    void GlobalRegistration::registrationEdges(shared_ptr<KeyFrame> cur, vector<int>& overlapFrames, EigenVector(Edge)& edges) {
+    int GlobalRegistration::selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe) {
+        int bestIndex = -1;
+        float bestScore = 0;
+        for(const shared_ptr<Frame>& f: keyframe->getFrames()) {
+            float score = siftVocabulary->score(bow, f->getKps().getMBowVec());
+            if(f->isVisible()&&score>bestScore) { // must select visible frame
+                bestIndex = f->getFrameIndex();
+                bestScore = score;
+            }
+        }
+        return bestIndex;
+    }
+
+    void GlobalRegistration::registrationEdges(shared_ptr<Frame> cur, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges) {
         const int k = globalConfig.overlapNum;
         const int lastNum = 1;
         const int n = viewGraph.getFramesNum();
-        auto frames = viewGraph.getSourceFrames();
+        vector<shared_ptr<KeyFrame>> frames = viewGraph.getSourceFrames();
+        DBoW2::BowVector& bow = cur->getKps().getMBowVec();
 
         set<int> spAlreadyAddedKF;
         overlapFrames.reserve(k);
@@ -127,10 +141,14 @@ namespace rtf {
         // last frame
         int index = 0;
         for (int i = 1; i <= lastNum && i <= k && i <= n; i++) {
-            shared_ptr<KeyFrame> ref = frames[n-i];
-            int refIndex = ref->getIndex();
+            shared_ptr<KeyFrame> refKeyFrame = frames[n - i];
+            int refIndex = refKeyFrame->getIndex();
             spAlreadyAddedKF.insert(refIndex);
             overlapFrames.emplace_back(refIndex);
+            int innerRefIndex = selectBestFrameFromKeyFrame(bow, refKeyFrame);
+            innerIndexes.emplace_back(innerRefIndex);
+            shared_ptr<Frame> ref = refKeyFrame->getFrame(innerRefIndex);
+
 
             FeatureMatches featureMatches = matcher->matchKeyPointsPair(ref->getKps(),
                                                                         cur->getKps());
@@ -142,7 +160,7 @@ namespace rtf {
         }
 
         if (overlapFrames.size() < k) {
-            std::vector<MatchScore> imageScores = dBoWHashing->queryImages(lastPos, cur->getKps(), notLost,  lostNum > 0);
+            std::vector<MatchScore> imageScores = dBoWHashing->queryImages(lastPos, &cur->getKps().getMBowVec(), notLost,  lostNum > 0);
             // Return all those keyframes with a score higher than 0.75*bestScore
             float minScoreToRetain = globalConfig.minScore;
             std::sort(imageScores.begin(), imageScores.end(), [=](MatchScore& ind1, MatchScore& ind2) {return ind1.imageId < ind2.imageId;});
@@ -151,8 +169,12 @@ namespace rtf {
                 if (si >= minScoreToRetain) {
                     int refIndex = it.imageId;
                     if (!spAlreadyAddedKF.count(refIndex)) {
-                        cout << it.imageId << "," << it.score << endl;
-                        shared_ptr<KeyFrame> ref = viewGraph.indexFrame(refIndex);
+                        shared_ptr<KeyFrame> refKeyFrame = viewGraph.indexFrame(refIndex);
+                        spAlreadyAddedKF.insert(refIndex);
+                        overlapFrames.emplace_back(refIndex);
+                        int innerRefIndex = selectBestFrameFromKeyFrame(bow, refKeyFrame);
+                        innerIndexes.emplace_back(innerRefIndex);
+                        shared_ptr<Frame> ref = refKeyFrame->getFrame(innerRefIndex);
                         FeatureMatches featureMatches = matcher->matchKeyPointsPair(ref->getKps(),
                                                                                     cur->getKps());
                         overlapFrames.emplace_back(refIndex);
@@ -175,8 +197,8 @@ namespace rtf {
         }
     }
 
-    GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): globalConfig(globalConfig) {
-        dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, true);
+    GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
+        dBoWHashing = new DBoWHashing(globalConfig, true);
         matcher = new SIFTFeatureMatcher();
         egRegistration = new EGRegistration(globalConfig);
         homoRegistration = new HomographyRegistration(globalConfig);
@@ -185,6 +207,7 @@ namespace rtf {
 
     bool GlobalRegistration::mergeViewGraph() {
         viewGraph.check();
+        viewGraph.print();
         cout << "merge view graph..." << endl;
         // find connected component from view graph
         vector<vector<int>> connectedComponents = findConnectedComponents(viewGraph, globalConfig.costThreshold);
@@ -244,28 +267,20 @@ namespace rtf {
         dBoWHashing->updateVisualIndex(updateIds, poses);
     }
 
-    void GlobalRegistration::trackKeyFrames(shared_ptr<KeyFrame> keyframe) {
+    void GlobalRegistration::trackKeyFrames(shared_ptr<Frame> frame) {
         if (viewGraph.getFramesNum() > 0) {
             clock_t start = clock();
             vector<int> overlapFrames;
-            vector<Edge, Eigen::aligned_allocator<Edge>> edges;
-            registrationEdges(keyframe, overlapFrames, edges);
+            vector<int> innerIndexes;
+            vector<Edge, Eigen::aligned_allocator<Edge>> pairEdges;
+            registrationEdges(frame, overlapFrames, innerIndexes, pairEdges);
 
             for(int i=0; i<overlapFrames.size(); i++) {
-                if (!edges[i].isUnreachable()) {
-                    int refNodeIndex = viewGraph.findNodeIndexByFrameIndex(overlapFrames[i]);
-                    if (bestEdgeMap.count(refNodeIndex)) {
-                        double bestCost = bestEdgeMap[refNodeIndex].getCost();
-                        if (edges[i].getCost() < bestCost) {
-                            bestEdgeMap[refNodeIndex] = edges[i];
-                            bestCurIndexes[refNodeIndex] = keyframe->getIndex();
-                            bestRefIndexes[refNodeIndex] = overlapFrames[i];
-                        }
-                    } else {
-                        bestEdgeMap.insert(map<int, Edge>::value_type(refNodeIndex, edges[i]));
-                        bestCurIndexes.insert(map<int, int>::value_type(refNodeIndex, keyframe->getIndex()));
-                        bestRefIndexes.insert(map<int, int>::value_type(refNodeIndex, overlapFrames[i]));
-                    }
+                if (!pairEdges[i].isUnreachable()) {
+                    edges.emplace_back(pairEdges[i]);
+                    curIndexes.emplace_back(frame->getFrameIndex());
+                    refIndexes.emplace_back(overlapFrames[i]);
+                    refInnerIndexes.emplace_back(innerIndexes[i]);
                 }
             }
 
@@ -277,6 +292,33 @@ namespace rtf {
         viewGraph.extendNode(keyframe);
 
         if(viewGraph.getFramesNum()>1) {
+            map<int, Edge, less<int>, Eigen::aligned_allocator<pair<const int, Edge>>> bestEdgeMap;
+            map<int, int> bestCurIndexes, bestRefIndexes, bestRefInnerIndexes;
+            for(int i=0; i<edges.size(); i++) {
+                int curIndex = curIndexes[i];
+                int refIndex = refIndexes[i];
+                int refInnerIndex = refInnerIndexes[i];
+
+                if(!keyframe->getFrame(curIndex)->isVisible()) continue; //avoid invisible frame
+
+                int refNodeIndex = viewGraph.findNodeIndexByFrameIndex(refIndex);
+                if (bestEdgeMap.count(refNodeIndex)) {
+                    double bestCost = bestEdgeMap[refNodeIndex].getCost();
+                    if (edges[i].getCost() < bestCost) {
+                        bestEdgeMap[refNodeIndex] = edges[i];
+                        bestCurIndexes[refNodeIndex] = curIndex;
+                        bestRefIndexes[refNodeIndex] = refIndex;
+                        bestRefInnerIndexes[refNodeIndex] = refInnerIndex;
+                    }
+                } else {
+                    bestEdgeMap.insert(map<int, Edge>::value_type(refNodeIndex, edges[i]));
+                    bestCurIndexes.insert(map<int, int>::value_type(refNodeIndex, curIndex));
+                    bestRefIndexes.insert(map<int, int>::value_type(refNodeIndex, refIndex));
+                    bestRefInnerIndexes.insert(map<int, int>::value_type(refNodeIndex, refInnerIndex));
+                }
+            }
+
+
             int curNodeIndex = viewGraph.getNodesNum() - 1;
             for (auto mit: bestEdgeMap) {
                 int refNodeIndex = mit.first;
@@ -284,7 +326,8 @@ namespace rtf {
                 Edge &bestEdge = mit.second;
 
                 if (edgeCompare(bestEdge, edge)) {
-                    Transform transX = viewGraph[refNodeIndex].getTransform(bestRefIndexes[refNodeIndex]);
+                    shared_ptr<KeyFrame> refKeyFrame = viewGraph[refNodeIndex].getKeyFrame(bestRefIndexes[refNodeIndex]);
+                    Transform transX = refKeyFrame->getTransform()*refKeyFrame->getTransform(bestRefInnerIndexes[refNodeIndex]);
                     Transform transY = keyframe->getTransform(bestCurIndexes[refNodeIndex]);
 
                     Intrinsic kX = viewGraph[refNodeIndex].getK();
@@ -306,11 +349,13 @@ namespace rtf {
                     edge.setKxs(bestEdge.getKxs());
                     edge.setKys(bestEdge.getKys());
                     edge.setCost(bestEdge.getCost());
+                    cout << refNodeIndex << ":" << relativeTrans << endl;
                 }
             }
-            bestEdgeMap.clear();
-            bestCurIndexes.clear();
-            bestRefIndexes.clear();
+            edges.clear();
+            curIndexes.clear();
+            refIndexes.clear();
+            refInnerIndexes.clear();
 
             mergeViewGraph();
             lostNum = registration(false);
@@ -324,13 +369,12 @@ namespace rtf {
                 lastPos = make_float3(ow.x(), ow.y(), ow.z());
             }
             notLost = viewGraph[curNodeIndex].isVisible();
-
         }else {
             lastPos = make_float3(0, 0, 0);
             notLost = true;
         }
-
-        dBoWHashing->addVisualIndex(lastPos, keyframe->getKps(), keyframe->getIndex(),  notLost);
+        viewGraph.print();
+        dBoWHashing->addVisualIndex(lastPos, keyframe,  notLost);
     }
 
     int GlobalRegistration::registration(bool opt) {

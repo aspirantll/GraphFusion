@@ -43,20 +43,18 @@ namespace rtf {
         return voxelFusion;
     }
 
-    void OnlineReconstruction::appendFrame(shared_ptr<FrameRGBD> frame) {
+    void OnlineReconstruction::appendFrame(shared_ptr<FrameRGBD> frameRGBD) {
         // initialize frame
-        frame->setFrameIndex(frameCounter++);
-        shared_ptr<FrameRGBDT> frameRGBDT = allocate_shared<FrameRGBDT>(Eigen::aligned_allocator<FrameRGBDT>(), frame);
-        shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
-        keyframe->addFrame(frameRGBDT);
+        frameRGBD->setFrameIndex(frameCounter++);
+        shared_ptr<Frame> frame = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), frameRGBD);
         // extract sift feature points
-        extractor->extractFeatures(frame, keyframe->getKps());
-        computeBow(keyframe->getKps());
+        extractor->extractFeatures(frameRGBD, frame->getKps());
+        computeBow(frame->getKps());
 
         // track the keyframes database
-        std::thread kfTracker(bind(&GlobalRegistration::trackKeyFrames, globalRegistration, placeholders::_1), keyframe);
+        std::thread kfTracker(bind(&GlobalRegistration::trackKeyFrames, globalRegistration, placeholders::_1), frame);
         // track local frames
-        localRegistration->localTrack(keyframe);
+        localRegistration->localTrack(frame);
         // merging graph
         if(needMerge()) {
             Timer merger = Timer::startTimer("merge frames");
@@ -71,14 +69,16 @@ namespace rtf {
     }
 
     void OnlineReconstruction::finalOptimize(bool opt) {
-        shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
-        globalRegistration->insertKeyFrames(kf);
-        lastFrameIndex = frameCounter;
+        if(frameCounter%globalConfig.chunkSize) {
+            shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
+            globalRegistration->insertKeyFrames(kf);
+            lastFrameIndex = frameCounter;
+        }
 
         globalRegistration->registration(opt);
-        /*auto meshData = voxelFusion->integrateFrames(viewGraph);
+        auto meshData = getVoxelFusion()->integrateFrames(getViewGraph());
         cout << "show final mesh" << endl;
-        updateViewer(meshData);*/
+        updateViewer(meshData);
     }
 
     ViewGraph &OnlineReconstruction::getViewGraph() {

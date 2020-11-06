@@ -13,20 +13,36 @@
 using namespace std;
 
 namespace rtf {
+    class Frame: public FrameRGBDT {
+    protected:
+        SIFTFeaturePoints kps;
+        bool visible;
+    public:
+
+        Frame(YAML::Node serNode);
+
+        Frame(shared_ptr<FrameRGBD> frameRGBD);
+
+        SIFTFeaturePoints &getKps();
+
+        void setKps(const SIFTFeaturePoints &kps);
+
+        void setFrameIndex(uint32_t frameIndex);
+
+        bool isVisible() const;
+
+        void setVisible(bool visible);
+    };
+
     class KeyFrame {
     protected:
-        vector<shared_ptr<FrameRGBDT>> frames;
-        SIFTFeaturePoints kps;
+        vector<shared_ptr<Frame>> frames;
         map<int, int> indexToInnerMap;
         Transform transform;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
         KeyFrame();
-
-        SIFTFeaturePoints &getKps();
-
-        void setKps(const SIFTFeaturePoints &kps);
 
         int getIndex();
 
@@ -40,10 +56,13 @@ namespace rtf {
 
         void setTransform(Transform trans);
 
-        void addFrame(shared_ptr<FrameRGBDT> frame);
+        void addFrame(shared_ptr<Frame> frame);
 
-        vector<shared_ptr<FrameRGBDT>> &getFrames();
+        vector<shared_ptr<Frame>> &getFrames();
 
+        shared_ptr<Frame> getFirstFrame();
+
+        shared_ptr<Frame> getFrame(int frameIndex);
     };
 
     class Edge {
@@ -129,6 +148,8 @@ namespace rtf {
         vector<int> &getFrameIndexes();
 
         Transform getTransform(int frameIndex);
+
+        shared_ptr<KeyFrame> getKeyFrame(int frameIndex);
 
         void setVisible(bool visible);
 

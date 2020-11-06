@@ -7,14 +7,38 @@
 #include "../processor/frame_converters.h"
 
 namespace rtf {
-    KeyFrame::KeyFrame(){}
+    Frame::Frame(YAML::Node serNode): FrameRGBDT(serNode), FrameBase(serNode) {
 
-    SIFTFeaturePoints &KeyFrame::getKps() {
+    }
+
+    Frame::Frame(shared_ptr<FrameRGBD> frameRGBD): FrameRGBDT(frameRGBD, Transform::Identity()), FrameBase(frameRGBD->getId(), frameRGBD->getCamera()) {
+        setFrameIndex(frameRGBD->getFrameIndex());
+        visible = true;
+    }
+
+    SIFTFeaturePoints &Frame::getKps() {
         return kps;
     }
 
-    void KeyFrame::setKps(const SIFTFeaturePoints &kps) {
-        KeyFrame::kps = kps;
+    void Frame::setKps(const SIFTFeaturePoints &kps) {
+        Frame::kps = kps;
+    }
+
+    void Frame::setFrameIndex(uint32_t frameIndex) {
+        FrameBase::frameIndex = frameIndex;
+        kps.setFIndex(frameIndex);
+    }
+
+    bool Frame::isVisible() const {
+        return visible;
+    }
+
+    void Frame::setVisible(bool visible) {
+        Frame::visible = visible;
+    }
+
+    KeyFrame::KeyFrame(){
+        transform.setIdentity();
     }
 
     int KeyFrame::getIndex() {
@@ -30,8 +54,7 @@ namespace rtf {
     }
 
     Transform KeyFrame::getTransform(int frameIndex) {
-        int innerIndex = indexToInnerMap[frameIndex];
-        return frames[innerIndex]->getTransform();
+        return getFrame(frameIndex)->getTransform();
     }
 
     void KeyFrame::setTransform(Transform trans) {
@@ -42,13 +65,22 @@ namespace rtf {
         return frames[0]->getCamera()->getK();
     }
 
-    void KeyFrame::addFrame(shared_ptr<FrameRGBDT> frame) {
+    void KeyFrame::addFrame(shared_ptr<Frame> frame) {
         indexToInnerMap.insert(map<int, int>::value_type(frame->getFrameIndex(), frames.size()));
         frames.emplace_back(frame);
     }
 
-    vector<shared_ptr<FrameRGBDT>> &KeyFrame::getFrames() {
+    vector<shared_ptr<Frame>> &KeyFrame::getFrames() {
         return frames;
+    }
+
+    shared_ptr<Frame> KeyFrame::getFirstFrame() {
+        return frames[0];
+    }
+
+    shared_ptr<Frame> KeyFrame::getFrame(int frameIndex) {
+        int innerIndex = indexToInnerMap[frameIndex];
+        return frames[innerIndex];
     }
 
     Transform Edge::getTransform() {
@@ -150,8 +182,12 @@ namespace rtf {
     }
 
     Transform Node::getTransform(int frameIndex) {
+        return getKeyFrame(frameIndex)->getTransform();
+    }
+
+    shared_ptr<KeyFrame> Node::getKeyFrame(int frameIndex) {
         int inner = frameIndexesToInnerIndexes[frameIndex];
-        return frames[inner]->getTransform();
+        return frames[inner];
     }
 
     void Node::setVisible(bool visible) {
@@ -221,7 +257,6 @@ namespace rtf {
     }
 
     Edge &ViewGraph::operator()(int i, int j) {
-        CHECK_LT(i, j);
         return (*adjMatrix)(i, j);
     }
 

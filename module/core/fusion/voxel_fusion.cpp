@@ -3,6 +3,7 @@
 //
 
 #include "voxel_fusion.h"
+#include "../../processor/frame_converters.h"
 #include <pcl/registration/transforms.h>
 
 namespace rtf {
@@ -63,49 +64,36 @@ namespace rtf {
         rayCast->setRayCastIntrinsics(width, height, MatrixConversion::toCUDA(intrinsicTrans), MatrixConversion::toCUDA(intrinsicTransInv));
         marchingCubesHashSdf->clearMeshBuffer();
         int mergeCount = 0;
-        Transform trans4d;
-        /*for (int i=0; i<viewGraph.getNodesNum(); i++) {
-            Node& node = viewGraph[i];
-            if(node.isVisible()) {
-                int j =0;
-                for(auto frame: node.getFrames()) {
-                    cv::cuda::GpuMat rgbImg(height, width, CV_8UC4);
-                    cv::cuda::GpuMat depthImg(height, width, CV_32F);
-                    rgbImg.upload(*frame->getRGBImage());
-                    depthImg.upload(*frame->getDepthImage());
-                    CUDAFrame cudaFrame(*frame, depthImg, rgbImg);
-                    trans4d = node.nGtTrans*frame->getTransform();
-                    cudaFrame.setTransform(trans4d);
-                    sceneRep->integrate(cudaFrame.transformation, cudaFrame);
-                    *//*if(frame->status == 0) {
-                        if(frame->nGtTrans!=frame->oGtTrans) {
-                            cudaFrame.setTransform(frame->oGtTrans);
-                            sceneRep->deIntegrate(cudaFrame.transformation, cudaFrame);
-
-                            cudaFrame.setTransform(node.nGtTrans*frame->getTransform());
-                            sceneRep->integrate(cudaFrame.transformation, cudaFrame);
-                        }
-                    }else {
-                        cudaFrame.setTransform(node.nGtTrans*frame->getTransform());
-                        sceneRep->integrate(cudaFrame.transformation, cudaFrame);
-                    }*//*
-                    mergeCount ++;
-                    j++;
-                }
+        Transform trans;
+        for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
+            Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
+            if(!viewGraph.isVisible(kf->getIndex())) {
+                continue;
+            }
+            for(const shared_ptr<Frame>& frame: kf->getFrames()) {
+                if(!frame->isVisible()) continue;
+                frame->reloadImages();
+                FrameConverters::convertImageType(frame);
+                cv::cuda::GpuMat rgbImg(height, width, CV_8UC4);
+                cv::cuda::GpuMat depthImg(height, width, CV_32F);
+                rgbImg.upload(*frame->getRGBImage());
+                depthImg.upload(*frame->getDepthImage());
+                CUDAFrame cudaFrame(*frame, depthImg, rgbImg);
+                trans = baseTrans*frame->getTransform();
+                cudaFrame.setTransform(trans);
+                sceneRep->integrate(cudaFrame.transformation, cudaFrame);
+                frame->releaseImages();
+                mergeCount ++;
             }
 
-            node.status = 0;
-            node.oGtTrans = node.nGtTrans;
-        }*/
+        }
         cout << "merge count:" << mergeCount << endl;
         cout << "free count:" << sceneRep->getHeapFreeCount() << endl;
 
-        Eigen::Matrix4f trans4f = trans4d.cast<float>();
-        rayCast->render(sceneRep->getHashData(), sceneRep->getHashParams(), MatrixConversion::toCUDA(trans4f));
+        rayCast->render(sceneRep->getHashData(), sceneRep->getHashParams(), MatrixConversion::toCUDA(trans));
         marchingCubesHashSdf->extractIsoSurface(sceneRep->getHashData(), sceneRep->getHashParams(), rayCast->getRayCastData());
         return marchingCubesHashSdf->getMeshData();
     }
-
 
     void VoxelFusion::saveMesh(std::string filename) {
         marchingCubesHashSdf->saveMesh(filename);

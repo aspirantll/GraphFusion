@@ -12,10 +12,10 @@
 using namespace rtf::ViewGraphUtil;
 
 namespace rtf {
-    LocalRegistration::LocalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): globalConfig(globalConfig) {
+    LocalRegistration::LocalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): globalConfig(globalConfig), siftVocabulary(siftVocabulary) {
         localViewGraph.reset(0);
         matcher = new SIFTFeatureMatcher();
-        localDBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, false);
+        localDBoWVoc = new DBoWVocabulary();
         egRegistration = new EGRegistration(globalConfig);
         homoRegistration = new HomographyRegistration(globalConfig);
         pnpRegistration = new PnPRegistration(globalConfig);
@@ -42,13 +42,13 @@ namespace rtf {
             }
         }
 
-        /*printMutex.lock();
+        printMutex.lock();
         cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-eg+ba---------------------------------" << endl;
         eg.printReport();
         if (ba.success) {
             ba.printReport();
         }
-        printMutex.unlock();*/
+        printMutex.unlock();
     }
 
     void LocalRegistration::registrationHomoBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
@@ -73,13 +73,13 @@ namespace rtf {
             }
         }
 
-        /*printMutex.lock();
+        printMutex.lock();
         cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-homo+ba---------------------------------" << endl;
         homo.printReport();
         if (ba.success) {
             ba.printReport();
         }
-        printMutex.unlock();*/
+        printMutex.unlock();
     }
 
     void LocalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
@@ -104,19 +104,19 @@ namespace rtf {
             }
         }
 
-        /*printMutex.lock();
+        printMutex.lock();
         cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-pnp+ba---------------------------------" << endl;
         pnp.printReport();
         if (ba.success) {
             ba.printReport();
         }
-        printMutex.unlock();*/
+        printMutex.unlock();
     }
 
-    void LocalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream) {
+    void LocalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
         stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
-        if(edge->isUnreachable()&&featureMatches.size()>globalConfig.kMinMatches*2) {
+        if(near&&edge->isUnreachable()&&featureMatches.size()>globalConfig.kMinMatches) {
             registrationEGBA(&featureMatches, edge, curStream);
             if(edge->isUnreachable()) {
                 registrationHomoBA(&featureMatches, edge, curStream);
@@ -142,18 +142,19 @@ namespace rtf {
             spAlreadyAddedKF.insert(refIndex);
             overlapFrames.emplace_back(refIndex);
 
-            FeatureMatches featureMatches = matcher->matchKeyPointsPair(frames[refIndex]->getKps(),
-                                                                        frames[curIndex]->getKps());
+            FeatureMatches featureMatches = matcher->matchKeyPointsPair(frames[refIndex]->getFirstFrame()->getKps(),
+                                                                        frames[curIndex]->getFirstFrame()->getKps());
             cudaStreamCreate(&streams[index]);
             threads[index] = new thread(
                     bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                         placeholders::_3), featureMatches, &edges[index], streams[index]);
+                         placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], true);
             index++;
         }
 
         if (overlapFrames.size() < k) {
-            auto cur = localViewGraph.getSourceFrames()[curIndex];
-            std::vector<MatchScore> imageScores = localDBoWHashing->queryImages(make_float3(0,0,0), cur->getKps());
+            auto cur = localViewGraph.indexFrame(curIndex);
+            std::vector<MatchScore> imageScores;
+            localDBoWVoc->query(siftVocabulary, &cur->getFirstFrame()->getKps().getMBowVec(), &imageScores);
             // Return all those keyframes with a score higher than 0.75*bestScore
             float minScoreToRetain = globalConfig.minScore;
             std::sort(imageScores.begin(), imageScores.end(), [=](MatchScore& ind1, MatchScore& ind2) {return ind1.imageId < ind2.imageId;});
@@ -162,14 +163,14 @@ namespace rtf {
                 if (si >= minScoreToRetain) {
                     int refIndex = it.imageId;
                     if (!spAlreadyAddedKF.count(refIndex)) {
-                        FeatureMatches featureMatches = matcher->matchKeyPointsPair(frames[refIndex]->getKps(),
-                                                                                    frames[curIndex]->getKps());
+                        FeatureMatches featureMatches = matcher->matchKeyPointsPair(frames[refIndex]->getFirstFrame()->getKps(),
+                                                                                    frames[curIndex]->getFirstFrame()->getKps());
                         overlapFrames.emplace_back(refIndex);
                         spAlreadyAddedKF.insert(refIndex);
                         cudaStreamCreate(&streams[index]);
                         threads[index] = new thread(
                                 bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                                     placeholders::_3), featureMatches, &edges[index], streams[index]);
+                                     placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], false);
                         index++;
                     }
                     if (overlapFrames.size() >= k) break;
@@ -225,121 +226,54 @@ namespace rtf {
 
     }
 
-    void LocalRegistration::localTrack(shared_ptr<KeyFrame> keyframe) {
+    void LocalRegistration::localTrack(shared_ptr<Frame> frame) {
+        shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
+        keyframe->addFrame(frame);
         localViewGraph.extendNode(keyframe);
         if (localViewGraph.getFramesNum() > 1) {
             updateLocalEdges();
         }
-        localDBoWHashing->addVisualIndex(make_float3(0,0,0), keyframe->getKps(), localViewGraph.getFramesNum()-1);
-    }
-
-    void transformFeaturePoint(FeatureKeypoint &fp, shared_ptr<Camera> camera, Transform trans) {
-        Vector3 point = camera->getCameraModel()->unproject(fp.x, fp.y, fp.z);
-        Rotation R;
-        Translation t;
-        GeoUtil::T2Rt(trans, R, t);
-        Vector3 transPoint = R*point+t;
-        Vector3 pixel = camera->getK()*transPoint;
-
-        fp.x = pixel.x()/pixel.z();
-        fp.y = pixel.y()/pixel.z();
-        fp.z = pixel.z();
-    }
-
-    void dfs(ViewGraph& viewGraph, vector<bool>& visited, vector<vector<bool>>& done, int i, int j, int k, int &count, TransformVector gtTrans) {
-        FeatureKeypoint fp = viewGraph.getEdge(i,j).getMatchKeypoint(k);
-        if(done[j][fp.getIndex()]) return;
-        visited[j] = true;
-        done[j][fp.getIndex()] = true;
-        count++;
-        for(int m=0; m<viewGraph.getNodesNum(); m++) {
-            if(visited[m]) continue;
-            Edge edge = viewGraph.getEdge(j, m);
-            if(!edge.isUnreachable()&&edge.containKeypoint(fp.getIndex())) {
-                dfs(viewGraph, visited, done, j, m, fp.getIndex(), count, gtTrans);
-            }
-        }
+        localDBoWVoc->add(localViewGraph.getFramesNum()-1, &frame->getKps().getMBowVec());
     }
 
     shared_ptr<KeyFrame> LocalRegistration::mergeFramesIntoKeyFrame() {
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
-        vector<int> cc(n);
-        iota(cc.begin(), cc.end(), 0);
-
         TransformVector gtTransVec;
-        findShortestPathTransVec(localViewGraph, cc, gtTransVec);
+        vector<vector<int>> connectedComponents = findConnectedComponents(localViewGraph, globalConfig.maxAvgCost);
+        findShortestPathTransVec(localViewGraph, connectedComponents[0], gtTransVec);
 
         BARegistration baRegistration(globalConfig);
-        baRegistration.multiViewBundleAdjustment(localViewGraph, cc, gtTransVec);
+        baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0], gtTransVec);
 
         // 2. initialize key frame
+        set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());
         shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
         keyframe->setTransform(Transform::Identity());
         for(int i=0; i<n; i++) {
-            shared_ptr<FrameRGBDT> frame = localViewGraph[i].getFrames()[0]->getFrames()[0];
+            shared_ptr<Frame> frame = localViewGraph[i].getFrames()[0]->getFirstFrame();
             frame->setTransform(gtTransVec[i]);
+            frame->setVisible(visibleSet.count(i));
             keyframe->addFrame(frame);
         }
 
-        // 2. collect matching key points
-        SIFTFeaturePoints &sf = keyframe->getKps();
-        sf.setCamera(localViewGraph[0].getCamera());
-        sf.setFIndex(localViewGraph[0].getIndex());
-        FeatureKeypoints& kps = sf.getKeyPoints();
-        FeatureDescriptors<uint8_t>& descriptors = sf.getDescriptors();
-        vector<vector<bool>> done(n);
-        for(int i=0; i<n; i++) {
-            shared_ptr<KeyFrame> kf = localViewGraph[i].getFrames()[0];
-            done[i].resize(kf->getKps().getKeyPoints().size(), false);
-        }
-        // foreach edge
-        map<int, int> counter;
-        vector<int> selectedNodes;
-        vector<int> selectedIndexes;
-        for(int i=0; i<n; i++) {
-            for(int j=i+1; j<n; j++) {
-                Edge edge = localViewGraph.getEdge(i, j);
-                if(!edge.isUnreachable()) {
-                    for(FeatureKeypoint fp: edge.getKxs()) {
-                        int k = fp.getIndex();
-                        if(!done[i][k]) {
-                            vector<bool> visit(n, false);
-                            visit[i] = true;
-                            done[i][k] = true;
-                            int count = 1;
-                            dfs(localViewGraph, visit, done, i, j, k, count, gtTransVec);
-                            if(count>2) {
-                                transformFeaturePoint(fp, localViewGraph[i].getCamera(), gtTransVec[i]);
-                                fp.setIndex(kps.size());
-                                kps.emplace_back(make_shared<FeatureKeypoint>(fp));
-                                selectedNodes.emplace_back(i);
-                                selectedIndexes.emplace_back(k);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        const int kpNum = selectedIndexes.size();
-        cout << "kpNUm:" << kpNum << endl;
-        descriptors.resize(kpNum, 128);
-        for(int i=0; i<kpNum; i++) {
-            descriptors.row(i) = localViewGraph[selectedNodes[i]].getFrames()[0]->getKps().getDescriptors().row(selectedIndexes[i]);
-        }
-        localDBoWHashing->computeBow(sf);
-
         // reset
         localViewGraph.reset(0);
-        localDBoWHashing->clear();
+        localDBoWVoc->clear();
 
+        if(keyframe->getIndex() == 180) {
+            cout << "ky:" << keyframe->getTransform() << endl;
+        }
         return keyframe;
+    }
+
+    ViewGraph& LocalRegistration::getViewGraph() {
+        return localViewGraph;
     }
 
     LocalRegistration::~LocalRegistration() {
         delete matcher;
-        delete localDBoWHashing;
+        delete localDBoWVoc;
         delete egRegistration;
         delete homoRegistration;
         delete pnpRegistration;

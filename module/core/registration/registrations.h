@@ -48,7 +48,7 @@ namespace rtf {
             cout << "-------------------------------------------------------------------------" << endl;
             cout << "success: " << success << endl;
             cout << "pointsNum: " << pointsNum << endl;
-            if (true) {
+            if (success) {
                 cout << "iterations: " << iterations << endl;
                 cout << "cost: " << cost << endl;
                 cout << "avg cost: " << cost / pointsNum << endl;
@@ -227,11 +227,11 @@ namespace rtf {
 
         SIFTFeatureMatcher* matcher;
         ViewGraph localViewGraph;
-        DBoWHashing* localDBoWHashing;
+        DBoWVocabulary* localDBoWVoc;
         EGRegistration* egRegistration;
         HomographyRegistration* homoRegistration;
         PnPRegistration* pnpRegistration;
-
+        SIFTVocabulary* siftVocabulary;
         mutex printMutex;
 
         void updateLocalEdges();
@@ -242,13 +242,15 @@ namespace rtf {
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
 
-        void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream);
+        void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream, bool near);
 
         void registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges);
     public:
         LocalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
-        void localTrack(shared_ptr<KeyFrame> frame);
+        ViewGraph& getViewGraph();
+
+        void localTrack(shared_ptr<Frame> frame);
 
         shared_ptr<KeyFrame> mergeFramesIntoKeyFrame();
 
@@ -266,11 +268,11 @@ namespace rtf {
         EGRegistration* egRegistration;
         HomographyRegistration* homoRegistration;
         PnPRegistration* pnpRegistration;
-
+        SIFTVocabulary * siftVocabulary;
         mutex printMutex;
 
-        map<int, Edge, less<int>, Eigen::aligned_allocator<pair<const int, Edge>>> bestEdgeMap;
-        map<int, int> bestCurIndexes, bestRefIndexes;
+        EigenVector(Edge) edges;
+        vector<int> curIndexes, refIndexes, refInnerIndexes;
 
         float3 lastPos;
         bool notLost;// the status for tracking
@@ -284,7 +286,9 @@ namespace rtf {
 
         void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream, bool near);
 
-        void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& overlapFrames, EigenVector(Edge)& edges);
+        void registrationEdges(shared_ptr<Frame> keyframe, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges);
+
+        int selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe);
 
         bool mergeViewGraph();
 
@@ -294,7 +298,7 @@ namespace rtf {
 
         GlobalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
-        void trackKeyFrames(shared_ptr<KeyFrame> frame);
+        void trackKeyFrames(shared_ptr<Frame> frame);
 
         void insertKeyFrames(shared_ptr<KeyFrame> frame);
 

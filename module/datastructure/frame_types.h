@@ -145,6 +145,8 @@ namespace rtf {
 
         void releaseImages();
 
+        void reloadImages();
+
         YAML::Node serialize();
     };
 

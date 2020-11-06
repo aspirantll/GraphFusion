@@ -66,8 +66,6 @@ namespace rtf {
     }
 
     void FrameRGB::reloadRGBImage() {
-        if(this->rgbImage!= nullptr) return;
-
         string baseDir = BaseConfig::getInstance()->workspace;
         string serNum = this->camera->getSerNum();
         string relativePath = FileUtil::joinPath(
@@ -257,6 +255,11 @@ namespace rtf {
         rgbImage->release();
         depthImage->release();
         normalImage->release();
+    }
+
+    void FrameRGBD::reloadImages() {
+        reloadRGBImage();
+        reloadDepthImage();
     }
 
     YAML::Node FrameRGBD::serialize() {

@@ -15,32 +15,119 @@ using namespace std;
 using namespace rtf;
 using namespace pcl;
 
-string workspace = "/media/liulei/Data/dataset/TUM/rgbd_dataset_freiburg1_room";
+string workspace = "/home/liulei/workspace/small";
 double minDepth = 0.1;
 double maxDepth = 3;
 
+GlobalConfig globalConfig(workspace);
+EGRegistration *egRegistration;
+HomographyRegistration *homoRegistration;
+PnPRegistration *pnpRegistration;
+
+void registrationEGBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
+    stream = curStream;
+    RANSAC2DReport eg = egRegistration->registrationFunction(*featureMatches);
+    BAReport ba;
+    if (eg.success) {
+        vector<FeatureKeypoint> kxs, kys;
+        featureIndexesToPoints(featureMatches->getKx(), eg.kps1, kxs);
+        featureIndexesToPoints(featureMatches->getKy(), eg.kps2, kys);
+        BARegistration baRegistration(globalConfig);
+        ba = baRegistration.bundleAdjustment(eg.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys, true);
+        if (ba.success) {
+            double cost = ba.avgCost();
+            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                edge->setKxs(kxs);
+                edge->setKys(kys);
+                edge->setTransform(ba.T);
+                edge->setCost(cost);
+            }
+        }
+    }
+
+    cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-global-eg+ba---------------------------------" << endl;
+    eg.printReport();
+    ba.printReport();
+}
+
+void registrationHomoBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
+    stream = curStream;
+    RANSAC2DReport homo = homoRegistration->registrationFunction(*featureMatches);
+    BAReport ba;
+    if (homo.success) {
+        vector<FeatureKeypoint> kxs, kys;
+        featureIndexesToPoints(featureMatches->getKx(), homo.kps1, kxs);
+        featureIndexesToPoints(featureMatches->getKy(), homo.kps2, kys);
+
+        BARegistration baRegistration(globalConfig);
+        ba = baRegistration.bundleAdjustment(homo.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys, true);
+        if (ba.success) {
+            double cost = ba.avgCost();
+            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                edge->setKxs(kxs);
+                edge->setKys(kys);
+                edge->setTransform(ba.T);
+                edge->setCost(cost);
+            }
+        }
+    }
+
+    cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-global-homo+ba---------------------------------" << endl;
+    homo.printReport();
+    ba.printReport();
+}
+
+void registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
+    stream = curStream;
+    RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
+    BAReport ba;
+    if (pnp.success) {
+        vector<FeatureKeypoint> kxs, kys;
+        featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+        featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
+
+        BARegistration baRegistration(globalConfig);
+        ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+        if (ba.success) {
+            double cost = ba.avgCost();
+            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                edge->setKxs(kxs);
+                edge->setKys(kys);
+                edge->setTransform(ba.T);
+                edge->setCost(cost);
+            }
+        }
+    }
+
+    cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-global-pnp+ba---------------------------------" << endl;
+    pnp.printReport();
+    ba.printReport();
+}
+
+void registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
+    stream = curStream;
+    registrationPnPBA(&featureMatches, edge, curStream);
+    if(near&&edge->isUnreachable()) {
+        registrationEGBA(&featureMatches, edge, curStream);
+        if(edge->isUnreachable()) {
+            registrationHomoBA(&featureMatches, edge, curStream);
+        }
+    }
+}
+
 int main() {
-    GlobalConfig globalConfig(workspace);
-    globalConfig.kMinMatches = 25;
-    globalConfig.virtualVoxelSize = 0.01f;
-    globalConfig.kMinInliers = 15;
-    globalConfig.rmsThreshold = 30;
-    globalConfig.irThreshold = 0.7;
-    globalConfig.maxPnPResidual = 5.991;
-    globalConfig.maxAvgCost = 100;
-    globalConfig.width = 640;
-    globalConfig.height = 480;
+    globalConfig.loadFromFile("test/test_online/online_pnp.yaml");
 
     FileInputSource * fileInputSource = new FileInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
     cout << "frame_num: " << fileInputSource->getFrameNum() << endl;
 
     SIFTFeatureExtractor extractor;
-    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 1));
+    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 46));
 //    ref->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(ref, ref->getKps());
 
-    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 4));
+    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 47));
 //    cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
 
@@ -49,27 +136,19 @@ int main() {
     ImageUtil::drawMatches(featureMatches, ref, cur, workspace+"/matches.png");
 
     time_t start = clock();
-    BARegistration baRegistration(globalConfig);
-    PnPRegistration pnPRegistration(globalConfig);
+    egRegistration = new EGRegistration(globalConfig);
+    homoRegistration = new HomographyRegistration(globalConfig);
+    pnpRegistration = new PnPRegistration(globalConfig);
 
-    auto pnpReport = pnPRegistration.registrationFunction(featureMatches);
-    vector<FeatureKeypoint> kxs, kys;
-    featureIndexesToPoints(featureMatches.getKx(), pnpReport.kps1, kxs);
-    featureIndexesToPoints(featureMatches.getKy(), pnpReport.kps2, kys);
-    ImageUtil::drawMatches(kxs, kys, ref, cur, workspace+"/pnp_inlier.png");
+    Edge edge = Edge::UNREACHABLE;
+    registrationPairEdge(featureMatches, &edge, 0, true);
 
-    clock_t s = clock();
-    cout << pnpReport.T << endl;
-    auto baReport = baRegistration.bundleAdjustment(pnpReport.T, ref->getCamera(), cur->getCamera(), kxs, kys);
-    baReport.printReport();
-    cout << "ba: " << double(clock()-s)/CLOCKS_PER_SEC << "s" << endl;
-    cout << "pnp+ba: " << double(clock()-start)/CLOCKS_PER_SEC << "s" << endl;
-    if(baReport.success) {
+    if(!edge.isUnreachable()) {
         auto pc = ref->calculatePointCloud();
         auto curPc = cur->calculatePointCloud();
-        pcl::transformPointCloud(*curPc, *curPc, baReport.T);
+        pcl::transformPointCloud(*curPc, *curPc, edge.getTransform());
         *pc += *curPc;
-        PointUtil::savePLYPointCloud(workspace+"/pnp.ply", *pc);
+        PointUtil::savePLYPointCloud("/home/liulei/桌面/pnp.ply", *pc);
     }
     return 0;
 }

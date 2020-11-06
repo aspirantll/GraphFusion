@@ -219,7 +219,7 @@ namespace rtf {
         long index = threadIdx.x + blockIdx.x*blockDim.x;
 
         if(index>=cost.getRows()) return;
-        inliers.setIndex(index, cost[index]<th);
+        inliers.setIndex(index, cost[index]>0&&cost[index]<th);
     }
 
     void computerInliers(Summator& costSummator, CUDAMatrixc& inliers, float th) {

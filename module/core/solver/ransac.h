@@ -30,7 +30,7 @@ namespace rtf {
         // allow difference for inlier ratio
         double irDelta = 0.02;
         // min inlier ratio
-        double minInlierRatio = 0.5;
+        double minInlierRatio = 0.3;
         // fast stop inlier ratio threshold
         double minStopInlinerRatio = 0.3;
     };

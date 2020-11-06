@@ -63,7 +63,7 @@ namespace rtf {
         // allow difference for inlier ratio
         float irDelta = 0.02;
         // min inlier ratio
-        float minInlierRatio = 0.5;
+        float minInlierRatio = 0.3;
         // min matches num for every pair
         int kMinMatches = 25;
         // min inliers num for every pair
