@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/5.
 //
 
-#ifndef RTF_FEATURE_POINT_H
-#define RTF_FEATURE_POINT_H
+#ifndef GraphFusion_FEATURE_POINT_H
+#define GraphFusion_FEATURE_POINT_H
 
 #include <vector>
 #include <DBoW2/BowVector.h>
@@ -279,4 +279,4 @@ namespace rtf {
     };
 }
 
-#endif //RTF_FEATURE_POINT_H
+#endif //GraphFusion_FEATURE_POINT_H

@@ -2,8 +2,8 @@
 // Created by liulei on 2020/7/14.
 //
 
-#ifndef RTF_CUDA_TYPES_H
-#define RTF_CUDA_TYPES_H
+#ifndef GraphFusion_CUDA_TYPES_H
+#define GraphFusion_CUDA_TYPES_H
 
 #include <glog/logging.h>
 #include <opencv2/core.hpp>
@@ -501,4 +501,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_CUDA_TYPES_H
+#endif //GraphFusion_CUDA_TYPES_H

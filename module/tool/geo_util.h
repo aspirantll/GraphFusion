@@ -2,8 +2,8 @@
 // Created by vipl on 2020/1/15.
 //
 
-#ifndef RTFUSION_GEOUTIL_H
-#define RTFUSION_GEOUTIL_H
+#ifndef GraphFusionUSION_GEOUTIL_H
+#define GraphFusionUSION_GEOUTIL_H
 
 #include <Eigen/Core>
 #include <Eigen/StdVector>
@@ -82,4 +82,4 @@ namespace rtf {
 
 
 
-#endif //RTFUSION_GEOUTIL_H
+#endif //GraphFusionUSION_GEOUTIL_H

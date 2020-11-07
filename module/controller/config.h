@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/5.
 //
 
-#ifndef RTF_CONFIG_H
-#define RTF_CONFIG_H
+#ifndef GraphFusion_CONFIG_H
+#define GraphFusion_CONFIG_H
 
 #include <string>
 #include "../datastructure/camera.h"
@@ -144,4 +144,4 @@ namespace rtf {
 
 }
 
-#endif //RTF_CONFIG_H
+#endif //GraphFusion_CONFIG_H

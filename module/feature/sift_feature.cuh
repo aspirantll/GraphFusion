@@ -2,8 +2,8 @@
 // Created by liulei on 2020/9/9.
 //
 
-#ifndef RTF_SIFT_FEATURE_CUH
-#define RTF_SIFT_FEATURE_CUH
+#ifndef GraphFusion_SIFT_FEATURE_CUH
+#define GraphFusion_SIFT_FEATURE_CUH
 
 #include "../datastructure/cuda_types.h"
 #include "feature_point.h"
@@ -26,4 +26,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_SIFT_FEATURE_CUH
+#endif //GraphFusion_SIFT_FEATURE_CUH

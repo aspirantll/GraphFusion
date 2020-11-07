@@ -2,8 +2,8 @@
 // Created by liulei on 2020/8/31.
 //
 
-#ifndef RTF_VIEWER_UTIL_H
-#define RTF_VIEWER_UTIL_H
+#ifndef GraphFusion_VIEWER_UTIL_H
+#define GraphFusion_VIEWER_UTIL_H
 
 #include <pcl/PolygonMesh.h>
 #include <pcl/visualization/pcl_visualizer.h>
@@ -23,4 +23,4 @@ public:
 };
 
 
-#endif //RTF_VIEWER_UTIL_H
+#endif //GraphFusion_VIEWER_UTIL_H

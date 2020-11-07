@@ -2,8 +2,8 @@
 // Created by liulei on 2020/5/18.
 //
 
-#ifndef RTF_BASE_TYPES_H
-#define RTF_BASE_TYPES_H
+#ifndef GraphFusion_BASE_TYPES_H
+#define GraphFusion_BASE_TYPES_H
 
 #include <string>
 #include <mutex>
@@ -196,4 +196,4 @@ namespace rtf {
         virtual void doTask() = 0;
     };
 }
-#endif //RTF_BASE_TYPES_H
+#endif //GraphFusion_BASE_TYPES_H

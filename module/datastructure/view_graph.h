@@ -2,8 +2,8 @@
 // Created by liulei on 2020/8/1.
 //
 
-#ifndef RTF_VIEW_GRAPH_H
-#define RTF_VIEW_GRAPH_H
+#ifndef GraphFusion_VIEW_GRAPH_H
+#define GraphFusion_VIEW_GRAPH_H
 
 #include <vector>
 #include <Eigen/Core>
@@ -211,4 +211,4 @@ namespace rtf {
 
     bool edgeCompare(Edge &one, Edge &another);
 }
-#endif //RTF_VIEW_GRAPH_H
+#endif //GraphFusion_VIEW_GRAPH_H

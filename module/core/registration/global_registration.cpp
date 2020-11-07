@@ -207,7 +207,6 @@ namespace rtf {
 
     bool GlobalRegistration::mergeViewGraph() {
         viewGraph.check();
-        viewGraph.print();
         cout << "merge view graph..." << endl;
         // find connected component from view graph
         vector<vector<int>> connectedComponents = findConnectedComponents(viewGraph, globalConfig.costThreshold);
@@ -373,7 +372,6 @@ namespace rtf {
             lastPos = make_float3(0, 0, 0);
             notLost = true;
         }
-        viewGraph.print();
         dBoWHashing->addVisualIndex(lastPos, keyframe,  notLost);
     }
 

@@ -2,8 +2,8 @@
 // Created by liulei on 2020/5/19.
 //
 
-#ifndef RTF_FILE_UTIL_H
-#define RTF_FILE_UTIL_H
+#ifndef GraphFusion_FILE_UTIL_H
+#define GraphFusion_FILE_UTIL_H
 
 #include <string>
 #include <initializer_list>
@@ -32,4 +32,4 @@ namespace rtf {
 
 
 
-#endif //RTF_FILE_UTIL_H
+#endif //GraphFusion_FILE_UTIL_H

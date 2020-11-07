@@ -2,8 +2,8 @@
 // Created by liulei on 2020/8/27.
 //
 
-#ifndef RTF_OFFLINE_RECONSTRUCTION_H
-#define RTF_OFFLINE_RECONSTRUCTION_H
+#ifndef GraphFusion_OFFLINE_RECONSTRUCTION_H
+#define GraphFusion_OFFLINE_RECONSTRUCTION_H
 
 
 #include "config.h"
@@ -55,4 +55,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_OFFLINE_RECONSTRUCTION_H
+#endif //GraphFusion_OFFLINE_RECONSTRUCTION_H

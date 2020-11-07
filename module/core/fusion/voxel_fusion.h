@@ -2,8 +2,8 @@
 // Created by liulei on 2020/8/18.
 //
 
-#ifndef RTF_VOXEL_FUSION_H
-#define RTF_VOXEL_FUSION_H
+#ifndef GraphFusion_VOXEL_FUSION_H
+#define GraphFusion_VOXEL_FUSION_H
 
 #include "cuda_scene_rep.h"
 #include "../../datastructure/view_graph.h"
@@ -27,4 +27,4 @@ namespace rtf {
 
 
 
-#endif //RTF_VOXEL_FUSION_H
+#endif //GraphFusion_VOXEL_FUSION_H

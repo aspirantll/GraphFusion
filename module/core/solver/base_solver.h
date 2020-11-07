@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/20.
 //
 
-#ifndef RTF_BASE_SOLVER_H
-#define RTF_BASE_SOLVER_H
+#ifndef GraphFusion_BASE_SOLVER_H
+#define GraphFusion_BASE_SOLVER_H
 
 #include <vector>
 #include <bits/stdint-uintn.h>
@@ -142,4 +142,4 @@ namespace rtf {
 
 }
 
-#endif //RTF_BASE_SOLVER_H
+#endif //GraphFusion_BASE_SOLVER_H

@@ -2,8 +2,8 @@
 // Created by liulei on 2020/10/15.
 //
 
-#ifndef RTF_VISUAL_INDEX_HASHING_CUH
-#define RTF_VISUAL_INDEX_HASHING_CUH
+#ifndef GraphFusion_VISUAL_INDEX_HASHING_CUH
+#define GraphFusion_VISUAL_INDEX_HASHING_CUH
 
 #include "../datastructure/cuda_types.h"
 #include "../core/solver/cuda_matrix.h"
@@ -19,4 +19,4 @@ namespace rtf {
     void wordsCount(CUDAPtrArray<CUDABoW>& voc, CUDAArrayu& cur, CUDAArrayu& wordCounts);
 }
 
-#endif //RTF_VISUAL_INDEX_HASHING_CUH
+#endif //GraphFusion_VISUAL_INDEX_HASHING_CUH

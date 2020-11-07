@@ -2,8 +2,8 @@
 // Created by liulei on 2020/7/14.
 //
 
-#ifndef RTF_POINTCLOUD_GENERATOR_H
-#define RTF_POINTCLOUD_GENERATOR_H
+#ifndef GraphFusion_POINTCLOUD_GENERATOR_H
+#define GraphFusion_POINTCLOUD_GENERATOR_H
 #include "../datastructure/cuda_types.h"
 #include "../datastructure/camera.h"
 
@@ -22,4 +22,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_POINTCLOUD_GENERATOR_H
+#endif //GraphFusion_POINTCLOUD_GENERATOR_H

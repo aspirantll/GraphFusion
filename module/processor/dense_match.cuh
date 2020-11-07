@@ -2,8 +2,8 @@
 // Created by liulei on 2020/10/12.
 //
 
-#ifndef RTF_DENSE_MATCH_CUH
-#define RTF_DENSE_MATCH_CUH
+#ifndef GraphFusion_DENSE_MATCH_CUH
+#define GraphFusion_DENSE_MATCH_CUH
 
 #include "../datastructure/view_graph.h"
 #include "../core/solver/cuda_matrix.h"
@@ -40,4 +40,4 @@ namespace rtf {
     void crossCheck(CUDAMatrixl& leftMatches, CUDAMatrixl& rightMatches, CUDAMatrixs& matchScores, CUDAMatrixc& mask);
 }
 
-#endif //RTF_DENSE_MATCH_CUH
+#endif //GraphFusion_DENSE_MATCH_CUH

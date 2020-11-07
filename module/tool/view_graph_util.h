@@ -2,8 +2,8 @@
 // Created by liulei on 2020/8/6.
 //
 
-#ifndef RTF_VIEW_GRAPH_UTIL_H
-#define RTF_VIEW_GRAPH_UTIL_H
+#ifndef GraphFusion_VIEW_GRAPH_UTIL_H
+#define GraphFusion_VIEW_GRAPH_UTIL_H
 
 #include "../datastructure/view_graph.h"
 
@@ -38,4 +38,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_VIEW_GRAPH_UTIL_H
+#endif //GraphFusion_VIEW_GRAPH_UTIL_H

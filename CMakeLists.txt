@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.9)
 #Set target C++ standard and required compiler features
 #set(CMAKE_BUILD_TYPE Realese)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -std=c++0x")
-set(CMAKE_CXX_STANDARD 14 CACHE STRING "The target C++ standard. RTF requires C++14 or higher.")
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "The target C++ standard. GraphFusion requires C++14 or higher.")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -16,19 +16,19 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/module/" ${CMAKE_MODULE
 # include pkgconfig
 #include(FindPkgConfig)
 
-include("${RTF_SOURCE_DIR}/cmake/rtf_verbosity.cmake")
-include("${RTF_SOURCE_DIR}/cmake/rtf_options.cmake")
-include("${RTF_SOURCE_DIR}/cmake/rtf_utils.cmake")
+include("${GraphFusion_SOURCE_DIR}/cmake/rtf_verbosity.cmake")
+include("${GraphFusion_SOURCE_DIR}/cmake/rtf_options.cmake")
+include("${GraphFusion_SOURCE_DIR}/cmake/rtf_utils.cmake")
 DISSECT_VERSION()
 GET_OS_INFO()
 SET_INSTALL_DIRS()
 
-set(RTF_OUTPUT_LIB_DIR "${RTF_BINARY_DIR}/${LIB_INSTALL_DIR}")
-set(RTF_OUTPUT_BIN_DIR "${RTF_BINARY_DIR}/${BIN_INSTALL_DIR}")
-make_directory("${RTF_OUTPUT_LIB_DIR}")
-make_directory("${RTF_OUTPUT_BIN_DIR}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${RTF_OUTPUT_LIB_DIR}")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${RTF_OUTPUT_BIN_DIR}")
+set(GraphFusion_OUTPUT_LIB_DIR "${GraphFusion_BINARY_DIR}/${LIB_INSTALL_DIR}")
+set(GraphFusion_OUTPUT_BIN_DIR "${GraphFusion_BINARY_DIR}/${BIN_INSTALL_DIR}")
+make_directory("${GraphFusion_OUTPUT_LIB_DIR}")
+make_directory("${GraphFusion_OUTPUT_BIN_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${GraphFusion_OUTPUT_LIB_DIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${GraphFusion_OUTPUT_BIN_DIR}")
 
 ###
 # this is copy paste form http://www.itk.org/Wiki/CMake_RPATH_handling
@@ -158,14 +158,13 @@ if(PCL_FOUND)
 endif()
 
 
-
 ### ---[ Add the libraries subdirectories
-include("${RTF_SOURCE_DIR}/cmake/rtf_targets.cmake")
+include("${GraphFusion_SOURCE_DIR}/cmake/rtf_targets.cmake")
 
-collect_subproject_directory_names("${RTF_SOURCE_DIR}" "CMakeLists.txt" RTF_MODULES_NAMES RTF_MODULES_DIRS doc)
-set(RTF_MODULES_NAMES_UNSORTED ${RTF_MODULES_NAMES})
-topological_sort(RTF_MODULES_NAMES RTF_ _DEPENDS)
-sort_relative(RTF_MODULES_NAMES_UNSORTED RTF_MODULES_NAMES RTF_MODULES_DIRS)
-foreach(subdir ${RTF_MODULES_DIRS})
-    add_subdirectory("${RTF_SOURCE_DIR}/${subdir}")
+collect_subproject_directory_names("${GraphFusion_SOURCE_DIR}" "CMakeLists.txt" GraphFusion_MODULES_NAMES GraphFusion_MODULES_DIRS doc)
+set(GraphFusion_MODULES_NAMES_UNSORTED ${GraphFusion_MODULES_NAMES})
+topological_sort(GraphFusion_MODULES_NAMES GraphFusion_ _DEPENDS)
+sort_relative(GraphFusion_MODULES_NAMES_UNSORTED GraphFusion_MODULES_NAMES GraphFusion_MODULES_DIRS)
+foreach(subdir ${GraphFusion_MODULES_DIRS})
+    add_subdirectory("${GraphFusion_SOURCE_DIR}/${subdir}")
 endforeach()

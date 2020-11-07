@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/5.
 //
 
-#ifndef RTF_FEATURE2D_H
-#define RTF_FEATURE2D_H
+#ifndef GraphFusion_FEATURE2D_H
+#define GraphFusion_FEATURE2D_H
 
 #include "base_feature.h"
 #include "../datastructure/frame_types.h"
@@ -98,4 +98,4 @@ namespace rtf {
     };
 }
 
-#endif //RTF_FEATURE2D_H
+#endif //GraphFusion_FEATURE2D_H

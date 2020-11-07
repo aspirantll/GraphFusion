@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/8.
 //
 
-#ifndef RTF_POINT_UTIL_H
-#define RTF_POINT_UTIL_H
+#ifndef GraphFusion_POINT_UTIL_H
+#define GraphFusion_POINT_UTIL_H
 
 #include "../datastructure/point_types.h"
 #include <vector>
@@ -44,4 +44,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_POINT_UTIL_H
+#endif //GraphFusion_POINT_UTIL_H

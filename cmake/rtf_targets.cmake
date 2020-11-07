@@ -6,7 +6,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/rtf_utils.cmake)
 
 # Store location of current dir, because value of CMAKE_CURRENT_LIST_DIR is
 # set to the directory where a function is used, not where a function is defined
-set(_RTF_TARGET_CMAKE_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(_GraphFusion_TARGET_CMAKE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 ###############################################################################
 # Add an option to build a subsystem or not.
@@ -15,9 +15,9 @@ set(_RTF_TARGET_CMAKE_DIR ${CMAKE_CURRENT_LIST_DIR})
 # _desc The description of the subsystem.
 # _default The default value (TRUE or FALSE)
 # ARGV5 The reason for disabling if the default is FALSE.
-macro(RTF_SUBSYS_OPTION _var _name _desc _default)
+macro(GraphFusion_SUBSYS_OPTION _var _name _desc _default)
     set(_opt_name "BUILD_${_name}")
-    RTF_GET_SUBSYS_HYPERSTATUS(subsys_status ${_name})
+    GraphFusion_GET_SUBSYS_HYPERSTATUS(subsys_status ${_name})
     if(NOT ("${subsys_status}" STREQUAL "AUTO_OFF"))
         option(${_opt_name} ${_desc} ${_default})
         if((NOT ${_default} AND NOT ${_opt_name}) OR ("${_default}" STREQUAL "AUTO_OFF"))
@@ -27,19 +27,19 @@ macro(RTF_SUBSYS_OPTION _var _name _desc _default)
             else()
                 set(_reason "Disabled by default.")
             endif()
-            RTF_SET_SUBSYS_STATUS(${_name} FALSE ${_reason})
-            RTF_DISABLE_DEPENDIES(${_name})
+            GraphFusion_SET_SUBSYS_STATUS(${_name} FALSE ${_reason})
+            GraphFusion_DISABLE_DEPENDIES(${_name})
         elseif(NOT ${_opt_name})
             set(${_var} FALSE)
-            RTF_SET_SUBSYS_STATUS(${_name} FALSE "Disabled manually.")
-            RTF_DISABLE_DEPENDIES(${_name})
+            GraphFusion_SET_SUBSYS_STATUS(${_name} FALSE "Disabled manually.")
+            GraphFusion_DISABLE_DEPENDIES(${_name})
         else()
             set(${_var} TRUE)
-            RTF_SET_SUBSYS_STATUS(${_name} TRUE)
-            RTF_ENABLE_DEPENDIES(${_name})
+            GraphFusion_SET_SUBSYS_STATUS(${_name} TRUE)
+            GraphFusion_ENABLE_DEPENDIES(${_name})
         endif()
     endif()
-    RTF_ADD_SUBSYSTEM(${_name} ${_desc})
+    GraphFusion_ADD_SUBSYSTEM(${_name} ${_desc})
 endmacro()
 
 ###############################################################################
@@ -50,11 +50,11 @@ endmacro()
 # _desc The description of the subsubsystem.
 # _default The default value (TRUE or FALSE)
 # ARGV5 The reason for disabling if the default is FALSE.
-macro(RTF_SUBSUBSYS_OPTION _var _parent _name _desc _default)
+macro(GraphFusion_SUBSUBSYS_OPTION _var _parent _name _desc _default)
     set(_opt_name "BUILD_${_parent}_${_name}")
-    RTF_GET_SUBSYS_HYPERSTATUS(parent_status ${_parent})
+    GraphFusion_GET_SUBSYS_HYPERSTATUS(parent_status ${_parent})
     if(NOT ("${parent_status}" STREQUAL "AUTO_OFF") AND NOT ("${parent_status}" STREQUAL "OFF"))
-        RTF_GET_SUBSYS_HYPERSTATUS(subsys_status ${_parent}_${_name})
+        GraphFusion_GET_SUBSYS_HYPERSTATUS(subsys_status ${_parent}_${_name})
         if(NOT ("${subsys_status}" STREQUAL "AUTO_OFF"))
             option(${_opt_name} ${_desc} ${_default})
             if((NOT ${_default} AND NOT ${_opt_name}) OR ("${_default}" STREQUAL "AUTO_OFF"))
@@ -64,20 +64,20 @@ macro(RTF_SUBSUBSYS_OPTION _var _parent _name _desc _default)
                 else()
                     set(_reason "Disabled by default.")
                 endif()
-                RTF_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE ${_reason})
-                RTF_DISABLE_DEPENDIES(${_parent}_${_name})
+                GraphFusion_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE ${_reason})
+                GraphFusion_DISABLE_DEPENDIES(${_parent}_${_name})
             elseif(NOT ${_opt_name})
                 set(${_var} FALSE)
-                RTF_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE "Disabled manually.")
-                RTF_DISABLE_DEPENDIES(${_parent}_${_name})
+                GraphFusion_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE "Disabled manually.")
+                GraphFusion_DISABLE_DEPENDIES(${_parent}_${_name})
             else()
                 set(${_var} TRUE)
-                RTF_SET_SUBSYS_STATUS(${_parent}_${_name} TRUE)
-                RTF_ENABLE_DEPENDIES(${_parent}_${_name})
+                GraphFusion_SET_SUBSYS_STATUS(${_parent}_${_name} TRUE)
+                GraphFusion_ENABLE_DEPENDIES(${_parent}_${_name})
             endif()
         endif()
     endif()
-    RTF_ADD_SUBSUBSYSTEM(${_parent} ${_name} ${_desc})
+    GraphFusion_ADD_SUBSUBSYSTEM(${_parent} ${_name} ${_desc})
 endmacro()
 
 ###############################################################################
@@ -87,30 +87,30 @@ endmacro()
 #   dependencies are not met.
 # _name The name of the subsystem.
 # ARGN The subsystems and external libraries to depend on.
-macro(RTF_SUBSYS_DEPEND _var _name)
+macro(GraphFusion_SUBSYS_DEPEND _var _name)
     set(options)
     set(oneValueArgs)
     set(multiValueArgs DEPS EXT_DEPS OPT_DEPS)
     cmake_parse_arguments(SUBSYS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     if(SUBSYS_DEPS)
-        SET_IN_GLOBAL_MAP(RTF_SUBSYS_DEPS ${_name} "${SUBSYS_DEPS}")
+        SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_DEPS ${_name} "${SUBSYS_DEPS}")
     endif()
     if(SUBSYS_EXT_DEPS)
-        SET_IN_GLOBAL_MAP(RTF_SUBSYS_EXT_DEPS ${_name} "${SUBSYS_EXT_DEPS}")
+        SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_EXT_DEPS ${_name} "${SUBSYS_EXT_DEPS}")
     endif()
     if(SUBSYS_OPT_DEPS)
-        SET_IN_GLOBAL_MAP(RTF_SUBSYS_OPT_DEPS ${_name} "${SUBSYS_OPT_DEPS}")
+        SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_OPT_DEPS ${_name} "${SUBSYS_OPT_DEPS}")
     endif()
-    GET_IN_MAP(subsys_status RTF_SUBSYS_HYPERSTATUS ${_name})
+    GET_IN_MAP(subsys_status GraphFusion_SUBSYS_HYPERSTATUS ${_name})
     if(${_var} AND (NOT ("${subsys_status}" STREQUAL "AUTO_OFF")))
         if(SUBSYS_DEPS)
             foreach(_dep ${SUBSYS_DEPS})
-                RTF_GET_SUBSYS_STATUS(_status ${_dep})
+                GraphFusion_GET_SUBSYS_STATUS(_status ${_dep})
                 if(NOT _status)
                     set(${_var} FALSE)
-                    RTF_SET_SUBSYS_STATUS(${_name} FALSE "Requires ${_dep}.")
+                    GraphFusion_SET_SUBSYS_STATUS(${_name} FALSE "Requires ${_dep}.")
                 else()
-                    RTF_GET_SUBSYS_INCLUDE_DIR(_include_dir ${_dep})
+                    GraphFusion_GET_SUBSYS_INCLUDE_DIR(_include_dir ${_dep})
                     include_directories(${PROJECT_SOURCE_DIR}/${_include_dir}/include)
                 endif()
             endforeach()
@@ -120,13 +120,13 @@ macro(RTF_SUBSYS_DEPEND _var _name)
                 string(TOUPPER "${_dep}_found" EXT_DEP_FOUND)
                 if(NOT ${EXT_DEP_FOUND} AND (NOT (${EXT_DEP_FOUND} STREQUAL "TRUE")))
                     set(${_var} FALSE)
-                    RTF_SET_SUBSYS_STATUS(${_name} FALSE "Requires external library ${_dep}.")
+                    GraphFusion_SET_SUBSYS_STATUS(${_name} FALSE "Requires external library ${_dep}.")
                 endif()
             endforeach()
         endif()
         if(SUBSYS_OPT_DEPS)
             foreach(_dep ${SUBSYS_OPT_DEPS})
-                RTF_GET_SUBSYS_INCLUDE_DIR(_include_dir ${_dep})
+                GraphFusion_GET_SUBSYS_INCLUDE_DIR(_include_dir ${_dep})
                 include_directories(${PROJECT_SOURCE_DIR}/${_include_dir}/include)
             endforeach()
         endif()
@@ -141,31 +141,31 @@ endmacro()
 # _parent The parent subsystem name.
 # _name The name of the subsubsystem.
 # ARGN The subsystems and external libraries to depend on.
-macro(RTF_SUBSUBSYS_DEPEND _var _parent _name)
+macro(GraphFusion_SUBSUBSYS_DEPEND _var _parent _name)
     set(options)
     set(parentArg)
     set(nameArg)
     set(multiValueArgs DEPS EXT_DEPS OPT_DEPS)
     cmake_parse_arguments(SUBSYS "${options}" "${parentArg}" "${nameArg}" "${multiValueArgs}" ${ARGN})
     if(SUBSUBSYS_DEPS)
-        SET_IN_GLOBAL_MAP(RTF_SUBSYS_DEPS ${_parent}_${_name} "${SUBSUBSYS_DEPS}")
+        SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_DEPS ${_parent}_${_name} "${SUBSUBSYS_DEPS}")
     endif()
     if(SUBSUBSYS_EXT_DEPS)
-        SET_IN_GLOBAL_MAP(RTF_SUBSYS_EXT_DEPS ${_parent}_${_name} "${SUBSUBSYS_EXT_DEPS}")
+        SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_EXT_DEPS ${_parent}_${_name} "${SUBSUBSYS_EXT_DEPS}")
     endif()
     if(SUBSUBSYS_OPT_DEPS)
-        SET_IN_GLOBAL_MAP(RTF_SUBSYS_OPT_DEPS ${_parent}_${_name} "${SUBSUBSYS_OPT_DEPS}")
+        SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_OPT_DEPS ${_parent}_${_name} "${SUBSUBSYS_OPT_DEPS}")
     endif()
-    GET_IN_MAP(subsys_status RTF_SUBSYS_HYPERSTATUS ${_parent}_${_name})
+    GET_IN_MAP(subsys_status GraphFusion_SUBSYS_HYPERSTATUS ${_parent}_${_name})
     if(${_var} AND (NOT ("${subsys_status}" STREQUAL "AUTO_OFF")))
         if(SUBSUBSYS_DEPS)
             foreach(_dep ${SUBSUBSYS_DEPS})
-                RTF_GET_SUBSYS_STATUS(_status ${_dep})
+                GraphFusion_GET_SUBSYS_STATUS(_status ${_dep})
                 if(NOT _status)
                     set(${_var} FALSE)
-                    RTF_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE "Requires ${_dep}.")
+                    GraphFusion_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE "Requires ${_dep}.")
                 else()
-                    RTF_GET_SUBSYS_INCLUDE_DIR(_include_dir ${_dep})
+                    GraphFusion_GET_SUBSYS_INCLUDE_DIR(_include_dir ${_dep})
                     include_directories(${PROJECT_SOURCE_DIR}/${_include_dir}/include)
                 endif()
             endforeach()
@@ -175,7 +175,7 @@ macro(RTF_SUBSUBSYS_DEPEND _var _parent _name)
                 string(TOUPPER "${_dep}_found" EXT_DEP_FOUND)
                 if(NOT ${EXT_DEP_FOUND} AND (NOT ("${EXT_DEP_FOUND}" STREQUAL "TRUE")))
                     set(${_var} FALSE)
-                    RTF_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE "Requires external library ${_dep}.")
+                    GraphFusion_SET_SUBSYS_STATUS(${_parent}_${_name} FALSE "Requires external library ${_dep}.")
                 endif()
             endforeach()
         endif()
@@ -187,45 +187,45 @@ endmacro()
 #
 # _name The library name.
 ##
-function(RTF_ADD_VERSION_INFO _name)
+function(GraphFusion_ADD_VERSION_INFO _name)
     if(MSVC)
-        string(REPLACE "." "," VERSION_INFO_VERSION_WITH_COMMA ${RTF_VERSION})
+        string(REPLACE "." "," VERSION_INFO_VERSION_WITH_COMMA ${GraphFusion_VERSION})
         if (SUBSUBSYS_DESC)
             set(VERSION_INFO_DISPLAY_NAME ${SUBSUBSYS_DESC})
         else()
             set(VERSION_INFO_DISPLAY_NAME ${SUBSYS_DESC})
         endif()
-        set(VERSION_INFO_ICON_PATH "${_RTF_TARGET_CMAKE_DIR}/images/RTF.ico")
-        configure_file(${_RTF_TARGET_CMAKE_DIR}/version.rc.in ${PROJECT_BINARY_DIR}/${_name}_version.rc @ONLY)
+        set(VERSION_INFO_ICON_PATH "${_GraphFusion_TARGET_CMAKE_DIR}/images/GraphFusion.ico")
+        configure_file(${_GraphFusion_TARGET_CMAKE_DIR}/version.rc.in ${PROJECT_BINARY_DIR}/${_name}_version.rc @ONLY)
         target_sources(${_name} PRIVATE ${PROJECT_BINARY_DIR}/${_name}_version.rc)
     endif()
 endfunction()
 
 ###############################################################################
 # Add a set of include files to install.
-# _component The part of RTF that the install files belong to.
+# _component The part of GraphFusion that the install files belong to.
 # _subdir The sub-directory for these include files.
 # ARGN The include files.
-macro(RTF_ADD_INCLUDES _component _subdir)
+macro(GraphFusion_ADD_INCLUDES _component _subdir)
     install(FILES ${ARGN}
             DESTINATION ${INCLUDE_INSTALL_DIR}/${_subdir}
-            COMPONENT RTF_${_component})
+            COMPONENT GraphFusion_${_component})
 endmacro()
 
 ###############################################################################
 # Add a library target.
 # _name The library name.
-# COMPONENT The part of RTF that this library belongs to.
+# COMPONENT The part of GraphFusion that this library belongs to.
 # SOURCES The source files for the library.
-function(RTF_ADD_LIBRARY _name)
+function(GraphFusion_ADD_LIBRARY _name)
     set(options)
     set(oneValueArgs COMPONENT)
     set(multiValueArgs SOURCES)
     cmake_parse_arguments(ADD_LIBRARY_OPTION "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    add_library(${_name} ${RTF_LIB_TYPE} ${ADD_LIBRARY_OPTION_SOURCES})
-    RTF_ADD_VERSION_INFO(${_name})
-    target_compile_features(${_name} PUBLIC ${RTF_CXX_COMPILE_FEATURES})
+    add_library(${_name} ${GraphFusion_LIB_TYPE} ${ADD_LIBRARY_OPTION_SOURCES})
+    GraphFusion_ADD_VERSION_INFO(${_name})
+    target_compile_features(${_name} PUBLIC ${GraphFusion_CXX_COMPILE_FEATURES})
     # must link explicitly against boost.
     target_link_libraries(${_name} ${Boost_LIBRARIES} Threads::Threads)
     if((UNIX AND NOT ANDROID) OR MINGW)
@@ -241,59 +241,59 @@ function(RTF_ADD_LIBRARY _name)
     endif()
 
     set_target_properties(${_name} PROPERTIES
-            VERSION ${RTF_VERSION}
-            SOVERSION ${RTF_VERSION_MAJOR}.${RTF_VERSION_MINOR}
-            DEFINE_SYMBOL "RTFAPI_EXPORTS")
+            VERSION ${GraphFusion_VERSION}
+            SOVERSION ${GraphFusion_VERSION_MAJOR}.${GraphFusion_VERSION_MINOR}
+            DEFINE_SYMBOL "GraphFusionAPI_EXPORTS")
     set_target_properties(${_name} PROPERTIES FOLDER "Libraries")
 
     install(TARGETS ${_name}
-            RUNTIME DESTINATION ${BIN_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT}
-            LIBRARY DESTINATION ${LIB_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT}
-            ARCHIVE DESTINATION ${LIB_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT})
+            RUNTIME DESTINATION ${BIN_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT}
+            LIBRARY DESTINATION ${LIB_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT}
+            ARCHIVE DESTINATION ${LIB_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT})
 endfunction()
 
 ###############################################################################
 # Add a cuda library target.
 # _name The library name.
-# COMPONENT The part of RTF that this library belongs to.
+# COMPONENT The part of GraphFusion that this library belongs to.
 # SOURCES The source files for the library.
-function(RTF_CUDA_ADD_LIBRARY _name)
+function(GraphFusion_CUDA_ADD_LIBRARY _name)
     set(options)
     set(oneValueArgs COMPONENT)
     set(multiValueArgs SOURCES)
     cmake_parse_arguments(ADD_LIBRARY_OPTION "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     REMOVE_VTK_DEFINITIONS()
-    if(RTF_SHARED_LIBS)
-        # to overcome a limitation in cuda_add_library, we add manually RTFAPI_EXPORTS macro
-        cuda_add_library(${_name} ${RTF_LIB_TYPE} ${ADD_LIBRARY_OPTION_SOURCES} OPTIONS -DRTFAPI_EXPORTS)
+    if(GraphFusion_SHARED_LIBS)
+        # to overcome a limitation in cuda_add_library, we add manually GraphFusionAPI_EXPORTS macro
+        cuda_add_library(${_name} ${GraphFusion_LIB_TYPE} ${ADD_LIBRARY_OPTION_SOURCES} OPTIONS -DGraphFusionAPI_EXPORTS)
     else()
-        cuda_add_library(${_name} ${RTF_LIB_TYPE} ${ADD_LIBRARY_OPTION_SOURCES})
+        cuda_add_library(${_name} ${GraphFusion_LIB_TYPE} ${ADD_LIBRARY_OPTION_SOURCES})
     endif()
-    RTF_ADD_VERSION_INFO(${_name})
+    GraphFusion_ADD_VERSION_INFO(${_name})
 
     # must link explicitly against boost.
     target_link_libraries(${_name} ${Boost_LIBRARIES})
 
     set_target_properties(${_name} PROPERTIES
-            VERSION ${RTF_VERSION}
-            SOVERSION ${RTF_VERSION_MAJOR}
-            DEFINE_SYMBOL "RTFAPI_EXPORTS")
+            VERSION ${GraphFusion_VERSION}
+            SOVERSION ${GraphFusion_VERSION_MAJOR}
+            DEFINE_SYMBOL "GraphFusionAPI_EXPORTS")
     set_target_properties(${_name} PROPERTIES FOLDER "Libraries")
 
     install(TARGETS ${_name}
-            RUNTIME DESTINATION ${BIN_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT}
-            LIBRARY DESTINATION ${LIB_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT}
-            ARCHIVE DESTINATION ${LIB_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT})
+            RUNTIME DESTINATION ${BIN_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT}
+            LIBRARY DESTINATION ${LIB_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT}
+            ARCHIVE DESTINATION ${LIB_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT})
 endfunction()
 
 ###############################################################################
 # Add an executable target.
 # _name The executable name.
 # BUNDLE Target should be handled as bundle (APPLE and VTK_USE_COCOA only)
-# COMPONENT The part of RTF that this library belongs to.
+# COMPONENT The part of GraphFusion that this library belongs to.
 # SOURCES The source files for the library.
-function(RTF_ADD_EXECUTABLE _name)
+function(GraphFusion_ADD_EXECUTABLE _name)
     set(options BUNDLE)
     set(oneValueArgs COMPONENT)
     set(multiValueArgs SOURCES)
@@ -304,7 +304,7 @@ function(RTF_ADD_EXECUTABLE _name)
     else()
         add_executable(${_name} ${ADD_LIBRARY_OPTION_SOURCES})
     endif()
-    RTF_ADD_VERSION_INFO(${_name})
+    GraphFusion_ADD_VERSION_INFO(${_name})
     # must link explicitly against boost.
     target_link_libraries(${_name} ${Boost_LIBRARIES} Threads::Threads)
 
@@ -321,24 +321,24 @@ function(RTF_ADD_EXECUTABLE _name)
         set_target_properties(${_name} PROPERTIES FOLDER "Apps")
     endif()
 
-    set(RTF_EXECUTABLES ${RTF_EXECUTABLES} ${_name})
+    set(GraphFusion_EXECUTABLES ${GraphFusion_EXECUTABLES} ${_name})
 
     if(ADD_LIBRARY_OPTION_BUNDLE AND APPLE AND VTK_USE_COCOA)
-        install(TARGETS ${_name} BUNDLE DESTINATION ${BIN_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT})
+        install(TARGETS ${_name} BUNDLE DESTINATION ${BIN_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT})
     else()
-        install(TARGETS ${_name} RUNTIME DESTINATION ${BIN_INSTALL_DIR} COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT})
+        install(TARGETS ${_name} RUNTIME DESTINATION ${BIN_INSTALL_DIR} COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT})
     endif()
 
     string(TOUPPER ${ADD_LIBRARY_OPTION_COMPONENT} _component_upper)
-    set(RTF_${_component_upper}_ALL_TARGETS ${RTF_${_component_upper}_ALL_TARGETS} ${_name} PARENT_SCOPE)
+    set(GraphFusion_${_component_upper}_ALL_TARGETS ${GraphFusion_${_component_upper}_ALL_TARGETS} ${_name} PARENT_SCOPE)
 endfunction()
 
 ###############################################################################
 # Add an executable target.
 # _name The executable name.
-# COMPONENT The part of RTF that this library belongs to.
+# COMPONENT The part of GraphFusion that this library belongs to.
 # SOURCES The source files for the library.
-function(RTF_CUDA_ADD_EXECUTABLE _name)
+function(GraphFusion_CUDA_ADD_EXECUTABLE _name)
     set(options)
     set(oneValueArgs COMPONENT)
     set(multiValueArgs SOURCES)
@@ -346,7 +346,7 @@ function(RTF_CUDA_ADD_EXECUTABLE _name)
 
     REMOVE_VTK_DEFINITIONS()
     cuda_add_executable(${_name} ${ADD_LIBRARY_OPTION_SOURCES})
-    RTF_ADD_VERSION_INFO(${_name})
+    GraphFusion_ADD_VERSION_INFO(${_name})
 
     # must link explicitly against boost.
     target_link_libraries(${_name} ${Boost_LIBRARIES})
@@ -359,9 +359,9 @@ function(RTF_CUDA_ADD_EXECUTABLE _name)
     # There's a single app.
     set_target_properties(${_name} PROPERTIES FOLDER "Apps")
 
-    set(RTF_EXECUTABLES ${RTF_EXECUTABLES} ${_name})
+    set(GraphFusion_EXECUTABLES ${GraphFusion_EXECUTABLES} ${_name})
     install(TARGETS ${_name} RUNTIME DESTINATION ${BIN_INSTALL_DIR}
-            COMPONENT RTF_${ADD_LIBRARY_OPTION_COMPONENT})
+            COMPONENT GraphFusion_${ADD_LIBRARY_OPTION_COMPONENT})
 endfunction()
 
 ###############################################################################
@@ -372,17 +372,17 @@ endfunction()
 #    FILES the source files for the test
 #    ARGUMENTS Arguments for test executable
 #    LINK_WITH link test executable with libraries
-macro(RTF_ADD_TEST _name _exename)
+macro(GraphFusion_ADD_TEST _name _exename)
     set(options)
     set(oneValueArgs)
     set(multiValueArgs FILES ARGUMENTS LINK_WITH)
-    cmake_parse_arguments(RTF_ADD_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    add_executable(${_exename} ${RTF_ADD_TEST_FILES})
+    cmake_parse_arguments(GraphFusion_ADD_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    add_executable(${_exename} ${GraphFusion_ADD_TEST_FILES})
     if(NOT WIN32)
         set_target_properties(${_exename} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     endif()
-    #target_link_libraries(${_exename} ${GTEST_BOTH_LIBRARIES} ${RTF_ADD_TEST_LINK_WITH})
-    target_link_libraries(${_exename} ${RTF_ADD_TEST_LINK_WITH} ${CLANG_LIBRARIES})
+    #target_link_libraries(${_exename} ${GTEST_BOTH_LIBRARIES} ${GraphFusion_ADD_TEST_LINK_WITH})
+    target_link_libraries(${_exename} ${GraphFusion_ADD_TEST_LINK_WITH} ${CLANG_LIBRARIES})
 
     target_link_libraries(${_exename} Threads::Threads)
 
@@ -397,15 +397,15 @@ macro(RTF_ADD_TEST _name _exename)
             SET (ArgumentWarningShown TRUE PARENT_SCOPE)
         else()
             #Only add if there are arguments to test
-            if(RTF_ADD_TEST_ARGUMENTS)
-                string (REPLACE ";" " " RTF_ADD_TEST_ARGUMENTS_STR "${RTF_ADD_TEST_ARGUMENTS}")
-                set_target_properties(${_exename} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS ${RTF_ADD_TEST_ARGUMENTS_STR})
+            if(GraphFusion_ADD_TEST_ARGUMENTS)
+                string (REPLACE ";" " " GraphFusion_ADD_TEST_ARGUMENTS_STR "${GraphFusion_ADD_TEST_ARGUMENTS}")
+                set_target_properties(${_exename} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS ${GraphFusion_ADD_TEST_ARGUMENTS_STR})
             endif()
         endif()
     endif()
 
     set_target_properties(${_exename} PROPERTIES FOLDER "Tests")
-    add_test(NAME ${_name} COMMAND ${_exename} ${RTF_ADD_TEST_ARGUMENTS})
+    add_test(NAME ${_name} COMMAND ${_exename} ${GraphFusion_ADD_TEST_ARGUMENTS})
 
     add_dependencies(tests ${_exename})
 endmacro()
@@ -416,13 +416,13 @@ endmacro()
 # ARGN :
 #    FILES the source files for the example
 #    LINK_WITH link example executable with libraries
-macro(RTF_ADD_EXAMPLE _name)
+macro(GraphFusion_ADD_EXAMPLE _name)
     set(options)
     set(oneValueArgs)
     set(multiValueArgs FILES LINK_WITH)
-    cmake_parse_arguments(RTF_ADD_EXAMPLE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    add_executable(${_name} ${RTF_ADD_EXAMPLE_FILES})
-    target_link_libraries(${_name} ${RTF_ADD_EXAMPLE_LINK_WITH} ${CLANG_LIBRARIES})
+    cmake_parse_arguments(GraphFusion_ADD_EXAMPLE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    add_executable(${_name} ${GraphFusion_ADD_EXAMPLE_FILES})
+    target_link_libraries(${_name} ${GraphFusion_ADD_EXAMPLE_LINK_WITH} ${CLANG_LIBRARIES})
     if(WIN32 AND MSVC)
         set_target_properties(${_name} PROPERTIES DEBUG_OUTPUT_NAME ${_name}${CMAKE_DEBUG_POSTFIX}
                 RELEASE_OUTPUT_NAME ${_name}${CMAKE_RELEASE_POSTFIX})
@@ -430,8 +430,8 @@ macro(RTF_ADD_EXAMPLE _name)
     set_target_properties(${_name} PROPERTIES FOLDER "Examples")
 
     # add target to list of example targets created at the parent scope
-    list(APPEND RTF_EXAMPLES_ALL_TARGETS ${_name})
-    set(RTF_EXAMPLES_ALL_TARGETS "${RTF_EXAMPLES_ALL_TARGETS}" PARENT_SCOPE)
+    list(APPEND GraphFusion_EXAMPLES_ALL_TARGETS ${_name})
+    set(GraphFusion_EXAMPLES_ALL_TARGETS "${GraphFusion_EXAMPLES_ALL_TARGETS}" PARENT_SCOPE)
 endmacro()
 
 ###############################################################################
@@ -439,7 +439,7 @@ endmacro()
 # module itself).
 # _name The target name.
 # _flags The new compile flags to be added, as a string.
-macro(RTF_ADD_CFLAGS _name _flags)
+macro(GraphFusion_ADD_CFLAGS _name _flags)
     get_target_property(_current_flags ${_name} COMPILE_FLAGS)
     if(NOT _current_flags)
         set_target_properties(${_name} PROPERTIES COMPILE_FLAGS ${_flags})
@@ -453,7 +453,7 @@ endmacro()
 # module itself).
 # _name The target name.
 # _flags The new link flags to be added, as a string.
-macro(RTF_ADD_LINKFLAGS _name _flags)
+macro(GraphFusion_ADD_LINKFLAGS _name _flags)
     get_target_property(_current_flags ${_name} LINK_FLAGS)
     if(NOT _current_flags)
         set_target_properties(${_name} PROPERTIES LINK_FLAGS ${_flags})
@@ -463,21 +463,21 @@ macro(RTF_ADD_LINKFLAGS _name _flags)
 endmacro()
 
 ###############################################################################
-# Make a pkg-config file for a library. Do not include general RTF stuff in the
+# Make a pkg-config file for a library. Do not include general GraphFusion stuff in the
 # arguments; they will be added automatically.
 # _name The library name. "rtf_" will be preprended to this.
-# COMPONENT The part of RTF that this pkg-config file belongs to.
+# COMPONENT The part of GraphFusion that this pkg-config file belongs to.
 # DESC Description of the library.
-# RTF_DEPS External dependencies to rtf libs, as a list. (will get mangled to external pkg-config name)
+# GraphFusion_DEPS External dependencies to rtf libs, as a list. (will get mangled to external pkg-config name)
 # EXT_DEPS External dependencies, as a list.
 # INT_DEPS Internal dependencies, as a list.
 # CFLAGS Compiler flags necessary to build with the library.
 # LIB_FLAGS Linker flags necessary to link to the library.
 # HEADER_ONLY Ensures that no -L or l flags will be created.
-function(RTF_MAKE_PKGCONFIG _name)
+function(GraphFusion_MAKE_PKGCONFIG _name)
     set(options HEADER_ONLY)
     set(oneValueArgs COMPONENT DESC CFLAGS LIB_FLAGS)
-    set(multiValueArgs RTF_DEPS INT_DEPS EXT_DEPS)
+    set(multiValueArgs GraphFusion_DEPS INT_DEPS EXT_DEPS)
     cmake_parse_arguments(PKGCONFIG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     set(PKG_NAME ${_name})
@@ -485,15 +485,15 @@ function(RTF_MAKE_PKGCONFIG _name)
     set(PKG_CFLAGS ${PKGCONFIG_CFLAGS})
     set(PKG_LIBFLAGS ${PKGCONFIG_LIB_FLAGS})
     LIST_TO_STRING(PKG_EXTERNAL_DEPS "${PKGCONFIG_EXT_DEPS}")
-    foreach(_dep ${PKGCONFIG_RTF_DEPS})
-        set(PKG_EXTERNAL_DEPS "${PKG_EXTERNAL_DEPS} rtf_${_dep}-${RTF_VERSION_MAJOR}.${RTF_VERSION_MINOR}")
+    foreach(_dep ${PKGCONFIG_GraphFusion_DEPS})
+        set(PKG_EXTERNAL_DEPS "${PKG_EXTERNAL_DEPS} rtf_${_dep}-${GraphFusion_VERSION_MAJOR}.${GraphFusion_VERSION_MINOR}")
     endforeach()
     set(PKG_INTERNAL_DEPS "")
     foreach(_dep ${PKGCONFIG_INT_DEPS})
         set(PKG_INTERNAL_DEPS "${PKG_INTERNAL_DEPS} -l${_dep}")
     endforeach()
 
-    set(_pc_file ${CMAKE_CURRENT_BINARY_DIR}/${_name}-${RTF_VERSION_MAJOR}.${RTF_VERSION_MINOR}.pc)
+    set(_pc_file ${CMAKE_CURRENT_BINARY_DIR}/${_name}-${GraphFusion_VERSION_MAJOR}.${GraphFusion_VERSION_MINOR}.pc)
     if(PKGCONFIG_HEADER_ONLY)
         configure_file(${PROJECT_SOURCE_DIR}/cmake/pkgconfig-headeronly.cmake.in ${_pc_file} @ONLY)
     else()
@@ -509,48 +509,48 @@ endfunction()
 
 ###############################################################################
 # Reset the subsystem status map.
-macro(RTF_RESET_MAPS)
-    foreach(_ss ${RTF_SUBSYSTEMS})
-        string(TOUPPER "RTF_${_ss}_SUBSYS" RTF_SUBSYS_SUBSYS)
-        if(${RTF_SUBSYS_SUBSYS})
-            string(TOUPPER "RTF_${_ss}_SUBSYS_DESC" RTF_PARENT_SUBSYS_DESC)
-            set(${RTF_SUBSYS_SUBSYS_DESC} "" CACHE INTERNAL "" FORCE)
-            set(${RTF_SUBSYS_SUBSYS} "" CACHE INTERNAL "" FORCE)
+macro(GraphFusion_RESET_MAPS)
+    foreach(_ss ${GraphFusion_SUBSYSTEMS})
+        string(TOUPPER "GraphFusion_${_ss}_SUBSYS" GraphFusion_SUBSYS_SUBSYS)
+        if(${GraphFusion_SUBSYS_SUBSYS})
+            string(TOUPPER "GraphFusion_${_ss}_SUBSYS_DESC" GraphFusion_PARENT_SUBSYS_DESC)
+            set(${GraphFusion_SUBSYS_SUBSYS_DESC} "" CACHE INTERNAL "" FORCE)
+            set(${GraphFusion_SUBSYS_SUBSYS} "" CACHE INTERNAL "" FORCE)
         endif()
     endforeach()
 
-    set(RTF_SUBSYS_HYPERSTATUS "" CACHE INTERNAL "To Build Or Not To Build, That Is The Question." FORCE)
-    set(RTF_SUBSYS_STATUS "" CACHE INTERNAL "To build or not to build, that is the question." FORCE)
-    set(RTF_SUBSYS_REASONS "" CACHE INTERNAL "But why?" FORCE)
-    set(RTF_SUBSYS_DEPS "" CACHE INTERNAL "A depends on B and C." FORCE)
-    set(RTF_SUBSYS_EXT_DEPS "" CACHE INTERNAL "A depends on B and C." FORCE)
-    set(RTF_SUBSYS_OPT_DEPS "" CACHE INTERNAL "A depends on B and C." FORCE)
-    set(RTF_SUBSYSTEMS "" CACHE INTERNAL "Internal list of subsystems" FORCE)
-    set(RTF_SUBSYS_DESC "" CACHE INTERNAL "Subsystem descriptions" FORCE)
+    set(GraphFusion_SUBSYS_HYPERSTATUS "" CACHE INTERNAL "To Build Or Not To Build, That Is The Question." FORCE)
+    set(GraphFusion_SUBSYS_STATUS "" CACHE INTERNAL "To build or not to build, that is the question." FORCE)
+    set(GraphFusion_SUBSYS_REASONS "" CACHE INTERNAL "But why?" FORCE)
+    set(GraphFusion_SUBSYS_DEPS "" CACHE INTERNAL "A depends on B and C." FORCE)
+    set(GraphFusion_SUBSYS_EXT_DEPS "" CACHE INTERNAL "A depends on B and C." FORCE)
+    set(GraphFusion_SUBSYS_OPT_DEPS "" CACHE INTERNAL "A depends on B and C." FORCE)
+    set(GraphFusion_SUBSYSTEMS "" CACHE INTERNAL "Internal list of subsystems" FORCE)
+    set(GraphFusion_SUBSYS_DESC "" CACHE INTERNAL "Subsystem descriptions" FORCE)
 endmacro()
 
 ###############################################################################
 # Register a subsystem.
 # _name Subsystem name.
 # _desc Description of the subsystem
-macro(RTF_ADD_SUBSYSTEM _name _desc)
-    set(_temp ${RTF_SUBSYSTEMS})
+macro(GraphFusion_ADD_SUBSYSTEM _name _desc)
+    set(_temp ${GraphFusion_SUBSYSTEMS})
     list(APPEND _temp ${_name})
-    set(RTF_SUBSYSTEMS ${_temp} CACHE INTERNAL "Internal list of subsystems" FORCE)
-    SET_IN_GLOBAL_MAP(RTF_SUBSYS_DESC ${_name} ${_desc})
+    set(GraphFusion_SUBSYSTEMS ${_temp} CACHE INTERNAL "Internal list of subsystems" FORCE)
+    SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_DESC ${_name} ${_desc})
 endmacro()
 
 ###############################################################################
 # Register a subsubsystem.
 # _name Subsystem name.
 # _desc Description of the subsystem
-macro(RTF_ADD_SUBSUBSYSTEM _parent _name _desc)
-    string(TOUPPER "RTF_${_parent}_SUBSYS" RTF_PARENT_SUBSYS)
-    string(TOUPPER "RTF_${_parent}_SUBSYS_DESC" RTF_PARENT_SUBSYS_DESC)
-    set(_temp ${${RTF_PARENT_SUBSYS}})
+macro(GraphFusion_ADD_SUBSUBSYSTEM _parent _name _desc)
+    string(TOUPPER "GraphFusion_${_parent}_SUBSYS" GraphFusion_PARENT_SUBSYS)
+    string(TOUPPER "GraphFusion_${_parent}_SUBSYS_DESC" GraphFusion_PARENT_SUBSYS_DESC)
+    set(_temp ${${GraphFusion_PARENT_SUBSYS}})
     list(APPEND _temp ${_name})
-    set(${RTF_PARENT_SUBSYS} ${_temp} CACHE INTERNAL "Internal list of ${_parenr} subsystems" FORCE)
-    set_in_global_map(${RTF_PARENT_SUBSYS_DESC} ${_name} ${_desc})
+    set(${GraphFusion_PARENT_SUBSYS} ${_temp} CACHE INTERNAL "Internal list of ${_parenr} subsystems" FORCE)
+    set_in_global_map(${GraphFusion_PARENT_SUBSYS_DESC} ${_name} ${_desc})
 endmacro()
 
 ###############################################################################
@@ -558,14 +558,14 @@ endmacro()
 # _name Subsystem name.
 # _status TRUE if being built, FALSE otherwise.
 # ARGN[0] Reason for not building.
-macro(RTF_SET_SUBSYS_STATUS _name _status)
+macro(GraphFusion_SET_SUBSYS_STATUS _name _status)
     if(${ARGC} EQUAL 3)
         set(_reason ${ARGV2})
     else()
         set(_reason "No reason")
     endif()
-    SET_IN_GLOBAL_MAP(RTF_SUBSYS_STATUS ${_name} ${_status})
-    SET_IN_GLOBAL_MAP(RTF_SUBSYS_REASONS ${_name} ${_reason})
+    SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_STATUS ${_name} ${_status})
+    SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_REASONS ${_name} ${_reason})
 endmacro()
 
 ###############################################################################
@@ -573,30 +573,30 @@ endmacro()
 # _name Subsystem name.
 # _status TRUE if being built, FALSE otherwise.
 # ARGN[0] Reason for not building.
-macro(RTF_SET_SUBSUBSYS_STATUS _parent _name _status)
+macro(GraphFusion_SET_SUBSUBSYS_STATUS _parent _name _status)
     if(${ARGC} EQUAL 4)
         set(_reason ${ARGV2})
     else()
         set(_reason "No reason")
     endif()
-    SET_IN_GLOBAL_MAP(RTF_SUBSYS_STATUS ${_parent}_${_name} ${_status})
-    SET_IN_GLOBAL_MAP(RTF_SUBSYS_REASONS ${_parent}_${_name} ${_reason})
+    SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_STATUS ${_parent}_${_name} ${_status})
+    SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_REASONS ${_parent}_${_name} ${_reason})
 endmacro()
 
 ###############################################################################
 # Get the status of a subsystem
 # _var Destination variable.
 # _name Name of the subsystem.
-macro(RTF_GET_SUBSYS_STATUS _var _name)
-    GET_IN_MAP(${_var} RTF_SUBSYS_STATUS ${_name})
+macro(GraphFusion_GET_SUBSYS_STATUS _var _name)
+    GET_IN_MAP(${_var} GraphFusion_SUBSYS_STATUS ${_name})
 endmacro()
 
 ###############################################################################
 # Get the status of a subsystem
 # _var Destination variable.
 # _name Name of the subsystem.
-macro(RTF_GET_SUBSUBSYS_STATUS _var _parent _name)
-    GET_IN_MAP(${_var} RTF_SUBSYS_STATUS ${_parent}_${_name})
+macro(GraphFusion_GET_SUBSUBSYS_STATUS _var _parent _name)
+    GET_IN_MAP(${_var} GraphFusion_SUBSYS_STATUS ${_parent}_${_name})
 endmacro()
 
 ###############################################################################
@@ -605,10 +605,10 @@ endmacro()
 # _dependee Dependent subsystem.
 # _status AUTO_OFF to disable AUTO_ON to enable
 # ARGN[0] Reason for not building.
-macro(RTF_SET_SUBSYS_HYPERSTATUS _name _dependee _status)
-    SET_IN_GLOBAL_MAP(RTF_SUBSYS_HYPERSTATUS ${_name}_${_dependee} ${_status})
+macro(GraphFusion_SET_SUBSYS_HYPERSTATUS _name _dependee _status)
+    SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_HYPERSTATUS ${_name}_${_dependee} ${_status})
     if(${ARGC} EQUAL 4)
-        SET_IN_GLOBAL_MAP(RTF_SUBSYS_REASONS ${_dependee} ${ARGV3})
+        SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_REASONS ${_dependee} ${ARGV3})
     endif()
 endmacro()
 
@@ -618,13 +618,13 @@ endmacro()
 # _dependee IN dependent subsystem.
 # _var OUT hyperstatus
 # ARGN[0] Reason for not building.
-macro(RTF_GET_SUBSYS_HYPERSTATUS _var _name)
+macro(GraphFusion_GET_SUBSYS_HYPERSTATUS _var _name)
     set(${_var} "AUTO_ON")
     if(${ARGC} EQUAL 3)
-        GET_IN_MAP(${_var} RTF_SUBSYS_HYPERSTATUS ${_name}_${ARGV2})
+        GET_IN_MAP(${_var} GraphFusion_SUBSYS_HYPERSTATUS ${_name}_${ARGV2})
     else()
-        foreach(subsys ${RTF_SUBSYS_DEPS_${_name}})
-            if("${RTF_SUBSYS_HYPERSTATUS_${subsys}_${_name}}" STREQUAL "AUTO_OFF")
+        foreach(subsys ${GraphFusion_SUBSYS_DEPS_${_name}})
+            if("${GraphFusion_SUBSYS_HYPERSTATUS_${subsys}_${_name}}" STREQUAL "AUTO_OFF")
                 set(${_var} "AUTO_OFF")
                 break()
             endif()
@@ -634,8 +634,8 @@ endmacro()
 
 ###############################################################################
 # Set the hyperstatus of a subsystem and its dependee
-macro(RTF_UNSET_SUBSYS_HYPERSTATUS _name _dependee)
-    unset(RTF_SUBSYS_HYPERSTATUS_${_name}_${dependee})
+macro(GraphFusion_UNSET_SUBSYS_HYPERSTATUS _name _dependee)
+    unset(GraphFusion_SUBSYS_HYPERSTATUS_${_name}_${dependee})
 endmacro()
 
 ###############################################################################
@@ -643,16 +643,16 @@ endmacro()
 # _name Subsystem name.
 # _includedir Name of subdirectory for includes
 # ARGN[0] Reason for not building.
-macro(RTF_SET_SUBSYS_INCLUDE_DIR _name _includedir)
-    SET_IN_GLOBAL_MAP(RTF_SUBSYS_INCLUDE ${_name} ${_includedir})
+macro(GraphFusion_SET_SUBSYS_INCLUDE_DIR _name _includedir)
+    SET_IN_GLOBAL_MAP(GraphFusion_SUBSYS_INCLUDE ${_name} ${_includedir})
 endmacro()
 
 ###############################################################################
 # Get the include directory name of a subsystem - return _name if not set
 # _var Destination variable.
 # _name Name of the subsystem.
-macro(RTF_GET_SUBSYS_INCLUDE_DIR _var _name)
-    GET_IN_MAP(${_var} RTF_SUBSYS_INCLUDE ${_name})
+macro(GraphFusion_GET_SUBSYS_INCLUDE_DIR _var _name)
+    GET_IN_MAP(${_var} GraphFusion_SUBSYS_INCLUDE ${_name})
     if(NOT ${_var})
         set(${_var} ${_name})
     endif()
@@ -660,17 +660,17 @@ endmacro()
 
 ###############################################################################
 # Write a report on the build/not-build status of the subsystems
-macro(RTF_WRITE_STATUS_REPORT)
+macro(GraphFusion_WRITE_STATUS_REPORT)
     message(STATUS "The following subsystems will be built:")
-    foreach(_ss ${RTF_SUBSYSTEMS})
-        RTF_GET_SUBSYS_STATUS(_status ${_ss})
+    foreach(_ss ${GraphFusion_SUBSYSTEMS})
+        GraphFusion_GET_SUBSYS_STATUS(_status ${_ss})
         if(_status)
             set(message_text "  ${_ss}")
-            string(TOUPPER "RTF_${_ss}_SUBSYS" RTF_SUBSYS_SUBSYS)
-            if(${RTF_SUBSYS_SUBSYS})
+            string(TOUPPER "GraphFusion_${_ss}_SUBSYS" GraphFusion_SUBSYS_SUBSYS)
+            if(${GraphFusion_SUBSYS_SUBSYS})
                 set(will_build)
-                foreach(_sub ${${RTF_SUBSYS_SUBSYS}})
-                    RTF_GET_SUBSYS_STATUS(_sub_status ${_ss}_${_sub})
+                foreach(_sub ${${GraphFusion_SUBSYS_SUBSYS}})
+                    GraphFusion_GET_SUBSYS_STATUS(_sub_status ${_ss}_${_sub})
                     if(_sub_status)
                         set(will_build "${will_build}\n       |_ ${_sub}")
                     endif()
@@ -679,11 +679,11 @@ macro(RTF_WRITE_STATUS_REPORT)
                     set(message_text  "${message_text}\n       building: ${will_build}")
                 endif()
                 set(wont_build)
-                foreach(_sub ${${RTF_SUBSYS_SUBSYS}})
-                    RTF_GET_SUBSYS_STATUS(_sub_status ${_ss}_${_sub})
-                    RTF_GET_SUBSYS_HYPERSTATUS(_sub_hyper_status ${_ss}_${sub})
+                foreach(_sub ${${GraphFusion_SUBSYS_SUBSYS}})
+                    GraphFusion_GET_SUBSYS_STATUS(_sub_status ${_ss}_${_sub})
+                    GraphFusion_GET_SUBSYS_HYPERSTATUS(_sub_hyper_status ${_ss}_${sub})
                     if(NOT _sub_status OR ("${_sub_hyper_status}" STREQUAL "AUTO_OFF"))
-                        GET_IN_MAP(_reason RTF_SUBSYS_REASONS ${_ss}_${_sub})
+                        GET_IN_MAP(_reason GraphFusion_SUBSYS_REASONS ${_ss}_${_sub})
                         set(wont_build "${wont_build}\n       |_ ${_sub}: ${_reason}")
                     endif()
                 endforeach()
@@ -696,11 +696,11 @@ macro(RTF_WRITE_STATUS_REPORT)
     endforeach()
 
     message(STATUS "The following subsystems will not be built:")
-    foreach(_ss ${RTF_SUBSYSTEMS})
-        RTF_GET_SUBSYS_STATUS(_status ${_ss})
-        RTF_GET_SUBSYS_HYPERSTATUS(_hyper_status ${_ss})
+    foreach(_ss ${GraphFusion_SUBSYSTEMS})
+        GraphFusion_GET_SUBSYS_STATUS(_status ${_ss})
+        GraphFusion_GET_SUBSYS_HYPERSTATUS(_hyper_status ${_ss})
         if(NOT _status OR ("${_hyper_status}" STREQUAL "AUTO_OFF"))
-            GET_IN_MAP(_reason RTF_SUBSYS_REASONS ${_ss})
+            GET_IN_MAP(_reason GraphFusion_SUBSYS_REASONS ${_ss})
             message(STATUS "  ${_ss}: ${_reason}")
         endif()
     endforeach()
@@ -744,10 +744,10 @@ macro(collect_subproject_directory_names dirname filename names dirs)
         string(REPLACE " " ";" DEPENDENCIES "${DEPENDENCIES}")
         if(NOT("${DEPENDENCIES}" STREQUAL ""))
             list(REMOVE_ITEM DEPENDENCIES "#")
-            string(TOUPPER "RTF_${name}_DEPENDS" SUBSYS_DEPENDS)
+            string(TOUPPER "GraphFusion_${name}_DEPENDS" SUBSYS_DEPENDS)
             set(${SUBSYS_DEPENDS} ${DEPENDENCIES})
             foreach(dependee ${DEPENDENCIES})
-                string(TOUPPER "RTF_${dependee}_DEPENDIES" SUBSYS_DEPENDIES)
+                string(TOUPPER "GraphFusion_${dependee}_DEPENDIES" SUBSYS_DEPENDIES)
                 set(${SUBSYS_DEPENDIES} ${${SUBSYS_DEPENDIES}} ${name})
             endforeach()
         endif()
@@ -757,11 +757,11 @@ endmacro()
 ########################################################################################
 # Macro to disable subsystem dependies
 # _subsys IN subsystem name
-macro(RTF_DISABLE_DEPENDIES _subsys)
-    string(TOUPPER "rtf_${_subsys}_dependies" RTF_SUBSYS_DEPENDIES)
-    if(NOT ("${${RTF_SUBSYS_DEPENDIES}}" STREQUAL ""))
-        foreach(dep ${${RTF_SUBSYS_DEPENDIES}})
-            RTF_SET_SUBSYS_HYPERSTATUS(${_subsys} ${dep} AUTO_OFF "Disabled: ${_subsys} missing.")
+macro(GraphFusion_DISABLE_DEPENDIES _subsys)
+    string(TOUPPER "rtf_${_subsys}_dependies" GraphFusion_SUBSYS_DEPENDIES)
+    if(NOT ("${${GraphFusion_SUBSYS_DEPENDIES}}" STREQUAL ""))
+        foreach(dep ${${GraphFusion_SUBSYS_DEPENDIES}})
+            GraphFusion_SET_SUBSYS_HYPERSTATUS(${_subsys} ${dep} AUTO_OFF "Disabled: ${_subsys} missing.")
             set(BUILD_${dep} OFF CACHE BOOL "Disabled: ${_subsys} missing." FORCE)
         endforeach()
     endif()
@@ -770,14 +770,14 @@ endmacro()
 ########################################################################################
 # Macro to enable subsystem dependies
 # _subsys IN subsystem name
-macro(RTF_ENABLE_DEPENDIES _subsys)
-    string(TOUPPER "rtf_${_subsys}_dependies" RTF_SUBSYS_DEPENDIES)
-    if(NOT ("${${RTF_SUBSYS_DEPENDIES}}" STREQUAL ""))
-        foreach(dep ${${RTF_SUBSYS_DEPENDIES}})
-            RTF_GET_SUBSYS_HYPERSTATUS(dependee_status ${_subsys} ${dep})
+macro(GraphFusion_ENABLE_DEPENDIES _subsys)
+    string(TOUPPER "rtf_${_subsys}_dependies" GraphFusion_SUBSYS_DEPENDIES)
+    if(NOT ("${${GraphFusion_SUBSYS_DEPENDIES}}" STREQUAL ""))
+        foreach(dep ${${GraphFusion_SUBSYS_DEPENDIES}})
+            GraphFusion_GET_SUBSYS_HYPERSTATUS(dependee_status ${_subsys} ${dep})
             if("${dependee_status}" STREQUAL "AUTO_OFF")
-                RTF_SET_SUBSYS_HYPERSTATUS(${_subsys} ${dep} AUTO_ON)
-                GET_IN_MAP(desc RTF_SUBSYS_DESC ${dep})
+                GraphFusion_SET_SUBSYS_HYPERSTATUS(${_subsys} ${dep} AUTO_ON)
+                GET_IN_MAP(desc GraphFusion_SUBSYS_DESC ${dep})
                 set(BUILD_${dep} ON CACHE BOOL "${desc}" FORCE)
             endif()
         endforeach()
@@ -787,10 +787,10 @@ endmacro()
 ########################################################################################
 # Macro to build subsystem centric documentation
 # _subsys IN the name of the subsystem to generate documentation for
-macro (RTF_ADD_DOC _subsys)
+macro (GraphFusion_ADD_DOC _subsys)
     string(TOUPPER "${_subsys}" SUBSYS)
     set(doc_subsys "doc_${_subsys}")
-    GET_IN_MAP(dependencies RTF_SUBSYS_DEPS ${_subsys})
+    GET_IN_MAP(dependencies GraphFusion_SUBSYS_DEPS ${_subsys})
     if(DOXYGEN_FOUND)
         if(HTML_HELP_COMPILER)
             set(DOCUMENTATION_HTML_HELP YES)
@@ -803,18 +803,18 @@ macro (RTF_ADD_DOC _subsys)
             set(HAVE_DOT NO)
         endif()
         if(NOT "${dependencies}" STREQUAL "")
-            set(STRIPPED_HEADERS "${RTF_SOURCE_DIR}/${dependencies}/include")
-            string(REPLACE ";" "/include \\\n                         ${RTF_SOURCE_DIR}/"
+            set(STRIPPED_HEADERS "${GraphFusion_SOURCE_DIR}/${dependencies}/include")
+            string(REPLACE ";" "/include \\\n                         ${GraphFusion_SOURCE_DIR}/"
                     STRIPPED_HEADERS "${STRIPPED_HEADERS}")
         endif()
         set(DOC_SOURCE_DIR "\"${CMAKE_CURRENT_SOURCE_DIR}\"\\")
         foreach(dep ${dependencies})
             set(DOC_SOURCE_DIR
-                    "${DOC_SOURCE_DIR}\n\t\t\t\t\t\t\t\t\t\t\t\t \"${RTF_SOURCE_DIR}/${dep}\"\\")
+                    "${DOC_SOURCE_DIR}\n\t\t\t\t\t\t\t\t\t\t\t\t \"${GraphFusion_SOURCE_DIR}/${dep}\"\\")
         endforeach()
         file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/html")
         set(doxyfile "${CMAKE_CURRENT_BINARY_DIR}/doxyfile")
-        configure_file("${RTF_SOURCE_DIR}/doc/doxygen/doxyfile.in" ${doxyfile})
+        configure_file("${GraphFusion_SOURCE_DIR}/doc/doxygen/doxyfile.in" ${doxyfile})
         add_custom_target(${doc_subsys} ${DOXYGEN_EXECUTABLE} ${doxyfile})
         set_target_properties(${doc_subsys} PROPERTIES FOLDER "Documentation")
     endif()
@@ -829,7 +829,7 @@ endmacro()
 # corresponding grabber should be built or not. Also an attempt to find a
 # package with the given name is made. If it is not successful, then the
 # "WITH_NAME" option is coerced to FALSE.
-macro(RTF_ADD_GRABBER_DEPENDENCY _name _description)
+macro(GraphFusion_ADD_GRABBER_DEPENDENCY _name _description)
     string(TOUPPER ${_name} _name_capitalized)
     option(WITH_${_name_capitalized} "${_description}" TRUE)
     if(WITH_${_name_capitalized})
@@ -848,6 +848,6 @@ endmacro()
 # Set the dependencies for a specific test core on the provided variable
 # _var The variable to be filled with the dependencies
 # _module The core name
-macro(RTF_SET_TEST_DEPENDENCIES _var _module)
-    set(${_var} global_tests ${_module} ${RTF_SUBSYS_DEPS_${_module}})
+macro(GraphFusion_SET_TEST_DEPENDENCIES _var _module)
+    set(${_var} global_tests ${_module} ${GraphFusion_SUBSYS_DEPS_${_module}})
 endmacro()

@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/5.
 //
 
-#ifndef RTF_FEATURE_MATCHER_H
-#define RTF_FEATURE_MATCHER_H
+#ifndef GraphFusion_FEATURE_MATCHER_H
+#define GraphFusion_FEATURE_MATCHER_H
 
 #include <DBoW2/TemplatedVocabulary.h>
 #include <DBoW2/FSIFT.h>
@@ -116,4 +116,4 @@ namespace rtf {
     };
 
 }
-#endif //RTF_FEATURE_MATCHER_H
+#endif //GraphFusion_FEATURE_MATCHER_H

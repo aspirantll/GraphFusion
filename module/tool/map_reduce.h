@@ -2,8 +2,8 @@
 // Created by liulei on 2020/7/15.
 //
 
-#ifndef RTF_MAP_REDUCE_H
-#define RTF_MAP_REDUCE_H
+#ifndef GraphFusion_MAP_REDUCE_H
+#define GraphFusion_MAP_REDUCE_H
 
 #include <initializer_list>
 #include <Eigen/Core>
@@ -72,4 +72,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_MAP_REDUCE_H
+#endif //GraphFusion_MAP_REDUCE_H

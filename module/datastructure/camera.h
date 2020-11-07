@@ -2,8 +2,8 @@
 // Created by liulei on 2020/5/18.
 //
 
-#ifndef RTF_CAMERA_H
-#define RTF_CAMERA_H
+#ifndef GraphFusion_CAMERA_H
+#define GraphFusion_CAMERA_H
 
 #include "base_types.h"
 #include "../tool/file_util.h"
@@ -165,4 +165,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_CAMERA_H
+#endif //GraphFusion_CAMERA_H

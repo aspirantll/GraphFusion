@@ -2,8 +2,8 @@
 // Created by liulei on 2020/10/14.
 //
 
-#ifndef RTF_IMAGE_CUDA_CUH
-#define RTF_IMAGE_CUDA_CUH
+#ifndef GraphFusion_IMAGE_CUDA_CUH
+#define GraphFusion_IMAGE_CUDA_CUH
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/cudaimgproc.hpp>
@@ -27,5 +27,5 @@ namespace rtf {
 }
 
 
-#endif //RTF_IMAGE_CUDA_CUH
+#endif //GraphFusion_IMAGE_CUDA_CUH
 

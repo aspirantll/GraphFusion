@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/4.
 //
 
-#ifndef RTF_DEPTH_FILTERS_H
-#define RTF_DEPTH_FILTERS_H
+#ifndef GraphFusion_DEPTH_FILTERS_H
+#define GraphFusion_DEPTH_FILTERS_H
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -43,4 +43,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_DEPTH_FILTERS_H
+#endif //GraphFusion_DEPTH_FILTERS_H

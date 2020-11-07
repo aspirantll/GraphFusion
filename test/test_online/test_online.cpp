@@ -20,7 +20,7 @@ using namespace pcl;
 
 string workspace;
 double minDepth = 0.1;
-double maxDepth = 3.09294;
+double maxDepth = 10;
 
 void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     if(!FileUtil::exist(workspace+"/associate.txt")) {
@@ -76,13 +76,13 @@ void saveResult(ViewGraph& viewGraph) {
 
 int main(int argc, char* argv[]) {
     workspace = argv[1];
-    string configFile = argv[2];
+    string configFile = workspace+"/online.yaml";
     GlobalConfig globalConfig(workspace);
     globalConfig.loadFromFile(configFile);
     workspace = globalConfig.workspace;
 
-//    string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
-    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
+    string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
+//    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
 //    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
     onlineRecon.finalOptimize(true);
-    onlineRecon.saveMesh(savePath);
+//    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     saveATP(onlineRecon.getViewGraph(), globalConfig);
 

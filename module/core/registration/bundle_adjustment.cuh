@@ -2,8 +2,8 @@
 // Created by liulei on 2020/7/15.
 //
 
-#ifndef RTF_BUNDLE_ADJUSTMENT_H
-#define RTF_BUNDLE_ADJUSTMENT_H
+#ifndef GraphFusion_BUNDLE_ADJUSTMENT_H
+#define GraphFusion_BUNDLE_ADJUSTMENT_H
 
 #include "../../tool/map_reduce.h"
 #include "../solver/cuda_matrix.h"
@@ -85,4 +85,4 @@ namespace rtf {
 
 }
 
-#endif //RTF_BUNDLE_ADJUSTMENT_H
+#endif //GraphFusion_BUNDLE_ADJUSTMENT_H

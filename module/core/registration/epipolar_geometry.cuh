@@ -2,8 +2,8 @@
 // Created by liulei on 2020/7/16.
 //
 
-#ifndef RTF_EG_H
-#define RTF_EG_H
+#ifndef GraphFusion_EG_H
+#define GraphFusion_EG_H
 
 #include "../../datastructure/cuda_types.h"
 #include "../../tool/map_reduce.h"
@@ -63,4 +63,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_EG_H
+#endif //GraphFusion_EG_H

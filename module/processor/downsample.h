@@ -2,8 +2,8 @@
 // Created by liulei on 2020/10/11.
 //
 
-#ifndef RTF_DOWNSAMPLE_H
-#define RTF_DOWNSAMPLE_H
+#ifndef GraphFusion_DOWNSAMPLE_H
+#define GraphFusion_DOWNSAMPLE_H
 
 #include "../feature/feature_point.h"
 
@@ -13,4 +13,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_DOWNSAMPLE_H
+#endif //GraphFusion_DOWNSAMPLE_H

@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/16.
 //
 
-#ifndef RTF_IMAGE_UTIL_H
-#define RTF_IMAGE_UTIL_H
+#ifndef GraphFusion_IMAGE_UTIL_H
+#define GraphFusion_IMAGE_UTIL_H
 
 #include <opencv2/core/core.hpp>
 #include "../feature/feature_point.h"
@@ -53,4 +53,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_IMAGE_UTIL_H
+#endif //GraphFusion_IMAGE_UTIL_H

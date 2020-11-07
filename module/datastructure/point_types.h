@@ -2,8 +2,8 @@
 // Created by liulei on 2020/5/10.
 //
 
-#ifndef RTF_POINT_TYPES_H
-#define RTF_POINT_TYPES_H
+#ifndef GraphFusion_POINT_TYPES_H
+#define GraphFusion_POINT_TYPES_H
 
 #include <Eigen/Core>
 #include "base_types.h"
@@ -81,4 +81,4 @@ namespace rtf {
 
 }
 
-#endif //RTF_POINT_TYPES_H
+#endif //GraphFusion_POINT_TYPES_H

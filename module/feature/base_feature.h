@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/5.
 //
 
-#ifndef RTF_BASE_FEATURE_H
-#define RTF_BASE_FEATURE_H
+#ifndef GraphFusion_BASE_FEATURE_H
+#define GraphFusion_BASE_FEATURE_H
 
 #include "feature_point.h"
 #include "../tool/image_util.h"
@@ -47,4 +47,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_BASE_FEATURE_H
+#endif //GraphFusion_BASE_FEATURE_H

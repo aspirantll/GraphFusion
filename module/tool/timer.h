@@ -2,8 +2,8 @@
 // Created by liulei on 2020/7/12.
 //
 
-#ifndef RTF_TIMER_H
-#define RTF_TIMER_H
+#ifndef GraphFusion_TIMER_H
+#define GraphFusion_TIMER_H
 
 
 #include <ctime>
@@ -33,4 +33,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_TIMER_H
+#endif //GraphFusion_TIMER_H

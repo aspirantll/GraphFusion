@@ -76,9 +76,9 @@ namespace rtf {
         }
 
         globalRegistration->registration(opt);
-        auto meshData = getVoxelFusion()->integrateFrames(getViewGraph());
+        /*auto meshData = getVoxelFusion()->integrateFrames(getViewGraph());
         cout << "show final mesh" << endl;
-        updateViewer(meshData);
+        updateViewer(meshData);*/
     }
 
     ViewGraph &OnlineReconstruction::getViewGraph() {

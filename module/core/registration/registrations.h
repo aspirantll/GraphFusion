@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/6.
 //
 
-#ifndef RTF_REGISTRATIONS_H
-#define RTF_REGISTRATIONS_H
+#ifndef GraphFusion_REGISTRATIONS_H
+#define GraphFusion_REGISTRATIONS_H
 
 #include <glog/logging.h>
 #include<Eigen/StdVector>
@@ -310,4 +310,4 @@ namespace rtf {
     };
 
 }
-#endif //RTF_REGISTRATIONS_H
+#endif //GraphFusion_REGISTRATIONS_H

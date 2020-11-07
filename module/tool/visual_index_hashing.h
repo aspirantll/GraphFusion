@@ -2,8 +2,8 @@
 // Created by liulei on 2020/9/23.
 //
 
-#ifndef RTF_VISUAL_INDEX_HASHING_H
-#define RTF_VISUAL_INDEX_HASHING_H
+#ifndef GraphFusion_VISUAL_INDEX_HASHING_H
+#define GraphFusion_VISUAL_INDEX_HASHING_H
 
 #include "thread_pool.h"
 #include "visual_index_hashing.cuh"
@@ -110,4 +110,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_VISUAL_INDEX_HASHING_H
+#endif //GraphFusion_VISUAL_INDEX_HASHING_H

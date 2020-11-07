@@ -2,8 +2,8 @@
 // Created by liulei on 2020/8/18.
 //
 
-#ifndef RTF_CUDA_FRAME_H
-#define RTF_CUDA_FRAME_H
+#ifndef GraphFusion_CUDA_FRAME_H
+#define GraphFusion_CUDA_FRAME_H
 
 #include "cuda_matrix.h"
 #include "cuda_math.h"
@@ -108,4 +108,4 @@ public:
 
 
 
-#endif //RTF_CUDA_FRAME_H
+#endif //GraphFusion_CUDA_FRAME_H

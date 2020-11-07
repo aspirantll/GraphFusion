@@ -1,2 +1,2 @@
-# Options for building RTF.
+# Options for building GraphFusion.
 option(WITH_DOCS "Build doxygen documentation" OFF)

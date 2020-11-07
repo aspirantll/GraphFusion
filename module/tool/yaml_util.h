@@ -2,8 +2,8 @@
 // Created by liulei on 2020/5/20.
 //
 
-#ifndef RTF_YAML_UTIL_H
-#define RTF_YAML_UTIL_H
+#ifndef GraphFusion_YAML_UTIL_H
+#define GraphFusion_YAML_UTIL_H
 
 #include <yaml-cpp/yaml.h>
 #include <string>
@@ -164,4 +164,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_YAML_UTIL_H
+#endif //GraphFusion_YAML_UTIL_H

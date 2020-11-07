@@ -2,8 +2,8 @@
 // Created by liulei on 2020/5/10.
 //
 
-#ifndef RTF_FRAME_TYPES_H
-#define RTF_FRAME_TYPES_H
+#ifndef GraphFusion_FRAME_TYPES_H
+#define GraphFusion_FRAME_TYPES_H
 
 #include "base_types.h"
 #include "camera.h"
@@ -175,4 +175,4 @@ namespace rtf {
     };
 }
 
-#endif //RTF_FRAME_TYPES_H
+#endif //GraphFusion_FRAME_TYPES_H

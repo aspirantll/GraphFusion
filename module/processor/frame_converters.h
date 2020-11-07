@@ -2,8 +2,8 @@
 // Created by liulei on 2020/5/21.
 //
 
-#ifndef RTF_FRAME_CONVERTERS_H
-#define RTF_FRAME_CONVERTERS_H
+#ifndef GraphFusion_FRAME_CONVERTERS_H
+#define GraphFusion_FRAME_CONVERTERS_H
 
 #include "../datastructure/frame_types.h"
 
@@ -20,4 +20,4 @@ namespace rtf {
 }
 
 
-#endif //RTF_FRAME_CONVERTERS_H
+#endif //GraphFusion_FRAME_CONVERTERS_H

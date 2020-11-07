@@ -2,8 +2,8 @@
 // Created by liulei on 2020/6/6.
 //
 
-#ifndef RTF_CONTEXT_H
-#define RTF_CONTEXT_H
+#ifndef GraphFusion_CONTEXT_H
+#define GraphFusion_CONTEXT_H
 #include <memory>
 #include <vector>
 #include "frame_types.h"
@@ -50,4 +50,4 @@ namespace rtf {
 
 
 }
-#endif //RTF_CONTEXT_H
+#endif //GraphFusion_CONTEXT_H
