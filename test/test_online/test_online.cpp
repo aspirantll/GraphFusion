@@ -76,7 +76,7 @@ void saveResult(ViewGraph& viewGraph) {
 
 int main(int argc, char* argv[]) {
     workspace = argv[1];
-    string configFile = workspace+"/online.yaml";
+    string configFile = "/home/liulei/codes/GraphFusion/test/test_online/online_pnp.yaml";
     GlobalConfig globalConfig(workspace);
     globalConfig.loadFromFile(configFile);
     workspace = globalConfig.workspace;
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new FileInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;

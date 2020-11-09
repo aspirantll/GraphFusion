@@ -72,7 +72,7 @@ namespace rtf {
                 return numeric_limits<int>::max();
             }
 
-            const double denom = 1 - std::pow(support.inlierRatio(), sampler.numOfSamples);
+            const double denom = 1 - std::pow(max(support.inlierRatio(),0.05), sampler.numOfSamples);
             if (denom <= 0) {
                 return 1;
             }

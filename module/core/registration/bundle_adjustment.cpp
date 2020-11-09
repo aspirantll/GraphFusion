@@ -378,7 +378,7 @@ namespace rtf {
     }
 
 
-    constexpr Scalar kHuberWeight = 1.0;
+    constexpr Scalar kHuberWeight = 1.2;
     template <typename Scalar> Scalar ComputeHuberCost(Scalar squared_residual, Scalar huber_parameter) {
         if (squared_residual < huber_parameter * huber_parameter) {
             return static_cast<Scalar>(0.5) * squared_residual;

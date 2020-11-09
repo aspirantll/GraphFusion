@@ -116,12 +116,12 @@ namespace rtf {
     void LocalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
         stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
-        if(near&&edge->isUnreachable()&&featureMatches.size()>globalConfig.kMinMatches) {
+        /*if(near&&edge->isUnreachable()&&featureMatches.size()>globalConfig.kMinMatches) {
             registrationEGBA(&featureMatches, edge, curStream);
             if(edge->isUnreachable()) {
                 registrationHomoBA(&featureMatches, edge, curStream);
             }
-        }
+        }*/
     }
 
     void LocalRegistration::registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges) {

@@ -5,6 +5,15 @@
 #include <opencv2/core/core_c.h>
 
 namespace rtf {
+    constexpr Scalar kHuberWeight = 1.2;
+    template <typename Scalar> Scalar ComputeHuberCost(Scalar squared_residual, Scalar huber_parameter) {
+        if (squared_residual < huber_parameter * huber_parameter) {
+            return static_cast<Scalar>(0.5) * squared_residual;
+        } else {
+            return huber_parameter * (sqrtf(squared_residual) - static_cast<Scalar>(0.5) * huber_parameter);
+        }
+    }
+
     class PnPEstimator: public Estimator<Point2D, Point3D, Transform> {
     protected:
         double uc, vc, fu, fv;
@@ -14,9 +23,6 @@ namespace rtf {
         int number_of_correspondences;
 
         double cws[4][3], ccs[4][3];
-
-        // Current Estimation
-        cv::Mat mTcwi;
     public:
         PnPEstimator(shared_ptr<Camera> camera, int n) : pws(nullptr), us(nullptr), alphas(nullptr), pcs(nullptr),
                                                          maximum_number_of_correspondences(n),
@@ -749,10 +755,6 @@ namespace rtf {
     int PnPEstimator::kMinNumSamples = 4;
 
 
-    PnPRegistration::PnPRegistration(RANSAC2DConfig &config) : config(config) {
-
-    }
-
     PnPRegistration::PnPRegistration(const GlobalConfig &config) : config(config) {
         this->config.maxResidual = config.maxPnPResidual;
     }
@@ -832,6 +834,13 @@ namespace rtf {
             return report;
         }
 
+        // compute error
+        float cost = 0;
+        for(int index: report.inliers) {
+            cost += ComputeHuberCost((float)r.support.residuals[index], kHuberWeight);
+        }
+        report.iterations = r.numOfTrials;
+        report.cost = cost/report.inliers.size();
         report.success = true;
         return report;
     }

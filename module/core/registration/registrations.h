@@ -152,20 +152,24 @@ namespace rtf {
         bool success = false;
         double maxResidual;
         int pointNum;
+        int iterations;
         vector<int> inliers;
         vector<double> xDs;
         vector<double> yDs;
         vector<int> kps1, kps2;
         Transform T;
+        double cost;
 
 
         void printReport() {
             cout << "-------------------------------------------------------------------------" << endl;
             cout << "success: " << success << endl;
             if (true) {
+                cout << "iterations: " << iterations << endl;
                 cout << "inliers: " << inliers.size() << endl;
                 cout << "pointsNum: " << pointNum << endl;
                 cout << "maxResidual: " << maxResidual << endl;
+                cout << "cost: " << cost << endl;
             }
 
             cout << "-------------------------------------------------------------------------" << endl;
@@ -212,8 +216,6 @@ namespace rtf {
     private:
         RANSAC2DConfig config;
     public:
-        PnPRegistration(RANSAC2DConfig &config);
-
         PnPRegistration(const GlobalConfig &config);
 
         RANSAC2DReport registrationFunction(FeatureMatches &featureMatches);

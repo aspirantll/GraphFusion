@@ -15,7 +15,7 @@ using namespace std;
 using namespace rtf;
 using namespace pcl;
 
-string workspace = "/home/liulei/workspace/small";
+string workspace = "/media/liulei/Data/dataset/TUM/rgbd_dataset_freiburg1_room";
 double minDepth = 0.1;
 double maxDepth = 3;
 
@@ -106,13 +106,15 @@ void registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t 
 
 void registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
     stream = curStream;
+    clock_t start = clock();
     registrationPnPBA(&featureMatches, edge, curStream);
-    if(near&&edge->isUnreachable()) {
+    /*if(near&&edge->isUnreachable()) {
         registrationEGBA(&featureMatches, edge, curStream);
         if(edge->isUnreachable()) {
             registrationHomoBA(&featureMatches, edge, curStream);
         }
-    }
+    }*/
+    cout << "time:" << double(clock()-start)/CLOCKS_PER_SEC << endl;
 }
 
 int main() {
@@ -123,11 +125,11 @@ int main() {
     cout << "frame_num: " << fileInputSource->getFrameNum() << endl;
 
     SIFTFeatureExtractor extractor;
-    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 46));
+    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 85));
 //    ref->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(ref, ref->getKps());
 
-    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 47));
+    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 98));
 //    cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
 

@@ -105,12 +105,12 @@ namespace rtf {
     void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
         stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
-        if(near&&edge->isUnreachable()) {
+        /*if(near&&edge->isUnreachable()) {
             registrationEGBA(&featureMatches, edge, curStream);
             if(edge->isUnreachable()) {
                 registrationHomoBA(&featureMatches, edge, curStream);
             }
-        }
+        }*/
     }
 
     int GlobalRegistration::selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe) {
@@ -348,7 +348,6 @@ namespace rtf {
                     edge.setKxs(bestEdge.getKxs());
                     edge.setKys(bestEdge.getKys());
                     edge.setCost(bestEdge.getCost());
-                    cout << refNodeIndex << ":" << relativeTrans << endl;
                 }
             }
             edges.clear();
