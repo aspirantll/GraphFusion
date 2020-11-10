@@ -30,7 +30,6 @@ namespace rtf {
 
             void printReport() {
                 cout << "success: " << success << endl;
-//                cout << "model: " << model << endl;
                 cout << "numOfTrials: " << numOfTrials << endl;
                 cout << "maxResidual: " << maxResidual << endl;
                 cout << "totalNum: " << x.size() << endl;

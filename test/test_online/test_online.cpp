@@ -41,6 +41,12 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
 
             if(!viewGraph.isVisible(kf->getIndex())||!frame->isVisible()) continue;
             Transform trans = baseTrans*frame->getTransform();
+            if(gtParts[0]=="652") {
+                cout << kf->getIndex() << endl;
+                cout << baseTrans << endl;
+                cout << frame->getTransform() << endl;
+                cout << trans << endl;
+            }
             Rotation R;
             Translation t;
             GeoUtil::T2Rt(trans, R, t);
@@ -76,7 +82,7 @@ void saveResult(ViewGraph& viewGraph) {
 
 int main(int argc, char* argv[]) {
     workspace = argv[1];
-    string configFile = "/home/liulei/codes/GraphFusion/test/test_online/online_pnp.yaml";
+    string configFile = workspace+"/online.yaml";
     GlobalConfig globalConfig(workspace);
     globalConfig.loadFromFile(configFile);
     workspace = globalConfig.workspace;

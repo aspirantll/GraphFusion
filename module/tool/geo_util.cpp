@@ -93,7 +93,7 @@ namespace rtf {
         Rotation R;
         Translation t;
         T2Rt(trans, R, t);
-        return Sophus::isOrthogonal(R);
+        return trans(3,3)==1&&Sophus::isOrthogonal(R);
     }
 
 }

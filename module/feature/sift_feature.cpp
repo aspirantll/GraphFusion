@@ -151,6 +151,7 @@ namespace rtf {
         }
 
         const size_t num_features = static_cast<size_t>(siftGPU->GetFeatureNum());
+        if(num_features==0) return;
 
         std::vector<SiftKeypoint> keypoints(num_features);
 

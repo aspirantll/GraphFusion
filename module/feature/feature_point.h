@@ -106,6 +106,10 @@ namespace rtf {
             return this->mFeatVec;
         }
 
+        bool empty() {
+            return this->keyPoints.empty();
+        }
+
         YAML::Node serialize() override {
             YAML::Node node;
             node["camera"] = camera->getSerNum();

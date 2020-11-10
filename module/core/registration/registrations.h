@@ -150,15 +150,15 @@ namespace rtf {
     class RANSAC2DReport {
     public:
         bool success = false;
-        double maxResidual;
-        int pointNum;
-        int iterations;
+        double maxResidual = 0;
+        int pointNum = 0;
+        int iterations = 0;
         vector<int> inliers;
         vector<double> xDs;
         vector<double> yDs;
         vector<int> kps1, kps2;
         Transform T;
-        double cost;
+        double cost = 0;
 
 
         void printReport() {
@@ -169,7 +169,6 @@ namespace rtf {
                 cout << "inliers: " << inliers.size() << endl;
                 cout << "pointsNum: " << pointNum << endl;
                 cout << "maxResidual: " << maxResidual << endl;
-                cout << "cost: " << cost << endl;
             }
 
             cout << "-------------------------------------------------------------------------" << endl;
