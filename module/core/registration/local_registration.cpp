@@ -22,7 +22,6 @@ namespace rtf {
     }
 
     void LocalRegistration::registrationEGBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
-        stream = curStream;
         RANSAC2DReport eg = egRegistration->registrationFunction(*featureMatches);
         BAReport ba;
         if (eg.success) {
@@ -52,7 +51,6 @@ namespace rtf {
     }
 
     void LocalRegistration::registrationHomoBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
-        stream = curStream;
         RANSAC2DReport homo = homoRegistration->registrationFunction(*featureMatches);
         BAReport ba;
         if (homo.success) {
@@ -113,7 +111,7 @@ namespace rtf {
     }
 
     void LocalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
-//        stream = curStream;
+        stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
         /*if(near&&edge->isUnreachable()&&featureMatches.size()>globalConfig.kMinMatches) {
             registrationEGBA(&featureMatches, edge, curStream);
@@ -144,10 +142,9 @@ namespace rtf {
             FeatureMatches featureMatches = matcher->matchKeyPointsPair(frames[refIndex]->getFirstFrame()->getKps(),
                                                                         frames[curIndex]->getFirstFrame()->getKps());
             cudaStreamCreate(&streams[index]);
-            /*threads[index] = new thread(
+            threads[index] = new thread(
                     bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                         placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], true);*/
-            registrationPairEdge(featureMatches, &edges[index], streams[index], true);
+                         placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], true);
             index++;
         }
 
@@ -168,7 +165,9 @@ namespace rtf {
                         overlapFrames.emplace_back(refIndex);
                         spAlreadyAddedKF.insert(refIndex);
                         cudaStreamCreate(&streams[index]);
-                        registrationPairEdge(featureMatches, &edges[index], streams[index], false);
+                        threads[index] = new thread(
+                                bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
+                                     placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], false);
 
                         index++;
                     }
@@ -178,7 +177,7 @@ namespace rtf {
         }
 
         for (int i = 0; i < index; i++) {
-//            threads[i]->join();
+            threads[i]->join();
             CUDA_CHECKED_CALL(cudaStreamSynchronize(streams[i]));
             CUDA_CHECKED_CALL(cudaStreamDestroy(streams[i]));
         }

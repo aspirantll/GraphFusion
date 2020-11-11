@@ -158,7 +158,6 @@ namespace rtf {
         vector<double> yDs;
         vector<int> kps1, kps2;
         Transform T;
-        double cost = 0;
 
 
         void printReport() {

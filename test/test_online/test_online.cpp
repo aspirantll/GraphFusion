@@ -20,7 +20,7 @@ using namespace pcl;
 
 string workspace;
 double minDepth = 0.1;
-double maxDepth = 10;
+double maxDepth = 4;
 
 void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     if(!FileUtil::exist(workspace+"/associate.txt")) {
@@ -41,19 +41,12 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
 
             if(!viewGraph.isVisible(kf->getIndex())||!frame->isVisible()) continue;
             Transform trans = baseTrans*frame->getTransform();
-            if(gtParts[0]=="652") {
-                cout << kf->getIndex() << endl;
-                cout << baseTrans << endl;
-                cout << frame->getTransform() << endl;
-                cout << trans << endl;
-            }
             Rotation R;
             Translation t;
             GeoUtil::T2Rt(trans, R, t);
             Eigen::Quaternion<Scalar> q(R);
-            estimate << gtParts[0] << " " << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            estimate << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
         }
-
     }
 }
 
@@ -111,7 +104,7 @@ int main(int argc, char* argv[]) {
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
     onlineRecon.finalOptimize(true);
-//    onlineRecon.saveMesh(savePath);
+    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     saveATP(onlineRecon.getViewGraph(), globalConfig);
 

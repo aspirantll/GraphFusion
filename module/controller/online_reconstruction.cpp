@@ -53,20 +53,19 @@ namespace rtf {
         computeBow(frame->getKps());
 
         // track the keyframes database
-//        std::thread kfTracker(bind(&GlobalRegistration::trackKeyFrames, globalRegistration, placeholders::_1), frame);
+        std::thread kfTracker(bind(&GlobalRegistration::trackKeyFrames, globalRegistration, placeholders::_1), frame);
         // track local frames
         localRegistration->localTrack(frame);
-        globalRegistration->trackKeyFrames(frame);
         // merging graph
         if(needMerge()) {
             Timer merger = Timer::startTimer("merge frames");
             shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
             merger.stopTimer();
-//            kfTracker.join();
+            kfTracker.join();
             globalRegistration->insertKeyFrames(kf);
             lastFrameIndex = frameCounter;
         }else {
-//            kfTracker.join();
+            kfTracker.join();
         }
     }
 
@@ -78,9 +77,9 @@ namespace rtf {
         }
 
         globalRegistration->registration(opt);
-        /*auto meshData = getVoxelFusion()->integrateFrames(getViewGraph());
+        auto meshData = getVoxelFusion()->integrateFrames(getViewGraph());
         cout << "show final mesh" << endl;
-        updateViewer(meshData);*/
+        updateViewer(meshData);
     }
 
     ViewGraph &OnlineReconstruction::getViewGraph() {

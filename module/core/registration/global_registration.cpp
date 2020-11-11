@@ -11,7 +11,6 @@ using namespace rtf::ViewGraphUtil;
 
 namespace rtf {
     void GlobalRegistration::registrationEGBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
-        stream = curStream;
         RANSAC2DReport eg = egRegistration->registrationFunction(*featureMatches);
         BAReport ba;
         if (eg.success) {
@@ -41,7 +40,6 @@ namespace rtf {
     }
 
     void GlobalRegistration::registrationHomoBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
-        stream = curStream;
         RANSAC2DReport homo = homoRegistration->registrationFunction(*featureMatches);
         BAReport ba;
         if (homo.success) {
@@ -102,7 +100,7 @@ namespace rtf {
     }
 
     void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
-//        stream = curStream;
+        stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
         /*if(near&&edge->isUnreachable()) {
             registrationEGBA(&featureMatches, edge, curStream);
@@ -152,47 +150,42 @@ namespace rtf {
             FeatureMatches featureMatches = matcher->matchKeyPointsPair(ref->getKps(),
                                                                         cur->getKps());
             cudaStreamCreate(&streams[index]);
-            /*threads[index] = new thread(
+            threads[index] = new thread(
                     bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                         placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], true);*/
-            registrationPairEdge(featureMatches, &edges[index], streams[index], true);
+                         placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], true);
             index++;
         }
 
         if (overlapFrames.size() < k) {
             std::vector<MatchScore> imageScores = dBoWHashing->queryImages(lastPos, &cur->getKps().getMBowVec(), notLost,  lostNum > 0);
             // Return all those keyframes with a score higher than 0.75*bestScore
-            float minScoreToRetain = globalConfig.minScore;
-            std::sort(imageScores.begin(), imageScores.end(), [=](MatchScore& ind1, MatchScore& ind2) {return ind1.imageId < ind2.imageId;});
             for (auto it: imageScores) {
                 const float &si = it.score;
-                if (si >= minScoreToRetain) {
-                    int refIndex = it.imageId;
-                    if (!spAlreadyAddedKF.count(refIndex)) {
-                        shared_ptr<KeyFrame> refKeyFrame = viewGraph.indexFrame(refIndex);
-                        spAlreadyAddedKF.insert(refIndex);
-                        overlapFrames.emplace_back(refIndex);
-                        int innerRefIndex = selectBestFrameFromKeyFrame(bow, refKeyFrame);
-                        innerIndexes.emplace_back(innerRefIndex);
-                        shared_ptr<Frame> ref = refKeyFrame->getFrame(innerRefIndex);
-                        FeatureMatches featureMatches = matcher->matchKeyPointsPair(ref->getKps(),
-                                                                                    cur->getKps());
-                        overlapFrames.emplace_back(refIndex);
-                        spAlreadyAddedKF.insert(refIndex);
-                        cudaStreamCreate(&streams[index]);
-                        /*threads[index] = new thread(
-                                bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                                     placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], false);*/
-                        registrationPairEdge(featureMatches, &edges[index], streams[index], false);
-                        index++;
-                    }
-                    if (overlapFrames.size() >= k) break;
+                int refIndex = it.imageId;
+                if (!spAlreadyAddedKF.count(refIndex)) {
+                    shared_ptr<KeyFrame> refKeyFrame = viewGraph.indexFrame(refIndex);
+                    spAlreadyAddedKF.insert(refIndex);
+                    overlapFrames.emplace_back(refIndex);
+                    int innerRefIndex = selectBestFrameFromKeyFrame(bow, refKeyFrame);
+                    if(innerRefIndex==-1) continue;
+                    innerIndexes.emplace_back(innerRefIndex);
+                    shared_ptr<Frame> ref = refKeyFrame->getFrame(innerRefIndex);
+                    FeatureMatches featureMatches = matcher->matchKeyPointsPair(ref->getKps(),
+                                                                                cur->getKps());
+                    overlapFrames.emplace_back(refIndex);
+                    spAlreadyAddedKF.insert(refIndex);
+                    cudaStreamCreate(&streams[index]);
+                    threads[index] = new thread(
+                            bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
+                                 placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], false);
+                    index++;
                 }
+                if (overlapFrames.size() >= k) break;
             }
         }
 
         for (int i = 0; i < index; i++) {
-//            threads[i]->join();
+            threads[i]->join();
             CUDA_CHECKED_CALL(cudaStreamSynchronize(streams[i]));
             CUDA_CHECKED_CALL(cudaStreamDestroy(streams[i]));
         }
@@ -275,7 +268,7 @@ namespace rtf {
             vector<Edge, Eigen::aligned_allocator<Edge>> pairEdges;
             registrationEdges(frame, overlapFrames, innerIndexes, pairEdges);
 
-            for(int i=0; i<overlapFrames.size(); i++) {
+            for(int i=0; i<pairEdges.size(); i++) {
                 if (!pairEdges[i].isUnreachable()) {
                     edges.emplace_back(pairEdges[i]);
                     curIndexes.emplace_back(frame->getFrameIndex());
