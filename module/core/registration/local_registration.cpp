@@ -241,8 +241,9 @@ namespace rtf {
         vector<vector<int>> connectedComponents = findConnectedComponents(localViewGraph, globalConfig.maxAvgCost);
         findShortestPathTransVec(localViewGraph, connectedComponents[0], gtTransVec);
 
+        cout << "multiview" << endl;
         BARegistration baRegistration(globalConfig);
-        baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0], gtTransVec);
+        baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0], gtTransVec).printReport();
 
         // 2. initialize key frame
         set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());

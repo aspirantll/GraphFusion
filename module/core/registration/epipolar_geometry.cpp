@@ -121,7 +121,7 @@ namespace rtf {
 
             computeResidualsCUDA(*cudaX, *cudaY, *cudaE, *cudaResidual);
 
-            vector<float> residuals(n);
+            vector<Scalar> residuals(n);
             cudaResidual->download(residuals.data(), 0, n);
             return vector<double>(residuals.begin(), residuals.end());
         }

@@ -50,6 +50,7 @@ namespace rtf {
         minInlierRatio = node["minInlierRatio"].as<float>();
         vocTxtPath = node["vocTxtPath"].as<string>();
         upperBoundResidual = node["upperBoundResidual"].as<float>();
+        chunkSize = node["chunkSize"].as<int>();
     }
 
     void GlobalConfig::saveToFile(const string &file) {
@@ -66,6 +67,7 @@ namespace rtf {
         node["minInlierRatio"] = minInlierRatio;
         node["vocTxtPath"] = vocTxtPath;
         node["upperBoundResidual"] = upperBoundResidual;
+        node["chunkSize"] = chunkSize;
 
         YAMLUtil::saveYAML(file, node);
     }

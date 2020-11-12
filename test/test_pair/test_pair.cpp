@@ -17,7 +17,7 @@ using namespace pcl;
 
 string workspace = "/media/liulei/Data/dataset/TUM/rgbd_dataset_freiburg1_room";
 double minDepth = 0.1;
-double maxDepth = 3;
+double maxDepth = 4;
 
 GlobalConfig globalConfig(workspace);
 EGRegistration *egRegistration;
@@ -125,12 +125,12 @@ int main() {
     cout << "frame_num: " << fileInputSource->getFrameNum() << endl;
 
     SIFTFeatureExtractor extractor;
-    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 0));
-//    ref->setDepthBounds(minDepth, maxDepth);
+    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 6));
+    ref->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(ref, ref->getKps());
 
-    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 1));
-//    cur->setDepthBounds(minDepth, maxDepth);
+    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 7));
+    cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
 
     SIFTFeatureMatcher matcher;

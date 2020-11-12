@@ -472,7 +472,9 @@ namespace rtf {
         report.pointsNum = totalCount;
         int m = gtTransVec.size();
         int n = deltaTransVec.size();
-        if(totalCount==0||n<=m-1) {
+        cout << "frame num:" << m << endl;
+        cout << "pose num:" << n << endl;
+        if(totalCount==0) {
             report.success = false;
             return report;
         }
@@ -523,7 +525,7 @@ namespace rtf {
             for(const auto& deltaSE: deltaSEs) {
                 deltaCost += ComputeHuberCost(deltaSE.squaredNorm(), kHuberWeight);
             }
-//            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
+            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
             cost += deltaCost;
             double meanTrace = 0;
             int num = 0;
@@ -600,9 +602,6 @@ namespace rtf {
         for(auto *ptr: deltaLMSummators) {
             delete ptr;
         }
-
-        // update edge transformation and cost
-//        updateEdges(viewGraph, gtSEs, gtTransVec, cudaEdgeVector);
 
         report.success = true;
         return report;

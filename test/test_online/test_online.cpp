@@ -28,6 +28,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     }
     ifstream gt(workspace+"/associate.txt", ios::in | ios::binary);
     ofstream estimate(workspace+"/online_estimate_" + to_string(globalConfig.overlapNum) + ".txt", ios::out | ios::binary);
+    ofstream mapping(workspace+"/mapping.txt", ios::out | ios::binary);
 
     string line;
     for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
@@ -46,6 +47,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
             GeoUtil::T2Rt(trans, R, t);
             Eigen::Quaternion<Scalar> q(R);
             estimate << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            mapping << gtParts[0] << " " << frame->getFrameIndex() << endl;
         }
     }
 }
@@ -75,7 +77,7 @@ void saveResult(ViewGraph& viewGraph) {
 
 int main(int argc, char* argv[]) {
     workspace = argv[1];
-    string configFile = workspace+"/online.yaml";
+    string configFile = argv[2];
     GlobalConfig globalConfig(workspace);
     globalConfig.loadFromFile(configFile);
     workspace = globalConfig.workspace;

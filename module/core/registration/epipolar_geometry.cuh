@@ -17,7 +17,7 @@ namespace rtf {
      * @param summator
      * @return
      */
-    float computeRMS(CUDAMatrixs &mat, CUDAMatrixs &meanPoint, Summator &summator);
+    Scalar computeRMS(CUDAMatrixs &mat, CUDAMatrixs &meanPoint, Summator &summator);
 
     /**
      * transform points

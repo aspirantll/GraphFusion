@@ -125,15 +125,15 @@ namespace rtf {
                 Transform trans = Transform::Identity();
                 int k = i;
                 int j = -1;
-//                cout << cc[0] << " to " << cc[i] << " path:" << cc[i] << "<-";
+                cout << viewGraph[cc[0]].getIndex() << " to " << viewGraph[cc[i]].getIndex() << " path:" << viewGraph[cc[i]].getIndex() << "<-";
                 while((j=path[k])!=-1) {
-//                    cout << cc[j] << "<-";
+                    cout << viewGraph[cc[j]].getIndex() << "<-";
                     Edge edge = viewGraph.getEdge(cc[j], cc[k]);
                     LOG_ASSERT(!edge.isUnreachable()) << " error in compute transformation for connected components: the edge is unreachable!";
                     trans = edge.getTransform()*trans;
                     k = j;
                 }
-//                cout << endl;
+                cout << endl;
                 transVec.emplace_back(trans);
             }
             return connected;

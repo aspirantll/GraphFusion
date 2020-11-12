@@ -76,7 +76,7 @@ namespace rtf {
 
     void computeBACost(CUDAMatrixs& objectPoints, CUDAMatrixs& tarPixels, float4x4& T, float3x3& K, CUDAMatrixc& mask, Summator& costSummator);
 
-    void computerInliers(Summator& costSummator, CUDAMatrixc& inliers, float th);
+    void computerInliers(Summator& costSummator, CUDAMatrixc& inliers, Scalar th);
 
     void computeMVBACostAndJacobi(CUDAEdgeVector &edges, CUDAVector<CUDALMSummators>& gtSummators, CUDAVector<CUDALMSummators>& deltaSummators, Summator& costSummator);
 

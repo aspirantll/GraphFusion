@@ -59,9 +59,7 @@ namespace rtf {
         int height = camera->getHeight();
 
         sceneRep->reset();
-        Eigen::Matrix3f intrinsicTrans = camera->getK().cast<float>();
-        Eigen::Matrix3f intrinsicTransInv = camera->getReverseK().cast<float>();
-        rayCast->setRayCastIntrinsics(width, height, MatrixConversion::toCUDA(intrinsicTrans), MatrixConversion::toCUDA(intrinsicTransInv));
+        rayCast->setRayCastIntrinsics(width, height, MatrixConversion::toCUDA(camera->getK()), MatrixConversion::toCUDA(camera->getReverseK()));
         marchingCubesHashSdf->clearMeshBuffer();
         int mergeCount = 0;
         Transform trans;

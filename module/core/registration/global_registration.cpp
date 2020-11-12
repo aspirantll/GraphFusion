@@ -218,8 +218,9 @@ namespace rtf {
             LOG_ASSERT(isConnected) << " occur a error: the view graph is not connected ";
             if (connectedComponents[i].size() > 1) {
                 BARegistration baRegistration(globalConfig);
+                cout << "multiview" << endl;
                 baRegistration.multiViewBundleAdjustment(viewGraph, connectedComponents[i],
-                                                         transforms[i], globalConfig.costThreshold);
+                                                         transforms[i]).printReport();
                 mergeComponentNodes(viewGraph, connectedComponents[i], transforms[i], nodes[i]);
             } else {
                 nodes[i] = viewGraph[connectedComponents[i][0]];
@@ -349,7 +350,9 @@ namespace rtf {
             refIndexes.clear();
             refInnerIndexes.clear();
 
-            mergeViewGraph();
+            if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
+                mergeViewGraph();
+            }
             lostNum = registration(false);
             updateLostFrames();
 

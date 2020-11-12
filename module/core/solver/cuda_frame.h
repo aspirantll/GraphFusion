@@ -43,18 +43,14 @@ public:
         minDepth = frame.getMinDepth();
         maxDepth = frame.getMaxDepth();
 
-        Eigen::Matrix3f intrinsicTrans = frame.getCamera()->getK().cast<float>();
-        intrinsic = MatrixConversion::toCUDA(intrinsicTrans);
-        Eigen::Matrix3f intrinsicTransInv = frame.getCamera()->getReverseK().cast<float>();
-        intrinsicInverse = MatrixConversion::toCUDA(intrinsicTransInv);
+        intrinsic = MatrixConversion::toCUDA(frame.getCamera()->getK());
+        intrinsicInverse = MatrixConversion::toCUDA(frame.getCamera()->getReverseK());
     }
 
 
     __host__ void setTransform(const Transform& trans) {
-        Eigen::Matrix4f  trans4f = trans.cast<float>();
-        transformation = MatrixConversion::toCUDA(trans4f);
-        Eigen::Matrix4f trans4fInv = rtf::GeoUtil::reverseTransformation(trans).cast<float>();
-        transformationInverse = MatrixConversion::toCUDA(trans4fInv);
+        transformation = MatrixConversion::toCUDA(trans);
+        transformationInverse = MatrixConversion::toCUDA(rtf::GeoUtil::reverseTransformation(trans));
     }
 
     __device__ inline bool isInCameraFrustumApprox(float3 globalPos) const {
