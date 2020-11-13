@@ -92,11 +92,12 @@ namespace rtf {
         if(x>=src.cols||y>=src.rows) return;
 
         ushort depth = src(y, x);
-        if(depth<=minDepth||depth>=maxDepth) {
-            dst(y, x) = 0.0;
-        }else {
-            dst(y, x) = depth * ds;
-        }
+        dst(y, x) = depth * ds;
+//        if(depth<=minDepth||depth>=maxDepth) {
+//            dst(y, x) = 0.0;
+//        }else {
+//
+//        }
     }
 
     __global__ void computeNormalKernel(cv::cuda::PtrStepSz<float4> normalImg, float3x3 invK) {

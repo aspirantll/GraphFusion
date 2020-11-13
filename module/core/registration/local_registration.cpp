@@ -242,8 +242,8 @@ namespace rtf {
         findShortestPathTransVec(localViewGraph, connectedComponents[0], gtTransVec);
 
         cout << "multiview" << endl;
-        BARegistration baRegistration(globalConfig);
-        baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0], gtTransVec).printReport();
+        MultiViewICP icp(globalConfig);
+        icp.multiViewICP(localViewGraph, connectedComponents[0], gtTransVec).printReport();
 
         // 2. initialize key frame
         set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());

@@ -221,6 +221,16 @@ namespace rtf {
         void registrationFunctionThread(FeatureMatches *featureMatches, RANSAC2DReport *report);
     };
 
+    class MultiViewICP {
+    private:
+        float relaxtion;
+        float distTh;
+    public:
+        MultiViewICP(const GlobalConfig& config);
+
+        BAReport multiViewICP(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold=1);
+    };
+
     class LocalRegistration {
     protected:
         GlobalConfig globalConfig;

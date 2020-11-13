@@ -111,8 +111,14 @@ namespace rtf {
                 if(maskMatrix[index]) {
                     long mi, mj;
                     rightMatches.convert2DIndex(matchMatrix[index], &mi, &mj);
-                    kp1.emplace_back(i, j, f1->getDepth(Point2D(i,j)));
-                    kp2.emplace_back(mi, mj, f2->getDepth(Point2D(mi, mj)));
+
+                    Point2D p1 = Point2D(i, j);
+                    Point2D p2 = Point2D(mi, mj);
+
+                    if(f1->inDepthMask(p1)&&f2->inDepthMask(p2)) {
+                        kp1.emplace_back(i, j, f1->getDepth(p1));
+                        kp2.emplace_back(mi, mj, f2->getDepth(p2));
+                    }
                 }
             }
         }

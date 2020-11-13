@@ -95,9 +95,8 @@ int main(int argc, char* argv[]) {
     OnlineReconstruction onlineRecon(globalConfig);
     for(int i=0; i<fileInputSource->getFrameNum(); i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
-        frame->setDepthBounds(minDepth, maxDepth);
         onlineRecon.appendFrame(frame);
-        frame->releaseImages();
+//        frame->releaseImages();
     }
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();

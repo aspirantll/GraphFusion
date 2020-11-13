@@ -217,9 +217,9 @@ namespace rtf {
             bool isConnected = findShortestPathTransVec(viewGraph, connectedComponents[i], transforms[i]);
             LOG_ASSERT(isConnected) << " occur a error: the view graph is not connected ";
             if (connectedComponents[i].size() > 1) {
-                BARegistration baRegistration(globalConfig);
                 cout << "multiview" << endl;
-                baRegistration.multiViewBundleAdjustment(viewGraph, connectedComponents[i],
+                MultiViewICP icp(globalConfig);
+                icp.multiViewICP(viewGraph, connectedComponents[i],
                                                          transforms[i]).printReport();
                 mergeComponentNodes(viewGraph, connectedComponents[i], transforms[i], nodes[i]);
             } else {
@@ -402,9 +402,8 @@ namespace rtf {
                 TransformVector gtTransVec;
                 findShortestPathTransVec(viewGraph, cc, gtTransVec);
                 if(opt) {
-                    BARegistration baRegistration(globalConfig);
-                    BAReport report = baRegistration.multiViewBundleAdjustment(viewGraph, cc, gtTransVec);
-                    report.printReport();
+                    MultiViewICP icp(globalConfig);
+                    icp.multiViewICP(viewGraph, cc, gtTransVec).printReport();
                 }
                 for (int j = 1; j < cc.size(); j++) {
                     viewGraph[cc[j]].nGtTrans = viewGraph[cc[0]].nGtTrans*gtTransVec[j];
