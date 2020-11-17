@@ -177,7 +177,6 @@ namespace rtf {
             rms += (pixels.row(k).transpose() - mean).squaredNorm() / pointNum;
         }
         rms = sqrt(rms);
-//        cout << "rms:" << rms << endl;
         if (rms < rmsThreshold) {
             BAReport report;
             report.success = false;
@@ -192,11 +191,14 @@ namespace rtf {
         if (robust) {
             const int its = 4;
             for (int it = 0; it < its; it++) {
-                report = bundleAdjustment(R, t, iterations);
+                report = bundleAdjustment(R, t, 10);
                 // exchange the pointer
                 CUDAMatrixc * temp = cudaMask;
                 cudaMask = cudaMaskBak;
                 cudaMaskBak = temp;
+                if(report.iterations < iterations) {
+                    break;
+                }
             }
 
             // update keypoints
@@ -211,7 +213,10 @@ namespace rtf {
                     kys->emplace_back(bKys[i]);
                 }
             }
-            report.success = kxs->size() >= max(pointNum*minInlierRatio, minInliers);
+            report.success = kxs->size()>=minInliers;
+            if(report.success) {
+                report = bundleAdjustment(R, t, iterations);
+            }
         } else {
             report = bundleAdjustment(R, t, iterations);
             report.success = true;
@@ -235,7 +240,7 @@ namespace rtf {
         delete bSummator;
     }
 
-    BAReport BARegistration::bundleAdjustment(Rotation &R, Translation &t, int iterations) {
+    BAReport BARegistration::bundleAdjustment(Rotation R, Translation t, int iterations) {
         BAReport report;
         report.pointsNum = cudaPoints->getRows();
 
@@ -364,16 +369,15 @@ namespace rtf {
             report.iterations = i + 1;
 
             if (!update_accepted) {
-                report.success = cost < kEpsilon;
                 break;
             }
 
             if (cost < kEpsilon) {
-                report.success = true;
                 break;
             }
         }
         GeoUtil::Rt2T(R, t, report.T);
+        report.success = true;
         return report;
     }
 

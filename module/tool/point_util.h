@@ -6,6 +6,8 @@
 #define GraphFusion_POINT_UTIL_H
 
 #include "../datastructure/point_types.h"
+#include "../datastructure/camera.h"
+
 #include <vector>
 #include <opencv2/core/core.hpp>
 #include <pcl/point_cloud.h>
@@ -26,10 +28,13 @@ namespace rtf {
 
         cv::Mat point2Mat(Point3D point);
 
-
         MatrixX vec2Matrix(const vector<Point3D> &pointVec);
 
         MatrixX vec2Matrix(const vector<Point2D> &pixelVec);
+
+        Vector3 transformPoint(Vector3 point, Transform trans);
+
+        Point3D transformPixel(Point3D pixel, Transform trans, shared_ptr<Camera> camera);
 
         bool savePLYPointCloud(string path, pcl::PointCloud<pcl::PointXYZRGBNormal>& pointCloud);
 

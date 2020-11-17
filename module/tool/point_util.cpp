@@ -60,6 +60,18 @@ namespace rtf {
             return matrix;
         }
 
+        Vector3 transformPoint(Vector3 point, Transform trans) {
+            return trans.block<3, 3>(0,0)*point + trans.block<3, 1>(0,3);
+        }
+
+        Point3D transformPixel(Point3D pixel, Transform trans, shared_ptr<Camera> camera) {
+            Vector3 p = transformPoint(camera->getCameraModel()->unproject(pixel.x, pixel.y, pixel.z), trans);
+            p = camera->getK()*p;
+            return Point3D(p.x()/p.z(), p.y()/p.z(), p.z());
+        }
+
+
+
         bool savePLYPointCloud(string path, pcl::PointCloud<pcl::PointXYZRGBNormal>& pointCloud) {
             pcl::PCLPointCloud2 blob;
             pcl::toPCLPointCloud2(pointCloud, blob);

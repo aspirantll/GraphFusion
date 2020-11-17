@@ -10,6 +10,26 @@
 
 
 namespace rtf {
+    void toDescriptorVector(SIFTFeatureDescriptors & desc, vector<vector<float>>&converted) {
+        converted.reserve(desc.rows());
+        for(int i=0; i<desc.rows(); i++) {
+            vector<float> row(desc.cols());
+            for(int j=0; j<desc.cols(); j++) {
+                row[j] = desc(i, j);
+            }
+            converted.emplace_back(row);
+        }
+    }
+
+    void SIFTVocabulary::computeBow(SIFTFeaturePoints& sf) {
+        auto & bowVec = sf.getMBowVec();
+        auto & featVec = sf.getMFeatVec();
+        if(bowVec.empty()) {
+            vector<vector<float>> vCurrentDesc;
+            toDescriptorVector(sf.getDescriptors(), vCurrentDesc);
+            transform(vCurrentDesc, bowVec, featVec, 4);
+        }
+    }
     MatchScore::MatchScore() {}
     MatchScore::MatchScore(int imageId, float score) : imageId(imageId), score(score) {}
 
@@ -161,17 +181,6 @@ namespace rtf {
     DBoWHashing::~DBoWHashing() {
         delete items;
         delete queryPool;
-    }
-
-    void toDescriptorVector(SIFTFeatureDescriptors & desc, vector<vector<float>>&converted) {
-        converted.reserve(desc.rows());
-        for(int i=0; i<desc.rows(); i++) {
-            vector<float> row(desc.cols());
-            for(int j=0; j<desc.cols(); j++) {
-                row[j] = desc(i, j);
-            }
-            converted.emplace_back(row);
-        }
     }
 
     uint DBoWHashing::hashFunction(int3 pos) {

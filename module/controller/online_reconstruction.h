@@ -31,7 +31,6 @@ namespace rtf {
         int lastFrameIndex;
         int frameCounter;
 
-        void computeBow(SIFTFeaturePoints& sf);
         bool needMerge();
 
         VoxelFusion* getVoxelFusion();

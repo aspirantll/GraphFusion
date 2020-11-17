@@ -5,8 +5,6 @@
 #ifndef GraphFusion_FEATURE_MATCHER_H
 #define GraphFusion_FEATURE_MATCHER_H
 
-#include <DBoW2/TemplatedVocabulary.h>
-#include <DBoW2/FSIFT.h>
 #include <vector>
 
 #include "base_feature.h"
@@ -15,9 +13,6 @@
 #include "../datastructure/point_types.h"
 
 using namespace std;
-
-typedef DBoW2::TemplatedVocabulary<DBoW2::FSIFT::TDescriptor, DBoW2::FSIFT>
-        SIFTVocabulary;
 
 namespace rtf {
 
@@ -69,6 +64,9 @@ namespace rtf {
 
         // Whether to perform guided matching, if geometric verification succeeds.
         bool guided_matching = false;
+
+        // search radius for projection
+        float search_radius = 10;
     };
 
     class SIFTFeatureMatcher {
@@ -84,6 +82,8 @@ namespace rtf {
         void initializeSiftMatchGPU();
 
         FeatureMatches matchKeyPointsPair(SIFTFeaturePoints& k1, SIFTFeaturePoints& k2);
+
+        FeatureMatches matchKeyPointsWithProjection(SIFTFeaturePoints& k1, SIFTFeaturePoints& k2, Transform T);
     };
 
     void toDescriptorVector(SIFTFeatureDescriptors & desc, vector<vector<float>>&converted);

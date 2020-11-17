@@ -16,7 +16,9 @@ namespace rtf {
     class Frame: public FrameRGBDT {
     protected:
         SIFTFeaturePoints kps;
+
         bool visible;
+
     public:
 
         Frame(YAML::Node serNode);
@@ -39,6 +41,7 @@ namespace rtf {
         vector<shared_ptr<Frame>> frames;
         map<int, int> indexToInnerMap;
         Transform transform;
+        SIFTFeaturePoints kps;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -63,6 +66,10 @@ namespace rtf {
         shared_ptr<Frame> getFirstFrame();
 
         shared_ptr<Frame> getFrame(int frameIndex);
+
+        SIFTFeaturePoints &getKps();
+
+        void setKps(const SIFTFeaturePoints &kps);
     };
 
     class Edge {

@@ -108,10 +108,6 @@ namespace rtf {
 
         void releaseDepthImage();
 
-        bool inAlignBox(Point2D pixel);
-
-        void setAlignMargin(int left, int right, int top, int bottom);
-
         double getDepth(Point2D pixel);
 
         bool inDepthMask(Point2D pixel);

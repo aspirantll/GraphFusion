@@ -21,17 +21,6 @@ namespace rtf {
         frameCounter = 0;
     }
 
-
-    void OnlineReconstruction::computeBow(SIFTFeaturePoints& sf) {
-        auto & bowVec = sf.getMBowVec();
-        auto & featVec = sf.getMFeatVec();
-        if(bowVec.empty()) {
-            vector<vector<float>> vCurrentDesc;
-            toDescriptorVector(sf.getDescriptors(), vCurrentDesc);
-            siftVocabulary->transform(vCurrentDesc,bowVec,featVec,4);
-        }
-    }
-
     bool OnlineReconstruction::needMerge() {
         return frameCounter-lastFrameIndex>=globalConfig.chunkSize;
     }
@@ -50,7 +39,6 @@ namespace rtf {
         // extract sift feature points
         extractor->extractFeatures(frameRGBD, frame->getKps());
         if(frame->getKps().empty()) return;
-        computeBow(frame->getKps());
 
         // track the keyframes database
         std::thread kfTracker(bind(&GlobalRegistration::trackKeyFrames, globalRegistration, placeholders::_1), frame);

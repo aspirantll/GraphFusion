@@ -83,6 +83,14 @@ namespace rtf {
         return frames[innerIndex];
     }
 
+    SIFTFeaturePoints &KeyFrame::getKps() {
+        return kps;
+    }
+
+    void KeyFrame::setKps(const SIFTFeaturePoints &kps) {
+        KeyFrame::kps = kps;
+    }
+
     Transform Edge::getTransform() {
         return transformation;
     }

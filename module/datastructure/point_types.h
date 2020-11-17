@@ -11,8 +11,8 @@
 namespace rtf {
     class Point2D{
     public:
-        double x;
-        double y;
+        Scalar x;
+        Scalar y;
 
         Point2D() {
 
@@ -23,7 +23,7 @@ namespace rtf {
             this->y = src[1];
         }
 
-        Point2D(double x, double y) {
+        Point2D(Scalar x, Scalar y) {
             this->x = x;
             this->y = y;
         }
@@ -38,7 +38,7 @@ namespace rtf {
 
     class Point3D: public Point2D, public Serializable {
     public:
-        double z;
+        Scalar z;
 
 
         Point3D() {
@@ -46,9 +46,9 @@ namespace rtf {
         }
 
         Point3D(YAML::Node serNode) {
-            x = serNode["x"].as<double>();
-            y = serNode["y"].as<double>();
-            z = serNode["z"].as<double>();
+            x = serNode["x"].as<Scalar>();
+            y = serNode["y"].as<Scalar>();
+            z = serNode["z"].as<Scalar>();
         }
 
         Point3D(const Vector3& src) {
@@ -57,7 +57,7 @@ namespace rtf {
             this->z = src[2];
         }
 
-        Point3D(double x, double y, double z) {
+        Point3D(Scalar x, Scalar y, Scalar z) {
             this->x = x;
             this->y = y;
             this->z = z;

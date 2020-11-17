@@ -125,19 +125,32 @@ int main() {
     cout << "frame_num: " << fileInputSource->getFrameNum() << endl;
 
     SIFTFeatureExtractor extractor;
-    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 6));
+    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 0));
     ref->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(ref, ref->getKps());
 
-    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 7));
+    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 1));
     cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
+
+    auto fur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 2));
+    fur->setDepthBounds(minDepth, maxDepth);
+    extractor.extractFeatures(fur, fur->getKps());
 
     SIFTFeatureMatcher matcher;
     FeatureMatches featureMatches = matcher.matchKeyPointsPair(ref->getKps(), cur->getKps());
     ImageUtil::drawMatches(featureMatches, ref, cur, workspace+"/matches.png");
+/*    int dotSum = 0;
+    for(int i=0; i<featureMatches.size(); i++) {
+        FeatureMatch match = featureMatches.getMatch(i);
+        Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor> d1 = featureMatches.getFp1().getDescriptors().row(match.getPX());
+        Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor> d2 = featureMatches.getFp2().getDescriptors().row(match.getPY());
+        int dist = d1.dot(d2);
+        cout << dist << endl;
+        dotSum += dist;
+    }
+    cout << "mean: " << dotSum/featureMatches.size() << endl;*/
 
-    time_t start = clock();
     egRegistration = new EGRegistration(globalConfig);
     homoRegistration = new HomographyRegistration(globalConfig);
     pnpRegistration = new PnPRegistration(globalConfig);
@@ -150,8 +163,41 @@ int main() {
         auto curPc = cur->calculatePointCloud();
         pcl::transformPointCloud(*curPc, *curPc, edge.getTransform());
         *pc += *curPc;
-        PointUtil::savePLYPointCloud("/home/liulei/桌面/pnp.ply", *pc);
+        PointUtil::savePLYPointCloud("/home/liulei/桌面/pnp01.ply", *pc);
     }
 
+    {
+        auto pc = cur->calculatePointCloud();
+        auto curPc = fur->calculatePointCloud();
+        pcl::transformPointCloud(*curPc, *curPc, edge.getTransform());
+        *pc += *curPc;
+        PointUtil::savePLYPointCloud("/home/liulei/桌面/vecity12.ply", *pc);
+    }
+
+    time_t start = clock();
+    featureMatches = matcher.matchKeyPointsWithProjection(cur, fur, edge.getTransform());
+    cout << "match:" << double(clock()-start)/CLOCKS_PER_SEC << endl;
+    ImageUtil::drawMatches(featureMatches, cur, fur, workspace+"/motion_matches.png");
+
+    vector<FeatureKeypoint> kxs, kys;
+    featureMatchesToPoints(featureMatches, kxs, kys);
+
+    BARegistration baRegistration(globalConfig);
+    BAReport ba = baRegistration.bundleAdjustment(edge.getTransform(), featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
+    cout << "motion time:" << double(clock()-start)/CLOCKS_PER_SEC << endl;
+    cout << "--------------------------------Motion------------------------------------------" << endl;
+    ba.printReport();
+    if (ba.success) {
+        double cost = ba.avgCost();
+        if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+            auto pc = cur->calculatePointCloud();
+            auto curPc = fur->calculatePointCloud();
+            pcl::transformPointCloud(*curPc, *curPc, edge.getTransform());
+            *pc += *curPc;
+            PointUtil::savePLYPointCloud("/home/liulei/桌面/motion12.ply", *pc);
+        }
+    }
+
+    ImageUtil::drawMatches(kxs, kys, cur, fur, workspace+"/motion_inliers.png");
     return 0;
 }

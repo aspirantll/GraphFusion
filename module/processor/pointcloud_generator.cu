@@ -6,13 +6,12 @@
 
 
 namespace rtf {
-    __global__ void generatePointCloud(pcl::gpu::PtrSz<pcl::PointXYZRGBNormal> cloudDevice, cv::cuda::PtrStepSz<uchar4> rgbImg, cv::cuda::PtrStepSz<float> depthImg, cv::cuda::PtrStepSz<float4> normalImg, CUDAPtrs kInv,
-                                       int left, int right, int top, int bottom, int* pointCount) {
+    __global__ void generatePointCloud(pcl::gpu::PtrSz<pcl::PointXYZRGBNormal> cloudDevice, cv::cuda::PtrStepSz<uchar4> rgbImg, cv::cuda::PtrStepSz<float> depthImg, cv::cuda::PtrStepSz<float4> normalImg, CUDAPtrs kInv, int* pointCount) {
         // compute row and col
         int index = threadIdx.x + blockDim.x * blockIdx.x;
         int width=depthImg.cols, height=depthImg.rows;
         int row = index/height, col = index%height;
-        if(row<=left||row>=width-right||col<=top||col>=height-bottom) return;
+        if(row<0||row>=width||col<0||col>=height) return;
         double depth = depthImg(col, row);
 
         __shared__ int localCounter;
@@ -74,7 +73,7 @@ namespace rtf {
         CUDA_CHECKED_CALL(cudaMemcpyAsync(devicePointCount, &pointCount, sizeof(int), cudaMemcpyHostToDevice, stream));
 
         CUDA_LINE_BLOCK(width*height);
-        generatePointCloud<<<grid, block, 0, stream>>>(cloudDevice, rgbImg, depthImg, normalImg, kInv, camera->alignLeftMargin, camera->alignRightMargin, camera->alignTopMargin, camera->alignBottomMargin, devicePointCount);
+        generatePointCloud<<<grid, block, 0, stream>>>(cloudDevice, rgbImg, depthImg, normalImg, kInv, devicePointCount);
         CUDA_CHECKED_NO_ERROR();
 
         CUDA_CHECKED_CALL(cudaMemcpyAsync(&pointCount, devicePointCount, sizeof(int), cudaMemcpyDeviceToHost, stream));

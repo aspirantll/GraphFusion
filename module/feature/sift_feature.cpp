@@ -9,10 +9,8 @@
 
 #include "feature2d.h"
 #include "feature_matcher.h"
-#include "sift_feature.cuh"
 #include "../tool/math.h"
 #include "../processor/image_cuda.cuh"
-#include "../processor/downsample.h"
 #include <FreeImage.h>
 #include <GL/gl.h>
 
@@ -234,7 +232,7 @@ namespace rtf {
                         TruncateCast<float, uint8_t>(scaled_value);
             }
         }
-
+        siftFeaturePoints.assignFeaturesToGrid();
     }
     // feature extractor end
 
@@ -392,6 +390,82 @@ namespace rtf {
         } else {
             for(int i=0; i<num_matches; i++) {
                 matches.emplace_back(match_buffer[i][0], match_buffer[i][1]);
+            }
+        }
+
+        // check orientation
+        vector<int> rotHist[HISTO_LENGTH];
+        for(int i=0;i<HISTO_LENGTH;i++)
+            rotHist[i].reserve(500);
+        const float factor = 1.0f/HISTO_LENGTH;
+        for(int i=0; i<matches.size(); i++) {
+            int ind1 = matches[i].getPX();
+            int ind2 = matches[i].getPY();
+
+            auto kp1 = (SIFTFeatureKeypoint*)k1.getKeyPoints()[ind1].get();
+            auto kp2 = (SIFTFeatureKeypoint*)k2.getKeyPoints()[ind2].get();
+
+            float rot = kp1->ComputeOrientation() - kp2->ComputeOrientation();
+            if (rot < 0.0)
+                rot += 360.0f;
+            int bin = round(rot * factor);
+            if (bin == HISTO_LENGTH)
+                bin = 0;
+            assert(bin >= 0 && bin < HISTO_LENGTH);
+            rotHist[bin].push_back(i);
+        }
+
+        int ind1=-1;
+        int ind2=-1;
+        int ind3=-1;
+
+        computeThreeMaxima(rotHist,HISTO_LENGTH,ind1,ind2,ind3);
+
+        FeatureMatches featureMatches(k1, k2, vector<FeatureMatch>());
+        for(int i=0; i<HISTO_LENGTH; i++)
+        {
+            if(i==ind1 || i==ind2 || i==ind3) {
+                for(int j=0; j<rotHist[i].size(); j++) {
+                    featureMatches.getMatches().emplace_back(matches[rotHist[i][j]]);
+                }
+            }
+        }
+
+        return featureMatches;
+    }
+
+    FeatureMatches SIFTFeatureMatcher::matchKeyPointsWithProjection(SIFTFeaturePoints& k1, SIFTFeaturePoints& k2, Transform T) {
+        vector<FeatureMatch> matches;
+
+        for(int i=0; i<k2.size(); i++) {
+            shared_ptr<FeatureKeypoint> kp = k2.getKeypoint(i);
+            Eigen::Matrix<int , 1, -1, Eigen::RowMajor> d2 = k2.getDescriptors().row(i).cast<int>();
+            Point3D rePixel = PointUtil::transformPixel(*kp, T, k2.getCamera());
+            if(rePixel.x<k1.getCamera()->getMinX()||rePixel.x>=k1.getCamera()->getMaxX()
+               ||rePixel.y<k1.getCamera()->getMinY()||rePixel.y>=k1.getCamera()->getMaxY()) continue;
+
+            vector<int> indices = k1.getFeaturesInArea(rePixel.x, rePixel.y, config.search_radius);
+            float bestDist = 0;
+            float nxtDist = 0;
+            int bestIdx = -1;
+
+            for(int ind: indices)  {
+                Eigen::Matrix<int, 1, -1, Eigen::RowMajor> d1 = k1.getDescriptors().row(ind).cast<int>();
+
+                const float dist = d1.dot(d2); // dot product for distance
+
+                if(dist>bestDist) {
+                    nxtDist = bestDist;
+                    bestDist=dist;
+                    bestIdx=ind;
+                }else {
+                    nxtDist = max(nxtDist, dist);
+                }
+            }
+            float dist =  acos(min(bestDist * 0.000003814697265625f, 1.0f));
+            float nDist =  acos(min(nxtDist * 0.000003814697265625f, 1.0f));
+            if(dist<config.max_distance&&dist < nDist * config.max_ratio)  {
+                matches.emplace_back(bestIdx, i);
             }
         }
 

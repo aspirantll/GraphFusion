@@ -4,6 +4,8 @@
 
 #include "camera.h"
 #include "../controller/config.h"
+#include <opencv2/calib3d.hpp>
+#include <opencv2/core/eigen.hpp>
 
 namespace rtf {
     /* CameraModel start */
@@ -106,6 +108,7 @@ namespace rtf {
         this->depthScale = serNode["depthScale"].as<double>();
         YAMLUtil::baseArrayDeserialize(serNode["distCoef"], distCoef);
         pinholeCameraModel = make_shared<PinholeCameraModel>(PinholeCameraModel(this->getK(), this->getReverseK(), width, height, depthScale));
+        computeBounds();
     }
 
     Camera::Camera(string serNum, double fx, double fy, double cx, double cy, int width, int height, double depthScale, double distCoef[5])
@@ -119,6 +122,38 @@ namespace rtf {
         }
 
         pinholeCameraModel = make_shared<PinholeCameraModel>(PinholeCameraModel(this->getK(), this->getReverseK(), width, height, depthScale));
+        computeBounds();
+    }
+
+    void Camera::computeBounds() {
+        if(distCoef[0]!=0.0)
+        {
+            cv::Mat mat(4,2,CV_32F);
+            mat.at<float>(0,0)=0.0; mat.at<float>(0,1)=0.0;
+            mat.at<float>(1,0)=width; mat.at<float>(1,1)=0.0;
+            mat.at<float>(2,0)=0.0; mat.at<float>(2,1)=height;
+            mat.at<float>(3,0)=width; mat.at<float>(3,1)=height;
+
+            cv::Mat K;
+            cv::eigen2cv(getK(), K);
+            // Undistort corners
+            mat=mat.reshape(2);
+            cv::undistortPoints(mat, mat, K, getDistCoef(), cv::Mat(), K);
+            mat=mat.reshape(1);
+
+            minX = min(mat.at<float>(0,0),mat.at<float>(2,0));
+            maxX = max(mat.at<float>(1,0),mat.at<float>(3,0));
+            minY = min(mat.at<float>(0,1),mat.at<float>(1,1));
+            maxY = max(mat.at<float>(2,1),mat.at<float>(3,1));
+
+        }
+        else
+        {
+            minX = 0.0f;
+            maxX = width;
+            minY = 0.0f;
+            maxY = height;
+        }
     }
 
     string Camera::getSerNum() {
@@ -203,6 +238,22 @@ namespace rtf {
 
     double Camera::getCy() const {
         return cy;
+    }
+
+    float Camera::getMinX() const {
+        return minX;
+    }
+
+    float Camera::getMaxX() const {
+        return maxX;
+    }
+
+    float Camera::getMinY() const {
+        return minY;
+    }
+
+    float Camera::getMaxY() const {
+        return maxY;
     }
     /* Camera end */
 

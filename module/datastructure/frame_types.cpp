@@ -152,22 +152,6 @@ namespace rtf {
         this->depthImage = nullptr;
     }
 
-    bool FrameDepth::inAlignBox(Point2D pixel) {
-        int height = depthImage->rows;
-        int width = depthImage->cols;
-        return pixel.x >= left && pixel.x <= width - right && pixel.y >= top && pixel.y <= height - bottom;
-    }
-
-
-    void FrameDepth::setAlignMargin(int left, int right, int top, int bottom) {
-        this->left = left;
-        this->right = right;
-        this->top = top;
-        this->bottom = bottom;
-
-    }
-
-
     bool FrameDepth::inDepthMask(Point2D pixel) {
         double depth = getDepth(pixel);
         return depth >= minDepth && depth <= maxDepth;

@@ -99,19 +99,20 @@ namespace rtf {
         double depthScale;
         double distCoef[5] = {0.0};
 
+        float minX;
+        float maxX;
+        float minY;
+        float maxY;
+
         // camera model
         shared_ptr<PinholeCameraModel> pinholeCameraModel;
 
     public:
-        // align box
-        int alignLeftMargin = 0;
-        int alignRightMargin = 0;
-        int alignTopMargin = 0;
-        int alignBottomMargin = 0;
-
         Camera(YAML::Node serNode);
 
         Camera(string serNum, double fx, double fy, double cx, double cy, int width, int height, double depthScale=-1, double distCoef[5]={0});
+
+        void computeBounds();
 
         string getSerNum();
 
@@ -134,6 +135,14 @@ namespace rtf {
         int getHeight();
 
         double getDepthScale();
+
+        float getMinX() const;
+
+        float getMaxX() const;
+
+        float getMinY() const;
+
+        float getMaxY() const;
 
         shared_ptr<CameraModel> getCameraModel(CameraModelType type=DEFAULT);
 

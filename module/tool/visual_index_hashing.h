@@ -13,10 +13,12 @@
 #include <DBoW2/TemplatedVocabulary.h>
 #include <DBoW2/FSIFT.h>
 
-typedef DBoW2::TemplatedVocabulary<DBoW2::FSIFT::TDescriptor, DBoW2::FSIFT>
-        SIFTVocabulary;
-
 namespace rtf {
+    class SIFTVocabulary : public DBoW2::TemplatedVocabulary<DBoW2::FSIFT::TDescriptor, DBoW2::FSIFT>{
+    public:
+        void computeBow(SIFTFeaturePoints& sf);
+    };
+
     class VIHConfig {
     public:
         int maxVINum = 500;

@@ -51,6 +51,8 @@ namespace rtf {
     };
 
 
+#define FRAME_GRID_ROWS 48
+#define FRAME_GRID_COLS 64
     template <class T>
     class FeaturePoints: public Serializable {
     protected:
@@ -60,6 +62,14 @@ namespace rtf {
         FeatureDescriptors<T> descriptors;
         DBoW2::BowVector mBowVec;
         DBoW2::FeatureVector mFeatVec;
+
+        float minX;
+        float maxX;
+        float minY;
+        float maxY;
+        float gridElementWidthInv;
+        float gridElementHeightInv;
+        vector<int> grid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -84,10 +94,92 @@ namespace rtf {
 
         void setCamera(const shared_ptr<Camera> &camera) {
             FeaturePoints::camera = camera;
+            setBounds(camera->getMinX(), camera->getMaxX(), camera->getMinY(), camera->getMaxY());
         }
 
         shared_ptr<Camera> getCamera() {
             return this->camera;
+        }
+
+        shared_ptr<FeatureKeypoint> getKeypoint(int index) {
+            CHECK_LT(index, this->keyPoints.size());
+            return this->keyPoints[index];
+        }
+
+        void setBounds(float minX, float maxX, float minY, float maxY) {
+            this->minX = minX;
+            this->maxX = maxX;
+            this->minY = minY;
+            this->maxY = maxY;
+            gridElementWidthInv= static_cast<float>(FRAME_GRID_COLS) / (maxX-minX);
+            gridElementHeightInv= static_cast<float>(FRAME_GRID_ROWS) / (maxY-minY);
+        }
+
+        bool posInGrid(const shared_ptr<FeatureKeypoint> &kp, int &posX, int &posY) {
+            posX = round((kp->x-camera->getMinX()) * gridElementWidthInv);
+            posY = round((kp->y-camera->getMinY()) * gridElementHeightInv);
+
+            //Keypoint's coordinates are undistorted, which could cause to go out of the image
+            if(posX<0 || posX>=FRAME_GRID_COLS || posY<0 || posY>=FRAME_GRID_ROWS)
+                return false;
+
+            return true;
+        }
+
+        void assignFeaturesToGrid() {
+            int nReserve = size()/(FRAME_GRID_COLS*FRAME_GRID_ROWS);
+            for(unsigned int i=0; i<FRAME_GRID_COLS;i++)
+                for (unsigned int j=0; j<FRAME_GRID_ROWS;j++)
+                    grid[i][j].reserve(nReserve);
+
+            for(int i=0;i<size();i++) {
+                const shared_ptr<FeatureKeypoint> kp = getKeypoint(i);
+
+                int nGridPosX, nGridPosY;
+                if(posInGrid(kp,nGridPosX,nGridPosY))
+                    grid[nGridPosX][nGridPosY].push_back(i);
+            }
+        }
+
+        vector<int> getFeaturesInArea(const float &x, const float  &y, const float  &r) {
+            vector<int> vIndices;
+            vIndices.reserve(size());
+
+            const int nMinCellX = max(0,(int)floor((x-camera->getMinX()-r)*gridElementWidthInv));
+            if(nMinCellX>=FRAME_GRID_COLS)
+                return vIndices;
+
+            const int nMaxCellX = min((int)FRAME_GRID_COLS-1,(int)ceil((x-camera->getMinX()+r)*gridElementWidthInv));
+            if(nMaxCellX<0)
+                return vIndices;
+
+            const int nMinCellY = max(0,(int)floor((y-camera->getMinY()-r)*gridElementHeightInv));
+            if(nMinCellY>=FRAME_GRID_ROWS)
+                return vIndices;
+
+            const int nMaxCellY = min((int)FRAME_GRID_ROWS-1,(int)ceil((y-camera->getMinY()+r)*gridElementHeightInv));
+            if(nMaxCellY<0)
+                return vIndices;
+
+            for(int ix = nMinCellX; ix<=nMaxCellX; ix++) {
+                for(int iy = nMinCellY; iy<=nMaxCellY; iy++) {
+                    const vector<int> vCell = grid[ix][iy];
+                    if(vCell.empty())
+                        continue;
+
+                    for(int j=0, jend=vCell.size(); j<jend; j++) {
+                        const shared_ptr<FeatureKeypoint> kp = getKeypoint(vCell[j]);
+
+                        const float distx = kp->x-x;
+                        const float disty = kp->y-y;
+
+                        if(fabs(distx)<r && fabs(disty)<r)
+                            vIndices.push_back(vCell[j]);
+                    }
+                }
+            }
+
+            return vIndices;
         }
 
         FeatureKeypoints& getKeyPoints() {
@@ -108,6 +200,26 @@ namespace rtf {
 
         bool empty() {
             return this->keyPoints.empty();
+        }
+
+        int size() {
+            return this->keyPoints.size();
+        }
+
+        float getMinX() const {
+            return minX;
+        }
+
+        float getMaxX() const {
+            return maxX;
+        }
+
+        float getMinY() const {
+            return minY;
+        }
+
+        float getMaxY() const {
+            return maxY;
         }
 
         YAML::Node serialize() override {
@@ -245,6 +357,8 @@ namespace rtf {
 
 
     void featureIndexesToPoints(const FeatureKeypoints& features, const vector<int>& featureIndexes, vector<FeatureKeypoint>& points);
+
+    void featureMatchesToPoints(FeatureMatches& featureMatches, vector<FeatureKeypoint>& kxs, vector<FeatureKeypoint>& kys);
 
     void downFeatureToSift(const FeatureKeypoints& src, SIFTFeatureKeypoints& target);
 

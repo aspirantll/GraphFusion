@@ -81,7 +81,7 @@ namespace rtf {
         vector<FeatureKeypoint> *kxs;
         vector<FeatureKeypoint> *kys;
 
-        BAReport bundleAdjustment(Rotation &R, Translation &t, int iterations);
+        BAReport bundleAdjustment(Rotation R, Translation t, int iterations);
 
     public:
         BARegistration(const GlobalConfig &config);
@@ -224,7 +224,7 @@ namespace rtf {
     class MultiViewICP {
     private:
         float relaxtion;
-        float distTh;
+        float rmsThreshold;
     public:
         MultiViewICP(const GlobalConfig& config);
 
@@ -244,15 +244,15 @@ namespace rtf {
         SIFTVocabulary* siftVocabulary;
         mutex printMutex;
 
+        Transform velocity;
+
         void updateLocalEdges();
 
-        void registrationEGBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
+        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
 
-        void registrationHomoBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
+        void registrationWithMotion(SIFTFeaturePoints& f1, SIFTFeaturePoints& f2, Edge* edge);
 
-        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
-
-        void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream, bool near);
+        void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge* edge, cudaStream_t curStream);
 
         void registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges);
     public:

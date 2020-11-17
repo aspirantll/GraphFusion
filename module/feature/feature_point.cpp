@@ -188,6 +188,17 @@ namespace rtf {
         }
     }
 
+    void featureMatchesToPoints(FeatureMatches& featureMatches, vector<FeatureKeypoint>& kxs, vector<FeatureKeypoint>& kys) {
+        kxs.clear();
+        kys.clear();
+
+        for(int i=0; i<featureMatches.size(); i++) {
+            FeatureMatch match = featureMatches.getMatch(i);
+            kxs.emplace_back(*featureMatches.getKx()[match.getPX()]);
+            kys.emplace_back(*featureMatches.getKy()[match.getPY()]);
+        }
+    }
+
     void downFeatureToSift(const FeatureKeypoints& src, SIFTFeatureKeypoints& target) {
         target.clear();
         target.reserve(src.size());
