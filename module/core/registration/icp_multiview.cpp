@@ -9,6 +9,8 @@ namespace rtf {
     MultiViewICP::MultiViewICP(const GlobalConfig& config) {
         rmsThreshold = config.rmsThreshold;
         relaxtion = config.relaxtion;
+        distTh = 0.05;
+        minInliers = config.kMinInliers;
     }
 
     void computeP1(Vector6 r, Vector6 M, double lambda, Vector6 &p) {
@@ -329,6 +331,168 @@ namespace rtf {
             delete ptr;
         }
 
+        report.success = true;
+        return report;
+    }
+
+
+    BAReport MultiViewICP::icp(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
+                                              vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, bool robust) {
+        alloc(std::move(cx), std::move(cy), kxs, kys);
+        BAReport report = icp(initT, robust);
+        free();
+        return report;
+    }
+
+    void MultiViewICP::alloc(shared_ptr<Camera> cx, shared_ptr<Camera> cy, vector<FeatureKeypoint> &kxs,
+                               vector<FeatureKeypoint> &kys) {
+        this->kxs = &kxs;
+        this->kys = &kys;
+
+        // compose parameters for ba
+        const int n = kxs.size();
+        pointsX.resize(n, 3);
+        pointsY.resize(n, 3);
+
+        for (int k = 0; k < kxs.size(); k++) {
+            const FeatureKeypoint &px = kxs[k];
+            const FeatureKeypoint &py = kys[k];
+
+            pointsX.row(k) << px.x, px.y, px.z;
+            pointsY.row(k) << py.x, py.y, py.z;
+        }
+
+        vector<unsigned char> mask(n, 1);
+        cudaMask = new CUDAMatrixc(mask);
+        cudaMaskBak = new CUDAMatrixc(mask);
+        cudaPointsX = new CUDAMatrixs(pointsX);
+        cudaPointsY = new CUDAMatrixs(pointsY);
+        cudaK = MatrixConversion::toCUDA(cx->getK());
+        costSummator = new Summator(n, 1, 1);
+        hSummator = new Summator(n, 6, 6);
+        mSummator = new Summator(n, 6, 1);
+        bSummator = new Summator(n, 6, 1);
+
+    }
+
+    BAReport MultiViewICP::icp(Transform initT, bool robust, int iterations) {
+        if (kxs->empty() || kys->empty()) {
+            BAReport report;
+            report.success = false;
+            return report;
+        }
+
+        BAReport report;
+        if (robust) {
+            const int its = 4;
+            for (int it = 0; it < its; it++) {
+                report = icp(initT, 10);
+                // exchange the pointer
+                CUDAMatrixc * temp = cudaMask;
+                cudaMask = cudaMaskBak;
+                cudaMaskBak = temp;
+                if(report.iterations < iterations) {
+                    break;
+                }
+            }
+
+            // update keypoints
+            vector<unsigned char> mask;
+            cudaMask->download(mask);
+            vector<FeatureKeypoint> bKxs(kxs->begin(), kxs->end()), bKys(kys->begin(), kys->end());
+            kxs->clear();
+            kys->clear();
+            for (int i = 0; i < mask.size(); i++) {
+                if (mask[i]) {
+                    kxs->emplace_back(bKxs[i]);
+                    kys->emplace_back(bKys[i]);
+                }
+            }
+            report.success = kxs->size()>=minInliers;
+            if(report.success) {
+                report = icp(initT, iterations);
+            }
+        } else {
+            report = icp(initT, iterations);
+            report.success = true;
+        }
+        return report;
+    }
+
+    void MultiViewICP::free() {
+        delete cudaPointsY;
+        delete cudaPointsX;
+        delete cudaMask;
+        delete cudaMaskBak;
+        delete costSummator;
+        delete hSummator;
+        delete mSummator;
+        delete bSummator;
+    }
+
+    BAReport MultiViewICP::icp(Transform T, int iterations) {
+        BAReport report;
+        report.pointsNum = cudaPointsX->getRows();
+
+        // Levenberg-Marquardt optimization algorithm.
+        constexpr double kEpsilon = 1e-12;
+        constexpr int max_lm_attempts = 50;
+        constexpr int max_inner_iterations = 100;
+
+        Vector6 initSeVec = Sophus::SE3<Scalar>(T).log();
+        Vector6 seVec = Sophus::SE3<Scalar>(T).log();
+
+        double lambda = -1;
+        for (int i = 0; i < iterations; ++i) {
+            // so3 to R and t
+            float4x4 cudaT = MatrixConversion::toCUDA(Sophus::SE3<Scalar>::exp(seVec).matrix());
+            //compute jacobi matrix and cost
+            computeICPCostAndJacobi(*cudaPointsX, *cudaPointsY, cudaT, cudaK, *cudaMask, *costSummator, *hSummator,
+                                    *mSummator, *bSummator);  // should always return true
+            computerICPInliers(*costSummator, *cudaMaskBak, distTh);
+            // Accumulate H and b.
+            double cost = costSummator->sum()(0, 0);
+            LMSumMats lmSumMats;
+            lmSumMats.H = hSummator->sum();
+            lmSumMats.M = mSummator->sum();
+            lmSumMats.b = bSummator->sum();
+
+            if (lambda < 0) {
+                constexpr float kInitialLambdaFactor = 0.01;
+                lambda = kInitialLambdaFactor * 0.5 * lmSumMats.H.trace();
+            }
+
+            bool update_accepted = false;
+            for (int lm_iteration = 0; lm_iteration < max_lm_attempts; ++lm_iteration) {
+                Vector6 testSe3 = solvePCGIteration1(lambda, relaxtion, max_inner_iterations, lmSumMats, initSeVec, seVec);
+                // Compute the test cost.
+                float4x4 testT = MatrixConversion::toCUDA(Sophus::SE3<Scalar>::exp(testSe3).matrix());
+                computeICPCost(*cudaPointsX, *cudaPointsY, testT, cudaK, *cudaMask, *costSummator);
+                double test_cost = costSummator->sum()(0, 0);
+
+                if (test_cost < cost) {
+                    lambda *= 0.5;
+                    seVec = testSe3;
+                    update_accepted = true;
+                    break;
+                } else {
+                    lambda *= 2;
+                }
+
+            }
+
+            report.T = Sophus::SE3<Scalar>::exp(seVec).matrix();
+            report.cost = cost;
+            report.iterations = i + 1;
+
+            if (!update_accepted) {
+                break;
+            }
+
+            if (cost < kEpsilon) {
+                break;
+            }
+        }
         report.success = true;
         return report;
     }

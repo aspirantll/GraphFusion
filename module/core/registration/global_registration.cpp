@@ -10,65 +10,6 @@
 using namespace rtf::ViewGraphUtil;
 
 namespace rtf {
-    void GlobalRegistration::registrationEGBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
-        RANSAC2DReport eg = egRegistration->registrationFunction(*featureMatches);
-        BAReport ba;
-        if (eg.success) {
-            vector<FeatureKeypoint> kxs, kys;
-            featureIndexesToPoints(featureMatches->getKx(), eg.kps1, kxs);
-            featureIndexesToPoints(featureMatches->getKy(), eg.kps2, kys);
-            BARegistration baRegistration(globalConfig);
-            ba = baRegistration.bundleAdjustment(eg.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys, true);
-            if (ba.success) {
-                double cost = ba.avgCost();
-                if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                    edge->setKxs(kxs);
-                    edge->setKys(kys);
-                    edge->setTransform(ba.T);
-                    edge->setCost(cost);
-                }
-            }
-        }
-
-        printMutex.lock();
-        cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-global-eg+ba---------------------------------" << endl;
-        eg.printReport();
-        if (ba.success) {
-            ba.printReport();
-        }
-        printMutex.unlock();
-    }
-
-    void GlobalRegistration::registrationHomoBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
-        RANSAC2DReport homo = homoRegistration->registrationFunction(*featureMatches);
-        BAReport ba;
-        if (homo.success) {
-            vector<FeatureKeypoint> kxs, kys;
-            featureIndexesToPoints(featureMatches->getKx(), homo.kps1, kxs);
-            featureIndexesToPoints(featureMatches->getKy(), homo.kps2, kys);
-
-            BARegistration baRegistration(globalConfig);
-            ba = baRegistration.bundleAdjustment(homo.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys, true);
-            if (ba.success) {
-                double cost = ba.avgCost();
-                if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                    edge->setKxs(kxs);
-                    edge->setKys(kys);
-                    edge->setTransform(ba.T);
-                    edge->setCost(cost);
-                }
-            }
-        }
-
-        printMutex.lock();
-        cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-global-homo+ba---------------------------------" << endl;
-        homo.printReport();
-        if (ba.success) {
-            ba.printReport();
-        }
-        printMutex.unlock();
-    }
-
     void GlobalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
         BAReport ba;
@@ -102,12 +43,6 @@ namespace rtf {
     void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
         stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
-        /*if(near&&edge->isUnreachable()) {
-            registrationEGBA(&featureMatches, edge, curStream);
-            if(edge->isUnreachable()) {
-                registrationHomoBA(&featureMatches, edge, curStream);
-            }
-        }*/
     }
 
     int GlobalRegistration::selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe) {
@@ -211,8 +146,8 @@ namespace rtf {
             LOG_ASSERT(isConnected) << " occur a error: the view graph is not connected ";
             if (connectedComponents[i].size() > 1) {
                 cout << "multiview" << endl;
-                MultiViewICP icp(globalConfig);
-                icp.multiViewICP(viewGraph, connectedComponents[i],
+                BARegistration bundleAdjustment(globalConfig);
+                bundleAdjustment.multiViewBundleAdjustment(viewGraph, connectedComponents[i],
                                                          transforms[i]).printReport();
                 mergeComponentNodes(viewGraph, connectedComponents[i], transforms[i], nodes[i]);
             } else {
@@ -392,8 +327,8 @@ namespace rtf {
                 TransformVector gtTransVec;
                 findShortestPathTransVec(viewGraph, cc, gtTransVec);
                 if(opt) {
-                    MultiViewICP icp(globalConfig);
-                    icp.multiViewICP(viewGraph, cc, gtTransVec).printReport();
+                    BARegistration bundleAdjustment(globalConfig);
+                    bundleAdjustment.multiViewBundleAdjustment(viewGraph, cc, gtTransVec).printReport();
                 }
                 for (int j = 1; j < cc.size(); j++) {
                     viewGraph[cc[j]].nGtTrans = viewGraph[cc[0]].nGtTrans*gtTransVec[j];

@@ -223,12 +223,40 @@ namespace rtf {
 
     class MultiViewICP {
     private:
-        float relaxtion;
         float rmsThreshold;
+        float relaxtion;
+        float distTh;
+        float minInliers;
+
+        float3x3 cudaK;
+        CUDAMatrixs *cudaPointsY;
+        CUDAMatrixs *cudaPointsX;
+        CUDAMatrixc *cudaMask;
+        CUDAMatrixc *cudaMaskBak;
+        Summator *costSummator;
+        Summator *hSummator;
+        Summator *mSummator;
+        Summator *bSummator;
+        MatrixX pointsY;
+        MatrixX pointsX;
+        vector<FeatureKeypoint> *kxs;
+        vector<FeatureKeypoint> *kys;
+
+        BAReport icp(Transform T, int iterations);
     public:
         MultiViewICP(const GlobalConfig& config);
 
-        BAReport multiViewICP(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold=1);
+        BAReport multiViewICP(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold=0.001);
+
+        void alloc(shared_ptr<Camera> cx, shared_ptr<Camera> cy, vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys);
+
+        BAReport icp(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
+                     vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys,
+                     bool robust = false);
+
+        BAReport icp(Transform initT, bool robust, int iterations=100);
+
+        void free();
     };
 
     class LocalRegistration {
@@ -288,10 +316,6 @@ namespace rtf {
         float3 lastPos;
         bool notLost;// the status for tracking
         int lostNum;
-
-        void registrationEGBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
-
-        void registrationHomoBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
 

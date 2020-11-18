@@ -31,7 +31,7 @@ namespace rtf {
         int lastFrameIndex;
         int frameCounter;
 
-        bool needMerge();
+        bool needMerge(shared_ptr<Frame> frame);
 
         VoxelFusion* getVoxelFusion();
     public:

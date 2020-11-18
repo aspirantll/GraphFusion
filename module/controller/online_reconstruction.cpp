@@ -21,8 +21,8 @@ namespace rtf {
         frameCounter = 0;
     }
 
-    bool OnlineReconstruction::needMerge() {
-        return frameCounter-lastFrameIndex>=globalConfig.chunkSize;
+    bool OnlineReconstruction::needMerge(shared_ptr<Frame> frame) {
+        return frameCounter-lastFrameIndex>=globalConfig.chunkSize&&frame->getKps().size()>600;
     }
 
     VoxelFusion* OnlineReconstruction::getVoxelFusion() {
@@ -40,21 +40,22 @@ namespace rtf {
         extractor->extractFeatures(frameRGBD, frame->getKps());
         if(frame->getKps().empty()) return;
 
+        // merging graph
+        if(needMerge(frame)) {
+            Timer merger = Timer::startTimer("merge frames");
+            shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
+            merger.stopTimer();
+            globalRegistration->insertKeyFrames(kf);
+            lastFrameIndex = frameCounter;
+        }
+
         // track the keyframes database
         std::thread kfTracker(bind(&GlobalRegistration::trackKeyFrames, globalRegistration, placeholders::_1), frame);
         // track local frames
         localRegistration->localTrack(frame);
-        // merging graph
-        if(needMerge()) {
-            Timer merger = Timer::startTimer("merge frames");
-            shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
-            merger.stopTimer();
-            kfTracker.join();
-            globalRegistration->insertKeyFrames(kf);
-            lastFrameIndex = frameCounter;
-        }else {
-            kfTracker.join();
-        }
+
+        kfTracker.join();
+
     }
 
     void OnlineReconstruction::finalOptimize(bool opt) {

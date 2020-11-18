@@ -76,5 +76,10 @@ void computeMVICPCostAndJacobi(CUDAEdgeVector &edges, CUDAVector<CUDALMSummators
 
 void computeMVICPCost(CUDAEdgeVector &edges, Summator& costSummator);
 
+void computerICPInliers(Summator& costSummator, CUDAMatrixc& inliers, Scalar th);
+
+void computeICPCostAndJacobi(CUDAMatrixs& objectPoints, CUDAMatrixs& tarPixels, float4x4& T, float3x3& K, CUDAMatrixc& mask, Summator& costSummator, Summator& hSummator, Summator& mSummator, Summator& bSummator);
+
+void computeICPCost(CUDAMatrixs& objectPoints, CUDAMatrixs& tarPixels, float4x4& T, float3x3& K, CUDAMatrixc& mask, Summator& costSummator);
 
 #endif //GRAPHFUSION_ICP_MULTIVIEW_CUH

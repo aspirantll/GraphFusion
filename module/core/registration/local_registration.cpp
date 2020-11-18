@@ -59,11 +59,11 @@ namespace rtf {
         vector<FeatureKeypoint> kxs, kys;
         featureMatchesToPoints(featureMatches, kxs, kys);
 
-        BARegistration baRegistration(globalConfig);
-        BAReport ba = baRegistration.bundleAdjustment(velocity, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
+        MultiViewICP baRegistration(globalConfig);
+        BAReport ba = baRegistration.icp(velocity, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
         if (ba.success) {
             double cost = ba.avgCost();
-            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+            if (!isnan(cost) && cost < 0.001) {
                 edge->setKxs(kxs);
                 edge->setKys(kys);
                 edge->setTransform(ba.T);
@@ -229,8 +229,8 @@ namespace rtf {
         findShortestPathTransVec(localViewGraph, connectedComponents[0], gtTransVec);
 
         cout << "multiview" << endl;
-        MultiViewICP icp(globalConfig);
-        icp.multiViewICP(localViewGraph, connectedComponents[0], gtTransVec).printReport();
+        BARegistration icp(globalConfig);
+        icp.multiViewBundleAdjustment(localViewGraph, connectedComponents[0], gtTransVec).printReport();
 
         // 2. initialize key frame
         set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());
@@ -299,6 +299,7 @@ namespace rtf {
                 if(!visited[curIndex]) {
                     shared_ptr<SIFTFeatureKeypoint> fp = make_shared<SIFTFeatureKeypoint>(*dynamic_pointer_cast<SIFTFeatureKeypoint>(sift.getKeyPoints()[j]));
                     vector<Point3D> corr;
+
                     collectCorrespondences(correlations, visited, curIndex, corr);
                     if(!corr.empty()) {
                         Vector3 pos = Vector3::Zero();
@@ -325,6 +326,12 @@ namespace rtf {
         descriptors.resize(desc.size(), 128);
         for(int i=0; i<desc.size(); i++) {
             descriptors.row(i) = desc[i];
+        }
+
+        cerr << "visible frame num:" << m << endl;
+        cerr << "feature num:" << desc.size() << endl;
+        if(desc.size()<500) {
+            cerr << "index:" << keyframe->getIndex() << endl;
         }
 
         sf.setBounds(minX, maxX, minY, maxY);

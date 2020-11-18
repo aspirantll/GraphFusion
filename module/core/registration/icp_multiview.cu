@@ -4,7 +4,7 @@
 
 #include "icp_multiview.cuh"
 
-constexpr Scalar kHuberWeight = 0.1;
+constexpr Scalar kHuberWeight = 0.01;
 
 __device__ Scalar computeHuberWeight(Scalar squared_residual, Scalar huber_parameter) {
     return (squared_residual < huber_parameter * huber_parameter) ? 1 : (huber_parameter / sqrtf(squared_residual));
@@ -189,4 +189,118 @@ void computeMVICPCost(CUDAEdgeVector &edges, Summator& costSummator) {
 
         CUDA_CHECKED_NO_ERROR();
     }
+}
+
+__global__ void computeICPCostAndJacobi(CUDAPtrs kxs, CUDAPtrs kys, float4x4 T, float3x3 K, CUDAPtrc mask, CUDAPtrs costSummator, CUDAPtrs hSummator, CUDAPtrs mSummator, CUDAPtrs bSummator) {
+    long index = threadIdx.x + blockIdx.x*blockDim.x;
+
+    if(index>=kxs.getRows()) return;
+    if(mask[index]) {
+        Scalar py[3]={kys(index, 0), kys(index, 1), kys(index, 2)},
+                px[3] = {kxs(index, 0), kxs(index, 1), kxs(index, 2)};
+        Scalar qx[3], qy[3], hatMat[9], residual[3], jacobi[18];
+        unproject(K, py, qy);
+        transformPoint(T, qy, qy);
+
+        // compute jacobi
+        hatMatrix(qy, hatMat);
+        composeICPJacobi(hatMat, jacobi);
+
+        unproject(K, px, qx);
+        // compute residual and cost
+        residual[0] = qx[0] - qy[0];
+        residual[1] = qx[1] - qy[1];
+        residual[2] = qx[2] - qy[2];
+
+        Scalar weight = computeHuberWeight(residual[0]*residual[0]+residual[1]*residual[1]+residual[2]*residual[2], kHuberWeight);
+        Scalar cost = ComputeHuberCost(residual[0]*residual[0]+residual[1]*residual[1]+residual[2]*residual[2], kHuberWeight);
+
+        costSummator.data[index]=cost;
+        // compute H,M,b
+        Scalar * H = hSummator.data+index*36;
+        Scalar * M = mSummator.data+index*6;
+        Scalar * b = bSummator.data+index*6;
+        for(int i=0; i<6; i++) {
+            for(int j=0; j<6; j++) {
+                H[j*6+i] = jacobi[i]*jacobi[j] + jacobi[i+6]*jacobi[j+6];
+            }
+            M[i] = weight*H[i*6+i];
+            b[i] = -weight*(jacobi[i]*residual[0]+jacobi[i+6]*residual[1]);
+        }
+    }else {
+        // compute H,M,b
+        costSummator.data[index]=0;
+        Scalar * H = hSummator.data+index*36;
+        Scalar * M = mSummator.data+index*6;
+        Scalar * b = bSummator.data+index*6;
+        for(int i=0; i<6; i++) {
+            for(int j=0; j<6; j++) {
+                H[j*6+i] = 0;
+            }
+            M[i] = 0;
+            b[i] = 0;
+        }
+    }
+
+}
+
+__global__ void computeICPCost(CUDAPtrs kxs, CUDAPtrs kys, float4x4 T, float3x3 K, CUDAPtrc mask, CUDAPtrs costSummator) {
+    long index = threadIdx.x + blockIdx.x*blockDim.x;
+
+    if(index>=kxs.getRows()) return;
+
+    if(mask[index]) {
+        Scalar py[3]={kys(index, 0), kys(index, 1), kys(index, 2)},
+                px[3] = {kxs(index, 0), kxs(index, 1), kxs(index, 2)};
+
+        Scalar qx[3], qy[3], residual[3];
+        unproject(K, py, qy);
+        transformPoint(T, qy, qy);
+
+        unproject(K, px, qx);
+        // compute residual and cost
+        residual[0] = qx[0] - qy[0];
+        residual[1] = qx[1] - qy[1];
+        residual[2] = qx[2] - qy[2];
+
+        costSummator.data[index]=ComputeHuberCost(residual[0]*residual[0]+residual[1]*residual[1]+residual[2]*residual[2], kHuberWeight);
+    }else {
+        costSummator.data[index] = 0;
+    }
+}
+
+void computeICPCostAndJacobi(CUDAMatrixs& kxs, CUDAMatrixs& kys, float4x4& T, float3x3& K, CUDAMatrixc& mask, Summator& costSummator, Summator& hSummator, Summator& mSummator, Summator& bSummator) {
+    long n = kxs.getRows();
+    // invoke kernel
+    CUDA_LINE_BLOCK(n);
+
+    computeICPCostAndJacobi<<<grid, block, 0, stream>>>(kxs, kys, T, K, mask, *costSummator.dataMat, *hSummator.dataMat, *mSummator.dataMat, *bSummator.dataMat);
+
+    CUDA_CHECKED_NO_ERROR();
+}
+
+void computeICPCost(CUDAMatrixs& kxs, CUDAMatrixs& kys, float4x4& T, float3x3& K, CUDAMatrixc& mask, Summator& costSummator) {
+    long n = kxs.getRows();
+    // invoke kernel
+    CUDA_LINE_BLOCK(n);
+
+    computeICPCost<<<grid, block, 0, stream>>>(kxs, kys, T, K, mask, *costSummator.dataMat);
+
+    CUDA_CHECKED_NO_ERROR();
+}
+
+__global__ void computerICPInliersKernel(CUDAPtrs cost, CUDAPtrc inliers, Scalar th) {
+    long index = threadIdx.x + blockIdx.x*blockDim.x;
+
+    if(index>=cost.getRows()) return;
+    inliers.setIndex(index, cost[index]>0&&cost[index]<th);
+}
+
+void computerICPInliers(Summator& costSummator, CUDAMatrixc& inliers, Scalar th) {
+    // invoke kernel
+    CUDA_LINE_BLOCK(costSummator.length);
+
+    computerICPInliersKernel<<<grid, block, 0, stream>>>(*costSummator.dataMat, inliers, th);
+
+    CUDA_CHECKED_NO_ERROR();
 }
