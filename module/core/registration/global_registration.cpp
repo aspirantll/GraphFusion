@@ -285,7 +285,6 @@ namespace rtf {
             for(int i=0; i<edges.size(); i++) {
                 int curIndex = curIndexes[i];
                 int refIndex = refIndexes[i];
-//                int refInnerIndex = refInnerIndexes[i];
 
                 if(!keyframe->getFrame(curIndex)->isVisible()) continue; //avoid invisible frame
 
@@ -296,13 +295,11 @@ namespace rtf {
                         bestEdgeMap[refNodeIndex] = edges[i];
                         bestCurIndexes[refNodeIndex] = curIndex;
                         bestRefIndexes[refNodeIndex] = refIndex;
-//                        bestRefInnerIndexes[refNodeIndex] = refInnerIndex;
                     }
                 } else {
                     bestEdgeMap.insert(map<int, Edge>::value_type(refNodeIndex, edges[i]));
                     bestCurIndexes.insert(map<int, int>::value_type(refNodeIndex, curIndex));
                     bestRefIndexes.insert(map<int, int>::value_type(refNodeIndex, refIndex));
-//                    bestRefInnerIndexes.insert(map<int, int>::value_type(refNodeIndex, refInnerIndex));
                 }
             }
 
@@ -317,36 +314,31 @@ namespace rtf {
                     shared_ptr<KeyFrame> refKeyFrame = viewGraph[refNodeIndex].getKeyFrame(bestRefIndexes[refNodeIndex]);
                     Transform transX = refKeyFrame->getTransform();
                     Transform transY = keyframe->getTransform(bestCurIndexes[refNodeIndex]);
+
+                    Intrinsic kX = viewGraph[refNodeIndex].getK();
+                    Intrinsic kY = viewGraph[curNodeIndex].getK();
+
+                    // transform and k: p' = K(R*K^-1*p+t)
+                    Rotation rX = kX*transX.block<3,3>(0,0)*kX.inverse();
+                    Rotation rY = kY*transY.block<3,3>(0,0)*kY.inverse();
+                    Translation tX = kX*transX.block<3,1>(0,3);
+                    Translation tY = kY*transY.block<3,1>(0,3);
+
+                    // transform key points
+                    transformFeatureKeypoints(bestEdge.getKxs(), rX, tY);
+                    transformFeatureKeypoints(bestEdge.getKys(), rY, tY);
+
                     // trans12 = trans1*relative_trans*trans2^-1
                     Transform relativeTrans = transX * bestEdge.getTransform() * GeoUtil::reverseTransformation(transY);
-                    FeatureMatches featureMatches = matcher->matchKeyPointsWithProjection(refKeyFrame->getKps(), keyframe->getKps(), relativeTrans);
-                    vector<FeatureKeypoint> kxs, kys;
-                    featureMatchesToPoints(featureMatches, kxs, kys);
-
-                    BARegistration baRegistration(globalConfig);
-                    BAReport ba = baRegistration.bundleAdjustment(relativeTrans, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
-                    if (ba.success) {
-                        double cost = ba.avgCost();
-                        if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                            edge.setKxs(kxs);
-                            edge.setKys(kys);
-                            edge.setTransform(ba.T);
-                            edge.setCost(cost);
-                        }
-                    }else {
-                        edge.setTransform(relativeTrans);
-                        edge.setKxs(bestEdge.getKxs());
-                        edge.setKys(bestEdge.getKys());
-                        edge.setCost(bestEdge.getCost());
-                    }
-                    cout << "key frame projection pair: " << refKeyFrame->getIndex() << "-" << keyframe->getIndex() << endl;
-                    ba.printReport();
+                    edge.setTransform(relativeTrans);
+                    edge.setKxs(bestEdge.getKxs());
+                    edge.setKys(bestEdge.getKys());
+                    edge.setCost(bestEdge.getCost());
                 }
             }
             edges.clear();
             curIndexes.clear();
             refIndexes.clear();
-            refInnerIndexes.clear();
 
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
                 mergeViewGraph();

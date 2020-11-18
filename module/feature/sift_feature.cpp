@@ -441,8 +441,8 @@ namespace rtf {
             shared_ptr<FeatureKeypoint> kp = k2.getKeypoint(i);
             Eigen::Matrix<int , 1, -1, Eigen::RowMajor> d2 = k2.getDescriptors().row(i).cast<int>();
             Point3D rePixel = PointUtil::transformPixel(*kp, T, k2.getCamera());
-            if(rePixel.x<k1.getCamera()->getMinX()||rePixel.x>=k1.getCamera()->getMaxX()
-               ||rePixel.y<k1.getCamera()->getMinY()||rePixel.y>=k1.getCamera()->getMaxY()) continue;
+            if(rePixel.x<k1.getMinX()||rePixel.x>=k1.getMaxX()
+               ||rePixel.y<k1.getMinY()||rePixel.y>=k1.getMaxY()) continue;
 
             vector<int> indices = k1.getFeaturesInArea(rePixel.x, rePixel.y, config.search_radius);
             float bestDist = 0;

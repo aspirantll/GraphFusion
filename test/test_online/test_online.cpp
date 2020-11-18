@@ -33,7 +33,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     string line;
     for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
         Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
-        ofstream keyf(workspace+"/keyframe_" + to_string(kf->getIndex()) + ".txt", ios::out | ios::binary);
+//        ofstream keyf(workspace+"/keyframe_" + to_string(kf->getIndex()) + ".txt", ios::out | ios::binary);
         for(shared_ptr<Frame> frame: kf->getFrames()) {
             getline(gt, line);
             while (line.empty()) {
@@ -48,7 +48,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
             GeoUtil::T2Rt(trans, R, t);
             Eigen::Quaternion<Scalar> q(R);
             estimate << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
-            keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+//            keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
             mapping << gtParts[0] << " " << frame->getFrameIndex() << endl;
         }
     }
@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
     for(int i=0; i<fileInputSource->getFrameNum(); i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
         onlineRecon.appendFrame(frame);
-//        frame->releaseImages();
+        frame->releaseImages();
     }
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
     onlineRecon.finalOptimize(true);
-    onlineRecon.saveMesh(savePath);
+//    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     saveATP(onlineRecon.getViewGraph(), globalConfig);
 

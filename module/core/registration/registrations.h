@@ -256,6 +256,7 @@ namespace rtf {
 
         void registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges);
     public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         LocalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
         ViewGraph& getViewGraph();
@@ -282,7 +283,7 @@ namespace rtf {
         mutex printMutex;
 
         EigenVector(Edge) edges;
-        vector<int> curIndexes, refIndexes, refInnerIndexes;
+        vector<int> curIndexes, refIndexes;
 
         float3 lastPos;
         bool notLost;// the status for tracking
