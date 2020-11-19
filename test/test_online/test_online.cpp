@@ -67,12 +67,12 @@ void saveResult(ViewGraph& viewGraph) {
             auto pc = frame->calculatePointCloud();
             pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZRGBNormal>());
             pcl::transformPointCloud(*pc, *transformed_cloud, trans);
-            PointUtil::savePLYPointCloud(workspace + "/frame_" + to_string(frame->getFrameIndex()) + ".ply", *transformed_cloud);
+//            PointUtil::savePLYPointCloud(workspace + "/frame_" + to_string(frame->getFrameIndex()) + ".ply", *transformed_cloud);
             *pointCloud += *transformed_cloud;
             count++;
             frame->releaseImages();
         }
-        PointUtil::savePLYPointCloud(workspace + "/keyframe_" + to_string(kf->getIndex()) + ".ply", *pointCloud);
+        PointUtil::savePLYPointCloud( "/home/liulei/桌面/pcs/keyframe_" + to_string(kf->getIndex()) + ".ply", *pointCloud);
         cout << "merge cloud num is " << count << endl;
     }
 }

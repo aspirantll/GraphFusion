@@ -12,7 +12,7 @@ using namespace rtf::ViewGraphUtil;
 namespace rtf {
     void GlobalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
-        BAReport ba;
+        RegReport ba;
         if (pnp.success) {
             vector<FeatureKeypoint> kxs, kys;
             featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
@@ -34,9 +34,7 @@ namespace rtf {
         printMutex.lock();
         cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-global-pnp+ba---------------------------------" << endl;
         pnp.printReport();
-        if (ba.success) {
-            ba.printReport();
-        }
+        ba.printReport();
         printMutex.unlock();
     }
 
@@ -58,10 +56,10 @@ namespace rtf {
         return bestIndex;
     }
 
-    void GlobalRegistration::registrationEdges(shared_ptr<Frame> cur, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges) {
+    void GlobalRegistration::registrationEdges(shared_ptr<KeyFrame> cur, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges) {
         const int k = globalConfig.overlapNum;
         const int lastNum = 1;
-        const int n = viewGraph.getFramesNum();
+        const int n = viewGraph.getFramesNum()-1;
         vector<shared_ptr<KeyFrame>> frames = viewGraph.getSourceFrames();
         DBoW2::BowVector& bow = cur->getKps().getMBowVec();
 
@@ -72,7 +70,7 @@ namespace rtf {
         cudaStream_t streams[k];
         // last frame
         int index = 0;
-        for (int i = 1; i <= lastNum && i <= k && i <= n; i++) {
+        for (int i = 1; i <= lastNum && i <= k && i < n; i++) {
             shared_ptr<KeyFrame> refKeyFrame = frames[n - i];
             int refIndex = refKeyFrame->getIndex();
             spAlreadyAddedKF.insert(refIndex);
@@ -88,7 +86,8 @@ namespace rtf {
         }
 
         if (overlapFrames.size() < k) {
-            std::vector<MatchScore> imageScores = dBoWHashing->queryImages(lastPos, &cur->getKps().getMBowVec(), notLost,  lostNum > 0);
+            std::vector<MatchScore> imageScores;
+            dBoWHashing->query(siftVocabulary, &cur->getKps().getMBowVec(), &imageScores);
             // Return all those keyframes with a score higher than 0.75*bestScore
             for (auto it: imageScores) {
                 const float &si = it.score;
@@ -120,7 +119,7 @@ namespace rtf {
     }
 
     GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
-        dBoWHashing = new DBoWHashing(globalConfig, true);
+        dBoWHashing = new DBoWVocabulary();
         matcher = new SIFTFeatureMatcher();
         egRegistration = new EGRegistration(globalConfig);
         homoRegistration = new HomographyRegistration(globalConfig);
@@ -171,7 +170,7 @@ namespace rtf {
     }
 
     void GlobalRegistration::updateLostFrames() {
-        vector<int> lostImageIds = dBoWHashing->lostImageIds();
+        /*vector<int> lostImageIds = dBoWHashing->lostImageIds();
         vector<int> updateIds;
         vector<float3> poses;
         for (int lostId: lostImageIds) {
@@ -186,11 +185,11 @@ namespace rtf {
             }
         }
 
-        dBoWHashing->updateVisualIndex(updateIds, poses);
+        dBoWHashing->updateVisualIndex(updateIds, poses);*/
     }
 
     void GlobalRegistration::trackKeyFrames(shared_ptr<Frame> frame) {
-        if (viewGraph.getFramesNum() > 0) {
+        /*if (viewGraph.getFramesNum() > 0) {
             clock_t start = clock();
             vector<int> overlapFrames;
             vector<int> innerIndexes;
@@ -202,12 +201,11 @@ namespace rtf {
                     edges.emplace_back(pairEdges[i]);
                     curIndexes.emplace_back(frame->getFrameIndex());
                     refIndexes.emplace_back(overlapFrames[i]);
-//                    refInnerIndexes.emplace_back(innerIndexes[i]);
                 }
             }
 
             cout << "pair registration:" << double(clock() - start) / CLOCKS_PER_SEC << "s" << endl;
-        }
+        }*/
     }
 
     void GlobalRegistration::insertKeyFrames(shared_ptr<KeyFrame> keyframe) {
@@ -215,68 +213,44 @@ namespace rtf {
         viewGraph.extendNode(keyframe);
 
         if(viewGraph.getFramesNum()>1) {
-            map<int, Edge, less<int>, Eigen::aligned_allocator<pair<const int, Edge>>> bestEdgeMap;
-            map<int, int> bestCurIndexes, bestRefIndexes, bestRefInnerIndexes;
-            for(int i=0; i<edges.size(); i++) {
-                int curIndex = curIndexes[i];
-                int refIndex = refIndexes[i];
+            vector<int> overlapFrames;
+            vector<int> innerIndexes;
+            vector<Edge, Eigen::aligned_allocator<Edge>> pairEdges;
+            registrationEdges(keyframe, overlapFrames, innerIndexes, pairEdges);
 
-                if(!keyframe->getFrame(curIndex)->isVisible()) continue; //avoid invisible frame
-
-                int refNodeIndex = viewGraph.findNodeIndexByFrameIndex(refIndex);
-                if (bestEdgeMap.count(refNodeIndex)) {
-                    double bestCost = bestEdgeMap[refNodeIndex].getCost();
-                    if (edges[i].getCost() < bestCost) {
-                        bestEdgeMap[refNodeIndex] = edges[i];
-                        bestCurIndexes[refNodeIndex] = curIndex;
-                        bestRefIndexes[refNodeIndex] = refIndex;
+            map<int, int> bestEdgeMap;
+            for(int i=0; i<overlapFrames.size(); i++) {
+                if (!pairEdges[i].isUnreachable()) {
+                    int refNodeIndex = viewGraph.findNodeIndexByFrameIndex(overlapFrames[i]);
+                    if (bestEdgeMap.count(refNodeIndex)) {
+                        double bestCost = pairEdges[bestEdgeMap[refNodeIndex]].getCost();
+                        if (pairEdges[i].getCost() < bestCost) {
+                            bestEdgeMap[refNodeIndex] = i;
+                        }
+                    } else {
+                        bestEdgeMap.insert(map<int, int>::value_type(refNodeIndex, i));
                     }
-                } else {
-                    bestEdgeMap.insert(map<int, Edge>::value_type(refNodeIndex, edges[i]));
-                    bestCurIndexes.insert(map<int, int>::value_type(refNodeIndex, curIndex));
-                    bestRefIndexes.insert(map<int, int>::value_type(refNodeIndex, refIndex));
                 }
             }
-
 
             int curNodeIndex = viewGraph.getNodesNum() - 1;
             for (auto mit: bestEdgeMap) {
                 int refNodeIndex = mit.first;
+                int ind = mit.second;
                 Edge &edge = viewGraph(refNodeIndex, curNodeIndex);
-                Edge &bestEdge = mit.second;
+                Edge &bestEdge = pairEdges[ind];
 
                 if (edgeCompare(bestEdge, edge)) {
-                    shared_ptr<KeyFrame> refKeyFrame = viewGraph[refNodeIndex].getKeyFrame(bestRefIndexes[refNodeIndex]);
-                    Transform transX = refKeyFrame->getTransform();
-                    Transform transY = keyframe->getTransform(bestCurIndexes[refNodeIndex]);
-
-                    Intrinsic kX = viewGraph[refNodeIndex].getK();
-                    Intrinsic kY = viewGraph[curNodeIndex].getK();
-
-                    // transform and k: p' = K(R*K^-1*p+t)
-                    Rotation rX = kX*transX.block<3,3>(0,0)*kX.inverse();
-                    Rotation rY = kY*transY.block<3,3>(0,0)*kY.inverse();
-                    Translation tX = kX*transX.block<3,1>(0,3);
-                    Translation tY = kY*transY.block<3,1>(0,3);
-
-                    // transform key points
-                    transformFeatureKeypoints(bestEdge.getKxs(), rX, tY);
-                    transformFeatureKeypoints(bestEdge.getKys(), rY, tY);
-
-                    // trans12 = trans1*relative_trans*trans2^-1
-                    Transform relativeTrans = transX * bestEdge.getTransform() * GeoUtil::reverseTransformation(transY);
-                    edge.setTransform(relativeTrans);
                     edge.setKxs(bestEdge.getKxs());
                     edge.setKys(bestEdge.getKys());
+                    edge.setTransform(bestEdge.getTransform());
                     edge.setCost(bestEdge.getCost());
                 }
+
             }
-            edges.clear();
-            curIndexes.clear();
-            refIndexes.clear();
 
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
-                mergeViewGraph();
+//                mergeViewGraph();
             }
             lostNum = registration(false);
             updateLostFrames();
@@ -293,7 +267,7 @@ namespace rtf {
             lastPos = make_float3(0, 0, 0);
             notLost = true;
         }
-        dBoWHashing->addVisualIndex(lastPos, keyframe,  notLost);
+        dBoWHashing->add(keyframe->getIndex(), &keyframe->getKps().getMBowVec());
     }
 
     int GlobalRegistration::registration(bool opt) {

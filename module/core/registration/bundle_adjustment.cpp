@@ -123,10 +123,10 @@ namespace rtf {
     }
 
 
-    BAReport BARegistration::bundleAdjustment(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
-                                              vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, bool robust) {
+    RegReport BARegistration::bundleAdjustment(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
+                                               vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, bool robust) {
         alloc(std::move(cx), std::move(cy), kxs, kys);
-        BAReport report = bundleAdjustment(initT, robust);
+        RegReport report = bundleAdjustment(initT, robust);
         free();
         return report;
     }
@@ -163,9 +163,9 @@ namespace rtf {
 
     }
 
-    BAReport BARegistration::bundleAdjustment(Transform initT, bool robust, int iterations) {
+    RegReport BARegistration::bundleAdjustment(Transform initT, bool robust, int iterations) {
         if (kxs->empty() || kys->empty()) {
-            BAReport report;
+            RegReport report;
             report.success = false;
             return report;
         }
@@ -178,7 +178,7 @@ namespace rtf {
         }
         rms = sqrt(rms);
         if (rms < rmsThreshold) {
-            BAReport report;
+            RegReport report;
             report.success = false;
             return report;
         }
@@ -187,7 +187,7 @@ namespace rtf {
         Translation t;
         GeoUtil::T2Rt(initT, R, t);
 
-        BAReport report;
+        RegReport report;
         if (robust) {
             const int its = 4;
             for (int it = 0; it < its; it++) {
@@ -224,7 +224,7 @@ namespace rtf {
         return report;
     }
 
-    void BARegistration::bundleAdjustmentThread(Transform initT, bool robust, BAReport* report, cudaStream_t curStream) {
+    void BARegistration::bundleAdjustmentThread(Transform initT, bool robust, RegReport* report, cudaStream_t curStream) {
         stream = curStream;
         *report = bundleAdjustment(initT, robust);
     }
@@ -240,8 +240,8 @@ namespace rtf {
         delete bSummator;
     }
 
-    BAReport BARegistration::bundleAdjustment(Rotation R, Translation t, int iterations) {
-        BAReport report;
+    RegReport BARegistration::bundleAdjustment(Rotation R, Translation t, int iterations) {
+        RegReport report;
         report.pointsNum = cudaPoints->getRows();
 
         // Levenberg-Marquardt optimization algorithm.
@@ -419,9 +419,9 @@ namespace rtf {
         }
     }
 
-    BAReport BARegistration::multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold) {
+    RegReport BARegistration::multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold) {
         int poseNum = cc.size();
-        BAReport report;
+        RegReport report;
         //1. determine points num and collect edge for each pose
         CUDAEdgeVector cudaEdgeVector;
         TransformVector deltaTransVec;
@@ -529,7 +529,7 @@ namespace rtf {
             for(const auto& deltaSE: deltaSEs) {
                 deltaCost += ComputeHuberCost(deltaSE.squaredNorm(), kHuberWeight);
             }
-            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
+//            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
             cost += deltaCost;
             double meanTrace = 0;
             int num = 0;

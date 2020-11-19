@@ -6,9 +6,9 @@ maxEGResidual: 0.0001
 maxPnPResidual: 5.991
 upperBoundResidual: 59
 maxAvgCost: 2
-costThreshold: 1
+costThreshold: 0.5
 overlapNum: 3
-minInlierRatio: 0.5
+minInlierRatio: 0.2
 vocTxtPath: /home/liulei/workspace/voc.txt
 useHashIndex: true
 chunkSize: 10

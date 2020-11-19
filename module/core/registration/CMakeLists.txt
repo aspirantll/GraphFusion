@@ -13,8 +13,7 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         local_registration.cpp
         registrations.h
         pnp_registration.cpp
-        homography.cpp
-        icp_multiview.cpp icp_multiview.cu icp_multiview.cuh)
+        homography.cpp)
 
 
 target_link_libraries(${SUBSYS_NAME}

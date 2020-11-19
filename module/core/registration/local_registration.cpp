@@ -23,7 +23,7 @@ namespace rtf {
 
     void LocalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge) {
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
-        BAReport ba;
+        RegReport ba;
         if (pnp.success) {
             vector<FeatureKeypoint> kxs, kys;
             featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
@@ -59,11 +59,11 @@ namespace rtf {
         vector<FeatureKeypoint> kxs, kys;
         featureMatchesToPoints(featureMatches, kxs, kys);
 
-        MultiViewICP baRegistration(globalConfig);
-        BAReport ba = baRegistration.icp(velocity, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
+        BARegistration baRegistration(globalConfig);
+        RegReport ba = baRegistration.bundleAdjustment(velocity, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
         if (ba.success) {
             double cost = ba.avgCost();
-            if (!isnan(cost) && cost < 0.001) {
+            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
                 edge->setKxs(kxs);
                 edge->setKys(kys);
                 edge->setTransform(ba.T);
@@ -81,7 +81,9 @@ namespace rtf {
 
     void LocalRegistration::registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge *edge, cudaStream_t curStream) {
         stream = curStream;
-        bool near = f2->getFIndex()-f1->getFIndex() <=1;
+        FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
+        registrationPnPBA(&featureMatches, edge);
+        /*bool near = f2->getFIndex()-f1->getFIndex() <=1;
         if(near) {
             registrationWithMotion(*f1, *f2, edge);
         }
@@ -95,7 +97,7 @@ namespace rtf {
             velocity = edge->getTransform();
         }else if(near){
             velocity.setZero();
-        }
+        }*/
 
     }
 
@@ -210,13 +212,14 @@ namespace rtf {
         localDBoWVoc->add(localViewGraph.getFramesNum()-1, &frame->getKps().getMBowVec());
     }
 
-    void collectCorrespondences(vector<vector<pair<int, Point3D>>>& correlations, vector<bool>& visited, int u, vector<Point3D>& corr) {
+    void collectCorrespondences(vector<vector<pair<int, Point3D>>>& correlations, vector<bool>& visited, int u, vector<int>& corrIndexes, vector<Point3D>& corr) {
         for(int i=0; i<correlations[u].size(); i++) {
             int v = correlations[u][i].first;
             if(!visited[v]) {
                 visited[v] = true;
+                corrIndexes.emplace_back(v);
                 corr.emplace_back(correlations[u][i].second);
-                collectCorrespondences(correlations, visited, v, corr);
+                collectCorrespondences(correlations, visited, v, corrIndexes, corr);
             }
         }
     }
@@ -299,8 +302,9 @@ namespace rtf {
                 if(!visited[curIndex]) {
                     shared_ptr<SIFTFeatureKeypoint> fp = make_shared<SIFTFeatureKeypoint>(*dynamic_pointer_cast<SIFTFeatureKeypoint>(sift.getKeyPoints()[j]));
                     vector<Point3D> corr;
+                    vector<int> corrIndexes;
 
-                    collectCorrespondences(correlations, visited, curIndex, corr);
+                    collectCorrespondences(correlations, visited, curIndex, corrIndexes, corr);
                     if(!corr.empty()) {
                         Vector3 pos = Vector3::Zero();
                         for(const Point3D& c: corr) {
@@ -310,7 +314,14 @@ namespace rtf {
                         fp->x = pos.x();
                         fp->y = pos.y();
                         fp->z = pos.z();
+                    }else if(i==0||i==m-1) {
+                        Point3D transPixel = PointUtil::transformPixel(*fp, gtTransVec[i], camera);
+                        fp->x = transPixel.x;
+                        fp->y = transPixel.y;
+                        fp->z = transPixel.z;
+                    }
 
+                    if(i==0||i==m-1||!corr.empty()) {
                         kps.emplace_back(fp);
                         desc.emplace_back(sift.getDescriptors().row(j));
 

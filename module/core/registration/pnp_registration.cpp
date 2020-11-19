@@ -785,8 +785,8 @@ namespace rtf {
             FeatureKeypoint& px = *kx[indx];
             FeatureKeypoint& py = *ky[indy];
 
-            targetPixels.emplace_back(px.x, px.y);
-            objectPoints.emplace_back(cy->getCameraModel()->unproject(py.x, py.y, py.z));
+            targetPixels.emplace_back(py.x, py.y);
+            objectPoints.emplace_back(cx->getCameraModel()->unproject(px.x, px.y, px.z));
         }
 
         PnPEstimator estimator(cx, featureMatches.size());
@@ -801,7 +801,7 @@ namespace rtf {
         }
 
         report.success = r.success;
-        report.T = r.model;
+        report.T = GeoUtil::reverseTransformation(r.model);
         report.inliers = r.support.inlierIndexes;
         report.maxResidual = r.maxResidual;
 

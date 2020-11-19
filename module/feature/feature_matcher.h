@@ -66,7 +66,7 @@ namespace rtf {
         bool guided_matching = false;
 
         // search radius for projection
-        float search_radius = 5;
+        float search_radius = 10;
     };
 
     class SIFTFeatureMatcher {

@@ -28,15 +28,15 @@
 
 namespace rtf {
 
-    class BAReport {
+    class RegReport {
     public:
         bool success = false;
         int iterations = 0;
         int pointsNum;
-        vector<float> residuals;
-        vector<uint32_t> inliers;
         double cost;
         Transform T;
+        vector<FeatureKeypoint> kxs;
+        vector<FeatureKeypoint> kys;
 
 
         double avgCost() {
@@ -48,12 +48,10 @@ namespace rtf {
             cout << "-------------------------------------------------------------------------" << endl;
             cout << "success: " << success << endl;
             cout << "pointsNum: " << pointsNum << endl;
-            if (success) {
-                cout << "iterations: " << iterations << endl;
-                cout << "cost: " << cost << endl;
-                cout << "avg cost: " << cost / pointsNum << endl;
-                cout << "-------------------------------------------------------------------------" << endl;
-            }
+            cout << "iterations: " << iterations << endl;
+            cout << "cost: " << cost << endl;
+            cout << "avg cost: " << cost / pointsNum << endl;
+            cout << "-------------------------------------------------------------------------" << endl;
         }
 
     };
@@ -81,22 +79,22 @@ namespace rtf {
         vector<FeatureKeypoint> *kxs;
         vector<FeatureKeypoint> *kys;
 
-        BAReport bundleAdjustment(Rotation R, Translation t, int iterations);
+        RegReport bundleAdjustment(Rotation R, Translation t, int iterations);
 
     public:
         BARegistration(const GlobalConfig &config);
 
-        BAReport multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold=1);
+        RegReport multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold=1);
 
-        BAReport bundleAdjustment(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
-                                  vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys,
-                                  bool robust = false);
+        RegReport bundleAdjustment(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
+                                   vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys,
+                                   bool robust = false);
 
         void alloc(shared_ptr<Camera> cx, shared_ptr<Camera> cy, vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys);
 
-        BAReport bundleAdjustment(Transform initT, bool robust = false, int iterations = 100);
+        RegReport bundleAdjustment(Transform initT, bool robust = false, int iterations = 100);
 
-        void bundleAdjustmentThread(Transform initT, bool robust, BAReport* report, cudaStream_t curStream);
+        void bundleAdjustmentThread(Transform initT, bool robust, RegReport* report, cudaStream_t curStream);
 
         void free();
     };
@@ -221,44 +219,6 @@ namespace rtf {
         void registrationFunctionThread(FeatureMatches *featureMatches, RANSAC2DReport *report);
     };
 
-    class MultiViewICP {
-    private:
-        float rmsThreshold;
-        float relaxtion;
-        float distTh;
-        float minInliers;
-
-        float3x3 cudaK;
-        CUDAMatrixs *cudaPointsY;
-        CUDAMatrixs *cudaPointsX;
-        CUDAMatrixc *cudaMask;
-        CUDAMatrixc *cudaMaskBak;
-        Summator *costSummator;
-        Summator *hSummator;
-        Summator *mSummator;
-        Summator *bSummator;
-        MatrixX pointsY;
-        MatrixX pointsX;
-        vector<FeatureKeypoint> *kxs;
-        vector<FeatureKeypoint> *kys;
-
-        BAReport icp(Transform T, int iterations);
-    public:
-        MultiViewICP(const GlobalConfig& config);
-
-        BAReport multiViewICP(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold=0.001);
-
-        void alloc(shared_ptr<Camera> cx, shared_ptr<Camera> cy, vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys);
-
-        BAReport icp(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
-                     vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys,
-                     bool robust = false);
-
-        BAReport icp(Transform initT, bool robust, int iterations=100);
-
-        void free();
-    };
-
     class LocalRegistration {
     protected:
         GlobalConfig globalConfig;
@@ -303,7 +263,7 @@ namespace rtf {
 
         SIFTFeatureMatcher* matcher;
         ViewGraph viewGraph;
-        DBoWHashing* dBoWHashing;
+        DBoWVocabulary* dBoWHashing;
         EGRegistration* egRegistration;
         HomographyRegistration* homoRegistration;
         PnPRegistration* pnpRegistration;
@@ -311,7 +271,7 @@ namespace rtf {
         mutex printMutex;
 
         EigenVector(Edge) edges;
-        vector<int> curIndexes, refIndexes;
+        vector<int> curIndexes, refIndexes, refInnerIndexes;
 
         float3 lastPos;
         bool notLost;// the status for tracking
@@ -321,7 +281,7 @@ namespace rtf {
 
         void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream, bool near);
 
-        void registrationEdges(shared_ptr<Frame> keyframe, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges);
+        void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges);
 
         int selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe);
 
@@ -343,6 +303,5 @@ namespace rtf {
 
         ~GlobalRegistration();
     };
-
 }
 #endif //GraphFusion_REGISTRATIONS_H
