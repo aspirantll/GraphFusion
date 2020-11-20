@@ -173,6 +173,10 @@ namespace rtf {
         vector<shared_ptr<KeyFrame>> sourceFrames;
         vector<int> frameNodeIndex;
         map<int,int> frameToInnerIndex;
+
+        int curMaxRoot = 0;
+        vector<int> parentIndexes;
+        vector<int> rootIndexes;
     public:
         ViewGraph();
 
@@ -200,6 +204,8 @@ namespace rtf {
 
         Edge getEdge(int i, int j);
 
+        double getEdgeCost(int i, int j);
+
         int getFramesNum();
 
         vector<shared_ptr<KeyFrame>> getSourceFrames();
@@ -207,6 +213,8 @@ namespace rtf {
         void updateNodeIndex(vector<vector<int>> &ccs);
 
         int findNodeIndexByFrameIndex(int frameIndex);
+
+        int updateSpanningTree();
 
         bool isVisible(int frameIndex);
 

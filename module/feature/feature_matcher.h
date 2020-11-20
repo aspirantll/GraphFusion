@@ -86,8 +86,6 @@ namespace rtf {
         FeatureMatches matchKeyPointsWithProjection(SIFTFeaturePoints& k1, SIFTFeaturePoints& k2, Transform T);
     };
 
-    void toDescriptorVector(SIFTFeatureDescriptors & desc, vector<vector<float>>&converted);
-
     class DenseMatchingConfig {
     public:
         int neigh = 2; // search neigh range

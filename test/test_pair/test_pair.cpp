@@ -27,7 +27,7 @@ PnPRegistration *pnpRegistration;
 void registrationEGBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
     stream = curStream;
     RANSAC2DReport eg = egRegistration->registrationFunction(*featureMatches);
-    BAReport ba;
+    RegReport ba;
     if (eg.success) {
         vector<FeatureKeypoint> kxs, kys;
         featureIndexesToPoints(featureMatches->getKx(), eg.kps1, kxs);
@@ -53,7 +53,7 @@ void registrationEGBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t c
 void registrationHomoBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
     stream = curStream;
     RANSAC2DReport homo = homoRegistration->registrationFunction(*featureMatches);
-    BAReport ba;
+    RegReport ba;
     if (homo.success) {
         vector<FeatureKeypoint> kxs, kys;
         featureIndexesToPoints(featureMatches->getKx(), homo.kps1, kxs);
@@ -80,7 +80,7 @@ void registrationHomoBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t
 void registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
     stream = curStream;
     RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
-    BAReport ba;
+    RegReport ba;
     if (pnp.success) {
         vector<FeatureKeypoint> kxs, kys;
         featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
@@ -175,7 +175,7 @@ int main() {
     }
 
     time_t start = clock();
-    featureMatches = matcher.matchKeyPointsWithProjection(cur, fur, edge.getTransform());
+    featureMatches = matcher.matchKeyPointsWithProjection(cur->getKps(), fur->getKps(), edge.getTransform());
     cout << "match:" << double(clock()-start)/CLOCKS_PER_SEC << endl;
     ImageUtil::drawMatches(featureMatches, cur, fur, workspace+"/motion_matches.png");
 
@@ -183,7 +183,7 @@ int main() {
     featureMatchesToPoints(featureMatches, kxs, kys);
 
     BARegistration baRegistration(globalConfig);
-    BAReport ba = baRegistration.bundleAdjustment(edge.getTransform(), featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
+    RegReport ba = baRegistration.bundleAdjustment(edge.getTransform(), featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
     cout << "motion time:" << double(clock()-start)/CLOCKS_PER_SEC << endl;
     cout << "--------------------------------Motion------------------------------------------" << endl;
     ba.printReport();

@@ -35,23 +35,19 @@ namespace rtf {
             return components;
         }
 
-        void findCircle(ViewGraph& viewGraph, vector<bool>& visited, vector<int>& path, int k, double minCost, double pathCost, double& minPathCost, vector<int>& circle) {
+        void findCircle(ViewGraph& viewGraph, vector<bool>& visited, vector<int>& path, int k, double minCost, set<int>& circleCandidates) {
             path.emplace_back(k);
             visited[k] = true;
             int n = viewGraph.getNodesNum();
             for(int j=0; j<n; j++) {
                 Edge edge = viewGraph.getEdge(k, j);
-                if(!edge.isUnreachable()&&edge.getCost()<minCost) {
+                if(!edge.isUnreachable()) {
                     if(visited[j]) {
-                        if(j == path[0]&&path.size()>=5) {
-                            double curPathCost = (pathCost+edge.getCost())/path.size();
-                            if(curPathCost<minPathCost) {
-                                circle = path;
-                                minPathCost = curPathCost;
-                            }
+                        if(j == path[0]&&path.size()>=10) {
+                            circleCandidates.insert(path.begin(), path.end());
                         }
                     }else {
-                        findCircle(viewGraph, visited, path, j, minCost, pathCost+edge.getCost(), minPathCost, circle);
+                        findCircle(viewGraph, visited, path, j, minCost, circleCandidates);
                     }
                 }
             }
@@ -59,16 +55,14 @@ namespace rtf {
         }
 
         vector<int> findCircleComponent(ViewGraph& viewGraph, double minCost, int u) {
-            vector<int> circleComponent;
-
             int n = viewGraph.getNodesNum();
             vector<bool> visited(n);
             for(int i=0; i<n; i++) visited[i] = false;
 
             vector<int> path;
-            double minPathCost = numeric_limits<double>::infinity();
-            findCircle(viewGraph, visited, path, u, minCost, 0, minPathCost, circleComponent);
-            return circleComponent;
+            set<int> circleCandidates;
+            findCircle(viewGraph, visited, path, u, minCost, circleCandidates);
+            return vector<int>(circleCandidates.begin(), circleCandidates.end());
         }
 
 

@@ -284,10 +284,13 @@ namespace rtf {
         sourceFrames.emplace_back(frame);
         frameNodeIndex.emplace_back(nodes.size()-1);
         frameToInnerIndex.insert(map<int, int>::value_type(frame->getIndex(), sourceFrames.size()-1));
+        parentIndexes.emplace_back(-1);
+        rootIndexes.emplace_back(nodes.size()-1);
         return nodes[nodes.size()-1];
     }
 
     shared_ptr<KeyFrame> ViewGraph::indexFrame(int index) {
+        LOG_ASSERT(frameToInnerIndex.count(index)) << "error index";
         int innerIndex = frameToInnerIndex[index];
         return sourceFrames[innerIndex];
     }
@@ -313,6 +316,10 @@ namespace rtf {
         }
     }
 
+    double ViewGraph::getEdgeCost(int i, int j) {
+        return (*this)(i,j).getCost();
+    }
+
     void ViewGraph::updateNodeIndex(vector<vector<int>>& ccs) {
         // collect all frame
         vector<vector<int>> frameIndexes(ccs.size());
@@ -336,6 +343,87 @@ namespace rtf {
     int ViewGraph::findNodeIndexByFrameIndex(int frameIndex) {
         int innerIndex = frameToInnerIndex[frameIndex];
         return frameNodeIndex[innerIndex];
+    }
+
+    int ViewGraph::updateSpanningTree() { // for last node
+        // collect all edges for last node
+        vector<pair<int, double>> costs;
+        int lastIndex = nodes.size()-1;
+        for(int index=0; index<lastIndex; index++) {
+            Edge& edge = (*this)(index, lastIndex);
+            if(!edge.isUnreachable()) {
+                costs.emplace_back(make_pair(index, edge.getCost()));
+            }
+        }
+        int m = costs.size();
+
+        // find cost edge from inputs and spanning tree
+        vector<double> selectedCosts(2*m);
+        for(int i=0; i<m; i++) {
+            selectedCosts[i] = costs[i].second;
+            int itp = parentIndexes[costs[i].first];
+            if(itp == -1) {
+                selectedCosts[m+i] = curMaxRoot==costs[i].first?0:numeric_limits<double>::infinity();
+            }else {
+                selectedCosts[m+i] = getEdgeCost(itp, costs[i].first);
+            }
+        }
+
+        // sort the cost
+        std::vector<size_t> idxs(selectedCosts.size());
+        std::iota(idxs.begin(), idxs.end(), 0);
+        std::sort(idxs.begin(), idxs.end(),
+                  [&selectedCosts](size_t index_1, size_t index_2) { return selectedCosts[index_1] > selectedCosts[index_2]; });
+        // delete m-1 edge
+        vector<bool> selected(2*m, true);
+        vector<bool> excluded(2*m, false);
+        for(int i=0, k=0; i<2*m&&k<m-1; i++) {
+            int idx = idxs[i];
+            if(excluded[idx]) continue;
+            selected[idx] = false; // delete
+
+            excluded[idx] = true;
+            if(idx>=m) excluded[idx-m] = true;
+            else excluded[idx+m] = true;
+            k++;
+        }
+
+        // compose spanning tree
+        int lastRoot = -1;
+        set<int> path;
+        for(int i=0; i<m; i++) {
+            bool f1 = selected[i];
+            bool f2 = selected[m+i];
+            if(f1&&f2) { // new frame edge
+                parentIndexes[lastIndex] = costs[i].first;
+
+                int k  = lastIndex;
+                do {
+                    path.insert(k);
+                    lastRoot = k;
+                }while((k=parentIndexes[k])!=-1);
+            }
+        }
+        for(int i=0; i<m; i++) {
+            bool f1 = selected[i];
+            bool f2 = selected[m+i];
+            int refInnerIndex = costs[i].first;
+            if(f1&&!f2&&!path.count(refInnerIndex)) { // update other frames
+                parentIndexes[refInnerIndex] = lastIndex;
+            }
+        }
+
+        // update root
+        list<int> needUpdateRoot;
+
+        needUpdateRoot.emplace_back(lastIndex);
+        while(!needUpdateRoot.empty()) {
+            for(int i=0; i<parentIndexes.size(); i++) {
+                if(parentIndexes[i]==)
+            }
+        }
+        rootIndexes[lastIndex] = lastRoot;
+
     }
 
 

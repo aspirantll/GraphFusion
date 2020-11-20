@@ -15,7 +15,7 @@ namespace rtf {
     LocalRegistration::LocalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): globalConfig(globalConfig), siftVocabulary(siftVocabulary) {
         localViewGraph.reset(0);
         matcher = new SIFTFeatureMatcher();
-        localDBoWVoc = new DBoWVocabulary();
+        localDBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, false);
         egRegistration = new EGRegistration(globalConfig);
         homoRegistration = new HomographyRegistration(globalConfig);
         pnpRegistration = new PnPRegistration(globalConfig);
@@ -128,8 +128,7 @@ namespace rtf {
 
         if (overlapFrames.size() < k) {
             auto cur = localViewGraph.indexFrame(curIndex);
-            std::vector<MatchScore> imageScores;
-            localDBoWVoc->query(siftVocabulary, &cur->getFirstFrame()->getKps().getMBowVec(), &imageScores);
+            std::vector<MatchScore> imageScores = localDBoWHashing->queryImages(make_float3(0,0,0), cur->getKps());
             // Return all those keyframes with a score higher than 0.75*bestScore
             float minScoreToRetain = globalConfig.minScore;
             std::sort(imageScores.begin(), imageScores.end(), [=](MatchScore& ind1, MatchScore& ind2) {return ind1.imageId < ind2.imageId;});
@@ -196,7 +195,7 @@ namespace rtf {
 
         }
 
-//        cout << "pair registration:" << double(clock() - start) / CLOCKS_PER_SEC << "s" << endl;
+        cout << "pair registration:" << double(clock() - start) / CLOCKS_PER_SEC << "s" << endl;
 
     }
 
@@ -209,7 +208,7 @@ namespace rtf {
         if (localViewGraph.getFramesNum() > 1) {
             updateLocalEdges();
         }
-        localDBoWVoc->add(localViewGraph.getFramesNum()-1, &frame->getKps().getMBowVec());
+        localDBoWHashing->addVisualIndex(make_float3(0,0,0), keyframe->getKps(), localViewGraph.getFramesNum()-1);
     }
 
     void collectCorrespondences(vector<vector<pair<int, Point3D>>>& correlations, vector<bool>& visited, int u, vector<int>& corrIndexes, vector<Point3D>& corr) {
@@ -339,18 +338,18 @@ namespace rtf {
             descriptors.row(i) = desc[i];
         }
 
-        cerr << "visible frame num:" << m << endl;
+        /*cerr << "visible frame num:" << m << endl;
         cerr << "feature num:" << desc.size() << endl;
         if(desc.size()<500) {
             cerr << "index:" << keyframe->getIndex() << endl;
-        }
+        }*/
 
         sf.setBounds(minX, maxX, minY, maxY);
         sf.assignFeaturesToGrid();
 
         // reset
         localViewGraph.reset(0);
-        localDBoWVoc->clear();
+        localDBoWHashing->clear();
         velocity.setZero();
 
         return keyframe;
@@ -362,7 +361,7 @@ namespace rtf {
 
     LocalRegistration::~LocalRegistration() {
         delete matcher;
-        delete localDBoWVoc;
+        delete localDBoWHashing;
         delete egRegistration;
         delete homoRegistration;
         delete pnpRegistration;

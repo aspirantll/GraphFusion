@@ -225,7 +225,7 @@ namespace rtf {
 
         SIFTFeatureMatcher* matcher;
         ViewGraph localViewGraph;
-        DBoWVocabulary* localDBoWVoc;
+        DBoWHashing* localDBoWHashing;
         EGRegistration* egRegistration;
         HomographyRegistration* homoRegistration;
         PnPRegistration* pnpRegistration;
@@ -263,7 +263,7 @@ namespace rtf {
 
         SIFTFeatureMatcher* matcher;
         ViewGraph viewGraph;
-        DBoWVocabulary* dBoWHashing;
+        DBoWHashing* dBoWHashing;
         EGRegistration* egRegistration;
         HomographyRegistration* homoRegistration;
         PnPRegistration* pnpRegistration;
@@ -279,7 +279,7 @@ namespace rtf {
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
 
-        void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream, bool near);
+        void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream);
 
         void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges);
 

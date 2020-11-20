@@ -48,60 +48,46 @@ namespace rtf {
     class DBoWVocabulary {
     public:
         vector<CUDAArrayu*> ptrHolder;
-        vector<pair<int, DBoW2::BowVector*>> cpuVoc;
+        vector<pair<int, SIFTFeaturePoints*>> cpuVoc;
         CUDAVector<CUDABoW> gpuVoc;
         vector<int> imageIds;
 
-        void add(int imageId, DBoW2::BowVector* bow);
+        void add(int imageId, SIFTFeaturePoints* sf);
         void remove(int index);
-        void query(SIFTVocabulary* siftVocabulary, DBoW2::BowVector* bow, vector<MatchScore>* imageScores);
         int size();
         void clear();
         ~DBoWVocabulary();
     };
 
-    class ComposeDBoWVocabulary {
-    public:
-        vector<DBoWVocabulary *> vocs;
-        vector<int> imageIds;
-
-        void add(DBoWVocabulary* voc, int imageId);
-        void add(shared_ptr<KeyFrame> keyframe);
-        void remove(int index, bool free);
-        int size();
-        void clear();
-        ~ComposeDBoWVocabulary();
-    };
-
-
     class DBoWHashing {
     private:
         HashItem * items;
-        ComposeDBoWVocabulary * featureCatas = nullptr;
-        ComposeDBoWVocabulary * featureCata = nullptr;
+        SIFTVocabulary * siftVocabulary;
+        DBoWVocabulary * featureCatas;
+        DBoWVocabulary * featureCata;
         bool prepared;
         uint vocTh;
         VIHConfig config;
 
         ThreadPool* queryPool;
-
-        void computeMatchScores(const vector<ComposeDBoWVocabulary*> &voc, DBoW2::BowVector* bow, vector<vector<MatchScore>>& imageScores);
     public:
-        DBoWHashing(const GlobalConfig& config, bool hashing=true);
+        DBoWHashing(const GlobalConfig& config, SIFTVocabulary * siftVocabulary,  bool hashing=true);
 
         void initialize();
 
         ~DBoWHashing();
 
+        void computeBow(SIFTFeaturePoints& sf);
+
         uint hashFunction(int3 pos);
 
         int3 worldToPos(float3 wPos);
 
-        void addVisualIndex(float3 wPos, DBoWVocabulary* voc, int imageId, bool notLost=true);
+        void addVisualIndex(float3 wPos, SIFTFeaturePoints& sf, int imageId, bool notLost=true);
 
-        void addVisualIndex(float3 wPos, shared_ptr<KeyFrame> sf, bool notLost=true);
+        void queryVisualIndex(DBoWVocabulary* voc, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores);
 
-        vector<MatchScore> queryImages(float3 wPos, DBoW2::BowVector* bow, bool notLost=true, bool hasLost=false);
+        vector<MatchScore> queryImages(float3 wPos, SIFTFeaturePoints& sf, bool notLost=true, bool hasLost=false);
 
         vector<int> lostImageIds();
 

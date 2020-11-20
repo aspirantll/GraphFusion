@@ -50,7 +50,9 @@ namespace rtf {
             shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
             merger.stopTimer();
 //            kfTracker.join();
+            Timer insertKF = Timer::startTimer("merge frames");
             globalRegistration->insertKeyFrames(kf);
+            insertKF.stopTimer();
             lastFrameIndex = frameCounter;
         }else {
 //            kfTracker.join();

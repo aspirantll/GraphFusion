@@ -38,9 +38,42 @@ namespace rtf {
         printMutex.unlock();
     }
 
-    void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream, bool near) {
+    void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream) {
         stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
+
+        if(featureMatches.getFIndexY()-featureMatches.getFIndexX()==1) { // registration
+            shared_ptr<KeyFrame> ref = viewGraph.indexFrame(featureMatches.getFIndexX());
+            shared_ptr<KeyFrame> cur = viewGraph.indexFrame(featureMatches.getFIndexY());
+            vector<shared_ptr<Frame>> refFrames = ref->getFrames();
+            int lastVisPos = refFrames.size()-1;
+            for(; lastVisPos>0&&!refFrames[lastVisPos]->isVisible(); lastVisPos--);
+            shared_ptr<Frame> lastRefFrame = refFrames[lastVisPos];
+            shared_ptr<Frame> curFrame = cur->getFirstFrame();
+            FeatureMatches frameMatches = matcher->matchKeyPointsPair(lastRefFrame->getKps(), curFrame->getKps());
+            Edge frameEdge = Edge::UNREACHABLE;
+            registrationPnPBA(&frameMatches, &frameEdge, curStream);
+
+            if(edge->isUnreachable()||(edge->getKxs().size()<frameEdge.getKxs().size()&&edge->getCost()>frameEdge.getCost())) {
+                Transform transX = lastRefFrame->getTransform();
+
+                Intrinsic kX = viewGraph[0].getK();
+
+                // transform and k: p' = K(R*K^-1*p+t)
+                Rotation rX = kX*transX.block<3,3>(0,0)*kX.inverse();
+                Translation tX = kX*transX.block<3,1>(0,3);
+
+                // transform key points
+                transformFeatureKeypoints(frameEdge.getKxs(), rX, tX);
+
+                // trans12 = trans1*relative_trans*trans2^-1
+                Transform relativeTrans = transX * frameEdge.getTransform();
+                edge->setTransform(relativeTrans);
+                edge->setKxs(frameEdge.getKxs());
+                edge->setKys(frameEdge.getKys());
+                edge->setCost(frameEdge.getCost());
+            }
+        }
     }
 
     int GlobalRegistration::selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe) {
@@ -81,13 +114,14 @@ namespace rtf {
             cudaStreamCreate(&streams[index]);
             threads[index] = new thread(
                     bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                         placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], true);
+                         placeholders::_3), featureMatches, &edges[index], streams[index]);
             index++;
         }
 
         if (overlapFrames.size() < k) {
-            std::vector<MatchScore> imageScores;
-            dBoWHashing->query(siftVocabulary, &cur->getKps().getMBowVec(), &imageScores);
+            Timer queryTimer = Timer::startTimer("query index");
+            std::vector<MatchScore> imageScores = dBoWHashing->queryImages(lastPos, cur->getKps(), notLost,  lostNum > 0);
+            queryTimer.stopTimer();
             // Return all those keyframes with a score higher than 0.75*bestScore
             for (auto it: imageScores) {
                 const float &si = it.score;
@@ -104,7 +138,7 @@ namespace rtf {
                     cudaStreamCreate(&streams[index]);
                     threads[index] = new thread(
                             bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                                 placeholders::_3, placeholders::_4), featureMatches, &edges[index], streams[index], false);
+                                 placeholders::_3), featureMatches, &edges[index], streams[index]);
                     index++;
                 }
                 if (overlapFrames.size() >= k) break;
@@ -119,10 +153,8 @@ namespace rtf {
     }
 
     GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
-        dBoWHashing = new DBoWVocabulary();
+        dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, false);
         matcher = new SIFTFeatureMatcher();
-        egRegistration = new EGRegistration(globalConfig);
-        homoRegistration = new HomographyRegistration(globalConfig);
         pnpRegistration = new PnPRegistration(globalConfig);
     }
 
@@ -170,7 +202,7 @@ namespace rtf {
     }
 
     void GlobalRegistration::updateLostFrames() {
-        /*vector<int> lostImageIds = dBoWHashing->lostImageIds();
+        vector<int> lostImageIds = dBoWHashing->lostImageIds();
         vector<int> updateIds;
         vector<float3> poses;
         for (int lostId: lostImageIds) {
@@ -185,7 +217,7 @@ namespace rtf {
             }
         }
 
-        dBoWHashing->updateVisualIndex(updateIds, poses);*/
+        dBoWHashing->updateVisualIndex(updateIds, poses);
     }
 
     void GlobalRegistration::trackKeyFrames(shared_ptr<Frame> frame) {
@@ -252,7 +284,9 @@ namespace rtf {
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
 //                mergeViewGraph();
             }
+            Timer grTimer = Timer::startTimer("gr");
             lostNum = registration(false);
+            grTimer.stopTimer();
             updateLostFrames();
 
             curNodeIndex = viewGraph.findNodeIndexByFrameIndex(keyframe->getIndex());
@@ -267,7 +301,8 @@ namespace rtf {
             lastPos = make_float3(0, 0, 0);
             notLost = true;
         }
-        dBoWHashing->add(keyframe->getIndex(), &keyframe->getKps().getMBowVec());
+
+        dBoWHashing->addVisualIndex(lastPos, keyframe->getKps(), keyframe->getIndex(),  notLost);
     }
 
     int GlobalRegistration::registration(bool opt) {
