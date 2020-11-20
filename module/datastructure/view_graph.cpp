@@ -248,9 +248,16 @@ namespace rtf {
             adjMatrix->resize(0, defaultValue);
             sourceFrames.clear();
             frameNodeIndex.clear();
+            parentIndexes.clear();
+            rootIndexes.clear();
+            curMaxRoot = -1;
         }else {
             nodes.resize(nodesNum, Node());
             adjMatrix->resize(nodesNum, defaultValue);
+            parentIndexes.resize(nodesNum, -1);
+            rootIndexes.resize(nodesNum);
+            iota(rootIndexes.begin(), rootIndexes.end(), 0);
+            curMaxRoot = 0;
         }
     }
 
@@ -262,6 +269,22 @@ namespace rtf {
         int innerIndex = frameToInnerIndex[frameIndex];
         int nodeIndex = frameNodeIndex[innerIndex];
         return nodes[nodeIndex].nGtTrans*sourceFrames[innerIndex]->getTransform();
+    }
+
+    Transform ViewGraph::computeTransform(int u, map<int, int>& cc, vector<bool>& visited, TransformVector& transVec) {
+        if(visited[u]) return transVec[u];
+
+        int parent = parentIndexes[u];
+        if(parent==-1) {
+            transVec[u] = Transform::Identity();
+        }else {
+            int innerIndex = cc[parent];
+            transVec[u] = computeTransform(innerIndex, cc, visited, transVec)*getEdgeTransform(innerIndex, u);
+        }
+        visited[u] = true;
+        return transVec[u];
+
+
     }
 
     Edge &ViewGraph::operator()(int i, int j) {
@@ -318,6 +341,11 @@ namespace rtf {
 
     double ViewGraph::getEdgeCost(int i, int j) {
         return (*this)(i,j).getCost();
+    }
+
+    Transform ViewGraph::getEdgeTransform(int i, int j) {
+        Transform trans = (*this)(i, j).getTransform();
+        return i<=j?trans:GeoUtil::reverseTransformation(trans);
     }
 
     void ViewGraph::updateNodeIndex(vector<vector<int>>& ccs) {
@@ -414,22 +442,105 @@ namespace rtf {
         }
 
         // update root
-        list<int> needUpdateRoot;
-
-        needUpdateRoot.emplace_back(lastIndex);
-        while(!needUpdateRoot.empty()) {
+        bool endFlag = false;
+        set<int> needUpdateRoot;
+        needUpdateRoot.insert(lastIndex);
+        while(!endFlag) {
+            endFlag = true;
             for(int i=0; i<parentIndexes.size(); i++) {
-                if(parentIndexes[i]==)
+                if(needUpdateRoot.count(parentIndexes[i])&&!needUpdateRoot.count(i)) {
+                    needUpdateRoot.insert(i);
+                    endFlag = false;
+                }
             }
         }
-        rootIndexes[lastIndex] = lastRoot;
 
+        for(int index: needUpdateRoot) {
+            rootIndexes[index] = lastRoot;
+        }
+
+        // update visible root
+        map<int, int> rootCounts;
+        for(int i=0; i<rootIndexes.size(); i++) {
+            int root = rootIndexes[i];
+            if(!rootCounts.count(root)) {
+                rootCounts.insert(map<int, int>::value_type(root, 0));
+            }else {
+                rootCounts[root]++;
+            }
+        }
+
+        int maxRoot = -1;
+        int maxCount = 0;
+        for(auto mit: rootCounts) {
+            if(mit.second>maxCount) {
+                maxRoot = mit.first;
+                maxCount = mit.second;
+            }
+        }
+
+        int lostCount = 0;
+        curMaxRoot = maxRoot;
+        for(int i=0; i<rootIndexes.size(); i++) {
+            nodes[i].setVisible(rootIndexes[i]==curMaxRoot);
+            if(!nodes[i].isVisible()) {
+                lostCount += nodes[i].getFrames().size();
+            }
+        }
+        return lostCount;
     }
 
 
     bool ViewGraph::isVisible(int frameIndex) {
         int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
         return nodes[nodeIndex].isVisible();
+    }
+
+    vector<vector<int>> ViewGraph::getConnectComponents() {
+        map<int, vector<int>> ccMap;
+        for(int i=0; i<rootIndexes.size(); i++) {
+            int root = rootIndexes[i];
+            if(!ccMap.count(root)) {
+                ccMap.insert(map<int, vector<int>>::value_type(root, vector<int>()));
+            }
+            ccMap[root].emplace_back(i);
+        }
+
+        vector<vector<int>> ccs;
+        for(auto mit: ccMap) {
+            ccs.emplace_back(mit.second);
+        }
+        return ccs;
+    }
+
+    vector<TransformVector> ViewGraph::getCCGtTransforms() {
+        map<int, vector<int>> ccMap;
+        for(int i=0; i<rootIndexes.size(); i++) {
+            int root = rootIndexes[i];
+            if(!ccMap.count(root)) {
+                ccMap.insert(map<int, vector<int>>::value_type(root, vector<int>()));
+            }
+            ccMap[root].emplace_back(i);
+        }
+
+        vector<map<int, int>> ccs;
+        for(auto mit: ccMap) {
+            map<int, int> cc;
+            for(int i=0; i<mit.second.size(); i++) {
+                cc.insert(map<int, int>::value_type(mit.second[i], i));
+            }
+            ccs.emplace_back(cc);
+        }
+
+        vector<TransformVector> gtTrans(ccMap.size());
+        for(int i=0; i<gtTrans.size(); i++) {
+            gtTrans[i].resize(ccs[i].size());
+            vector<bool> visited(ccs[i].size(), false);
+            for(int j=0; j<ccs[i].size(); j++) {
+                computeTransform(j, ccs[i], visited, gtTrans[i]);
+            }
+        }
+        return gtTrans;
     }
 
 

@@ -67,7 +67,7 @@ namespace rtf {
             lastFrameIndex = frameCounter;
         }
 
-//        globalRegistration->registration(opt);
+        globalRegistration->registration(opt);
         /*auto meshData = getVoxelFusion()->integrateFrames(getViewGraph());
         cout << "show final mesh" << endl;
         updateViewer(meshData);*/

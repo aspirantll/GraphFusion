@@ -285,7 +285,7 @@ namespace rtf {
 //                mergeViewGraph();
             }
             Timer grTimer = Timer::startTimer("gr");
-            lostNum = registration(false);
+            lostNum = viewGraph.updateSpanningTree();
             grTimer.stopTimer();
             updateLostFrames();
 
@@ -310,31 +310,13 @@ namespace rtf {
         if(n<1) return true;
 
         cout << "------------------------compute global transform for view graph------------------------" << endl;
-        vector<vector<int>> ccs = findConnectedComponents(viewGraph, globalConfig.maxAvgCost);
-        // global registration for every connected component
-        int visibleIndex = 0;
-        int maxFrameNum = 0;
-        for(int i=0; i<ccs.size(); i++) {
-            int curFrameNum = 0;
-            for(int j : ccs[i]) {
-                curFrameNum += viewGraph[j].getFrames().size();
-            }
-            if(curFrameNum>maxFrameNum) {
-                visibleIndex = i;
-                maxFrameNum = curFrameNum;
-            }
-        }
+        vector<vector<int>> ccs = viewGraph.getConnectComponents();
+        vector<TransformVector> gtTransVecs = viewGraph.getCCGtTransforms();
 
-        int invisibleCount = 0;
         for(int i=0; i<ccs.size(); i++) {
             vector<int>& cc = ccs[i];
-            for(int j: cc) {
-                viewGraph[j].setVisible(i==visibleIndex);
-                if(!viewGraph[j].isVisible()) invisibleCount+=viewGraph[j].getFrames().size();
-            }
             if(cc.size()>1) {
-                TransformVector gtTransVec;
-                findShortestPathTransVec(viewGraph, cc, gtTransVec);
+                TransformVector& gtTransVec = gtTransVecs[i];
                 if(opt) {
                     BARegistration bundleAdjustment(globalConfig);
                     bundleAdjustment.multiViewBundleAdjustment(viewGraph, cc, gtTransVec).printReport();
@@ -344,8 +326,8 @@ namespace rtf {
                 }
             }
         }
-        cout << "invisible count:" << invisibleCount << endl;
-        return invisibleCount;
+        cout << "invisible count:" << lostNum << endl;
+        return lostNum;
     }
 
     ViewGraph &GlobalRegistration::getViewGraph() {

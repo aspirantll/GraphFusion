@@ -177,6 +177,8 @@ namespace rtf {
         int curMaxRoot = 0;
         vector<int> parentIndexes;
         vector<int> rootIndexes;
+
+        Transform computeTransform(int u, map<int, int>& cc, vector<bool>& visited, TransformVector& transVec);
     public:
         ViewGraph();
 
@@ -206,6 +208,8 @@ namespace rtf {
 
         double getEdgeCost(int i, int j);
 
+        Transform getEdgeTransform(int i, int j);
+
         int getFramesNum();
 
         vector<shared_ptr<KeyFrame>> getSourceFrames();
@@ -215,6 +219,10 @@ namespace rtf {
         int findNodeIndexByFrameIndex(int frameIndex);
 
         int updateSpanningTree();
+
+        vector<vector<int>> getConnectComponents();
+
+        vector<TransformVector> getCCGtTransforms();
 
         bool isVisible(int frameIndex);
 

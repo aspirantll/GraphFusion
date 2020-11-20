@@ -71,9 +71,7 @@ namespace rtf {
     }
 
     DBoWVocabulary::~DBoWVocabulary() {
-        for(auto *it: ptrHolder) {
-            delete it;
-        }
+
     }
 
     DBoWHashing::DBoWHashing(const GlobalConfig &globalConfig, SIFTVocabulary * siftVocabulary, bool hashing): siftVocabulary(siftVocabulary) {
@@ -108,7 +106,6 @@ namespace rtf {
         delete featureCatas;
         delete queryPool;
         delete featureCata;
-        delete siftVocabulary;
     }
 
     void DBoWHashing::computeBow(SIFTFeaturePoints& sf) {
