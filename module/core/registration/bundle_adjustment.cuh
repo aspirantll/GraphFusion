@@ -39,6 +39,13 @@ namespace rtf {
         Eigen::Matrix<Scalar, 6, 6> H;
         Eigen::Matrix<Scalar, 6, 1> M;
         Eigen::Matrix<Scalar, 6, 1> b;
+
+        LMSumMats& mulWeight(Scalar weight) {
+            H *= weight;
+            M *= weight;
+            b *= weight;
+            return (*this);
+        }
     };
 
     class LMSummators{

@@ -85,7 +85,7 @@ namespace rtf {
 
         void addVisualIndex(float3 wPos, SIFTFeaturePoints& sf, int imageId, bool notLost=true);
 
-        void queryVisualIndex(DBoWVocabulary* voc, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores);
+        void queryVisualIndex(vector<DBoWVocabulary*> vocs, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores);
 
         vector<MatchScore> queryImages(float3 wPos, SIFTFeaturePoints& sf, bool notLost=true, bool hasLost=false);
 

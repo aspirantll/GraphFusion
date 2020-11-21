@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     cout << "finish to online reconstruction: " << ttrack << endl;
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
-    onlineRecon.finalOptimize(true);
+    onlineRecon.finalOptimize(false);
 //    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     saveATP(onlineRecon.getViewGraph(), globalConfig);

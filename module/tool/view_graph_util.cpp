@@ -35,7 +35,7 @@ namespace rtf {
             return components;
         }
 
-        void findCircle(ViewGraph& viewGraph, vector<bool>& visited, vector<int>& path, int k, double minCost, set<int>& circleCandidates) {
+        void findCircle(ViewGraph& viewGraph, vector<bool>& visited, vector<int>& path, int k, set<int>& circleCandidates) {
             path.emplace_back(k);
             visited[k] = true;
             int n = viewGraph.getNodesNum();
@@ -47,21 +47,21 @@ namespace rtf {
                             circleCandidates.insert(path.begin(), path.end());
                         }
                     }else {
-                        findCircle(viewGraph, visited, path, j, minCost, circleCandidates);
+                        findCircle(viewGraph, visited, path, j, circleCandidates);
                     }
                 }
             }
             path.erase(path.end()-1);
         }
 
-        vector<int> findCircleComponent(ViewGraph& viewGraph, double minCost, int u) {
+        vector<int> findCircleComponent(ViewGraph& viewGraph, int u) {
             int n = viewGraph.getNodesNum();
             vector<bool> visited(n);
             for(int i=0; i<n; i++) visited[i] = false;
 
             vector<int> path;
             set<int> circleCandidates;
-            findCircle(viewGraph, visited, path, u, minCost, circleCandidates);
+            findCircle(viewGraph, visited, path, u, circleCandidates);
             return vector<int>(circleCandidates.begin(), circleCandidates.end());
         }
 

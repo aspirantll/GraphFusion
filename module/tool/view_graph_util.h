@@ -17,11 +17,10 @@ namespace rtf {
         /**
          * merge all circle containing u
          * @param viewGraph
-         * @param minCost
          * @param u
          * @return
          */
-        vector<int> findCircleComponent(ViewGraph& viewGraph, double minCost, int u);
+        vector<int> findCircleComponent(ViewGraph& viewGraph, int u);
 
             // find shortest path by prim
         bool findShortestPathTransVec(ViewGraph& viewGraph, vector<int>& cc,TransformVector& transVec);

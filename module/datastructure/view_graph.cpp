@@ -271,15 +271,14 @@ namespace rtf {
         return nodes[nodeIndex].nGtTrans*sourceFrames[innerIndex]->getTransform();
     }
 
-    Transform ViewGraph::computeTransform(int u, map<int, int>& cc, vector<bool>& visited, TransformVector& transVec) {
+    Transform ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited, TransformVector& transVec) {
         if(visited[u]) return transVec[u];
-
-        int parent = parentIndexes[u];
+        int parent = parentIndexes[cc[u]];
         if(parent==-1) {
             transVec[u] = Transform::Identity();
         }else {
-            int innerIndex = cc[parent];
-            transVec[u] = computeTransform(innerIndex, cc, visited, transVec)*getEdgeTransform(innerIndex, u);
+            int v = innerMap[parent];
+            transVec[u] = computeTransform(v, innerMap, cc, visited, transVec)*getEdgeTransform(parent, cc[u]);
         }
         visited[u] = true;
         return transVec[u];
@@ -340,10 +339,12 @@ namespace rtf {
     }
 
     double ViewGraph::getEdgeCost(int i, int j) {
+        LOG_ASSERT(!(*this)(i,j).isUnreachable());
         return (*this)(i,j).getCost();
     }
 
     Transform ViewGraph::getEdgeTransform(int i, int j) {
+        LOG_ASSERT(!(*this)(i,j).isUnreachable());
         Transform trans = (*this)(i, j).getTransform();
         return i<=j?trans:GeoUtil::reverseTransformation(trans);
     }
@@ -375,118 +376,151 @@ namespace rtf {
 
     int ViewGraph::updateSpanningTree() { // for last node
         // collect all edges for last node
-        vector<pair<int, double>> costs;
+        map<int, vector<pair<int, double>>> costsMap;
         int lastIndex = nodes.size()-1;
         for(int index=0; index<lastIndex; index++) {
             Edge& edge = (*this)(index, lastIndex);
             if(!edge.isUnreachable()) {
-                costs.emplace_back(make_pair(index, edge.getCost()));
-            }
-        }
-        int m = costs.size();
-
-        // find cost edge from inputs and spanning tree
-        vector<double> selectedCosts(2*m);
-        for(int i=0; i<m; i++) {
-            selectedCosts[i] = costs[i].second;
-            int itp = parentIndexes[costs[i].first];
-            if(itp == -1) {
-                selectedCosts[m+i] = curMaxRoot==costs[i].first?0:numeric_limits<double>::infinity();
-            }else {
-                selectedCosts[m+i] = getEdgeCost(itp, costs[i].first);
+                int root = rootIndexes[index];
+                if(!costsMap.count(root)) {
+                    costsMap.insert(map<int, vector<pair<int, double>>>::value_type(root, vector<pair<int, double>>()));
+                }
+                costsMap[root].emplace_back(make_pair(index, edge.getCost()));
             }
         }
 
-        // sort the cost
-        std::vector<size_t> idxs(selectedCosts.size());
-        std::iota(idxs.begin(), idxs.end(), 0);
-        std::sort(idxs.begin(), idxs.end(),
-                  [&selectedCosts](size_t index_1, size_t index_2) { return selectedCosts[index_1] > selectedCosts[index_2]; });
-        // delete m-1 edge
-        vector<bool> selected(2*m, true);
-        vector<bool> excluded(2*m, false);
-        for(int i=0, k=0; i<2*m&&k<m-1; i++) {
-            int idx = idxs[i];
-            if(excluded[idx]) continue;
-            selected[idx] = false; // delete
-
-            excluded[idx] = true;
-            if(idx>=m) excluded[idx-m] = true;
-            else excluded[idx+m] = true;
-            k++;
-        }
-
-        // compose spanning tree
+        // select root for last frame
         int lastRoot = -1;
-        set<int> path;
-        for(int i=0; i<m; i++) {
-            bool f1 = selected[i];
-            bool f2 = selected[m+i];
-            if(f1&&f2) { // new frame edge
-                parentIndexes[lastIndex] = costs[i].first;
-
-                int k  = lastIndex;
-                do {
-                    path.insert(k);
-                    lastRoot = k;
-                }while((k=parentIndexes[k])!=-1);
-            }
-        }
-        for(int i=0; i<m; i++) {
-            bool f1 = selected[i];
-            bool f2 = selected[m+i];
-            int refInnerIndex = costs[i].first;
-            if(f1&&!f2&&!path.count(refInnerIndex)) { // update other frames
-                parentIndexes[refInnerIndex] = lastIndex;
+        for(auto mit: costsMap) {
+            if(lastRoot==-1||mit.first==curMaxRoot) {
+                lastRoot = mit.first;
             }
         }
 
-        // update root
-        bool endFlag = false;
-        set<int> needUpdateRoot;
-        needUpdateRoot.insert(lastIndex);
-        while(!endFlag) {
-            endFlag = true;
-            for(int i=0; i<parentIndexes.size(); i++) {
-                if(needUpdateRoot.count(parentIndexes[i])&&!needUpdateRoot.count(i)) {
-                    needUpdateRoot.insert(i);
-                    endFlag = false;
+        // handle connected spanning trees
+        for(auto mit: costsMap) {
+            int curRoot = mit.first;
+            vector<pair<int, double>>& costs = mit.second;
+            int m = costs.size();
+
+            // find cost edge from inputs and spanning tree
+            vector<double> selectedCosts(2*m);
+            for(int i=0; i<m; i++) {
+                selectedCosts[i] = costs[i].second;
+                int itp = parentIndexes[costs[i].first];
+                if(itp == -1) {
+                    selectedCosts[m+i] = lastRoot==costs[i].first?0:numeric_limits<double>::infinity();
+                }else {
+                    selectedCosts[m+i] = getEdgeCost(itp, costs[i].first);
+                }
+            }
+
+            // sort the cost
+            std::vector<size_t> idxs(selectedCosts.size());
+            std::iota(idxs.begin(), idxs.end(), 0);
+            std::sort(idxs.begin(), idxs.end(),
+                      [&selectedCosts](size_t index_1, size_t index_2) { return selectedCosts[index_1] > selectedCosts[index_2]; });
+            // delete m-1 edge
+            vector<bool> selected(2*m, true);
+            vector<bool> excluded(2*m, false);
+            for(int i=0, k=0; i<2*m&&k<m-1; i++) {
+                int idx = idxs[i];
+                if(excluded[idx]) continue;
+                selected[idx] = false; // delete
+                excluded[idx] = true;
+                if(idx>=m) excluded[idx-m] = true;
+                else excluded[idx+m] = true;
+                k++;
+            }
+
+            // compose spanning tree
+            set<int> path;
+            for(int i=0; i<m; i++) {
+                bool f1 = selected[i];
+                bool f2 = selected[m+i];
+                if(f1&&f2) { // new frame edge
+                    if(curRoot == lastRoot)
+                        parentIndexes[lastIndex] = costs[i].first;
+
+                    vector<int> pathSeq;
+                    pathSeq.emplace_back(lastIndex);
+                    path.insert(lastIndex);
+
+                    int k  = costs[i].first;
+                    do {
+                        path.insert(k);
+                        pathSeq.emplace_back(k);
+                    }while((k=parentIndexes[k])!=-1);
+
+                    if(curRoot != lastRoot) { // reverse root for non-main tree
+                        for(int j=pathSeq.size()-1; j>0; j--) {
+                            parentIndexes[pathSeq[j]] = pathSeq[j-1];
+                        }
+                    }
+                }
+            }
+            for(int i=0; i<m; i++) {
+                bool f1 = selected[i];
+                bool f2 = selected[m+i];
+                int refInnerIndex = costs[i].first;
+                if(f1&&!f2&&!path.count(refInnerIndex)) { // update other frames
+                    parentIndexes[refInnerIndex] = lastIndex;
+                }
+            }
+        }
+        if(lastIndex==117) {
+            cout << "debug" << endl;
+        }
+        if (!costsMap.empty()) {
+            // update root
+            bool endFlag = false;
+            set<int> needUpdateRoot;
+            needUpdateRoot.insert(lastIndex);
+            while(!endFlag) {
+                endFlag = true;
+                for(int i=0; i<parentIndexes.size(); i++) {
+                    if(needUpdateRoot.count(parentIndexes[i])&&!needUpdateRoot.count(i)) {
+                        needUpdateRoot.insert(i);
+                        endFlag = false;
+                    }
+                }
+            }
+
+            for(int index: needUpdateRoot) {
+                rootIndexes[index] = lastRoot;
+            }
+
+            // update visible root
+            map<int, int> rootCounts;
+            for(int i=0; i<rootIndexes.size(); i++) {
+                int root = rootIndexes[i];
+                if(!rootCounts.count(root)) {
+                    rootCounts.insert(map<int, int>::value_type(root, 0));
+                }else {
+                    rootCounts[root]++;
+                }
+            }
+
+            int maxRoot = -1;
+            int maxCount = 0;
+            for(auto mit: rootCounts) {
+                if(mit.second>maxCount) {
+                    maxRoot = mit.first;
+                    maxCount = mit.second;
+                }
+            }
+
+            curMaxRoot = maxRoot;
+
+            lostCount = 0;
+            for(int i=0; i<rootIndexes.size(); i++) {
+                nodes[i].setVisible(rootIndexes[i]==curMaxRoot);
+                if(!nodes[i].isVisible()) {
+                    lostCount += nodes[i].getFrames().size();
                 }
             }
         }
 
-        for(int index: needUpdateRoot) {
-            rootIndexes[index] = lastRoot;
-        }
-
-        // update visible root
-        map<int, int> rootCounts;
-        for(int i=0; i<rootIndexes.size(); i++) {
-            int root = rootIndexes[i];
-            if(!rootCounts.count(root)) {
-                rootCounts.insert(map<int, int>::value_type(root, 0));
-            }else {
-                rootCounts[root]++;
-            }
-        }
-
-        int maxRoot = -1;
-        int maxCount = 0;
-        for(auto mit: rootCounts) {
-            if(mit.second>maxCount) {
-                maxRoot = mit.first;
-                maxCount = mit.second;
-            }
-        }
-
-        int lostCount = 0;
-        curMaxRoot = maxRoot;
-        for(int i=0; i<rootIndexes.size(); i++) {
-            nodes[i].setVisible(rootIndexes[i]==curMaxRoot);
-            if(!nodes[i].isVisible()) {
-                lostCount += nodes[i].getFrames().size();
-            }
-        }
         return lostCount;
     }
 
@@ -513,7 +547,7 @@ namespace rtf {
         return ccs;
     }
 
-    vector<TransformVector> ViewGraph::getCCGtTransforms() {
+    EigenVector(TransformVector) ViewGraph::getCCGtTransforms() {
         map<int, vector<int>> ccMap;
         for(int i=0; i<rootIndexes.size(); i++) {
             int root = rootIndexes[i];
@@ -523,21 +557,23 @@ namespace rtf {
             ccMap[root].emplace_back(i);
         }
 
-        vector<map<int, int>> ccs;
-        for(auto mit: ccMap) {
-            map<int, int> cc;
-            for(int i=0; i<mit.second.size(); i++) {
-                cc.insert(map<int, int>::value_type(mit.second[i], i));
+        EigenVector(TransformVector) gtTrans(ccMap.size());
+        auto mit = ccMap.begin();
+        for(int i=0; i<gtTrans.size(); i++, mit++) {
+            vector<int>& cc = mit->second;
+            gtTrans[i].resize(cc.size());
+            vector<bool> visited(cc.size(), false);
+            map<int, int> ccIndex;
+            for(int j=0; j<cc.size(); j++) {
+                ccIndex.insert(map<int, int>::value_type(cc[j], j));
             }
-            ccs.emplace_back(cc);
-        }
-
-        vector<TransformVector> gtTrans(ccMap.size());
-        for(int i=0; i<gtTrans.size(); i++) {
-            gtTrans[i].resize(ccs[i].size());
-            vector<bool> visited(ccs[i].size(), false);
-            for(int j=0; j<ccs[i].size(); j++) {
-                computeTransform(j, ccs[i], visited, gtTrans[i]);
+            for(int j=0; j<cc.size(); j++) {
+                if(cc[j]==117) {
+                    cout << "d" << endl;
+                }
+                computeTransform(j, ccIndex, cc, visited, gtTrans[i]);
+                if(!GeoUtil::validateTransform(gtTrans[i][j]))
+                     cout << cc[j] << ":" << gtTrans[i][j] << endl;
             }
         }
         return gtTrans;

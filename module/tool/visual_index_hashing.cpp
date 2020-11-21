@@ -103,9 +103,11 @@ namespace rtf {
 
     DBoWHashing::~DBoWHashing() {
         delete items;
-        delete featureCatas;
         delete queryPool;
-        delete featureCata;
+        for(int i=0; i<vocTh&&config.hashing; i++) {
+            featureCatas[i].clear();
+        }
+        featureCata->clear();
     }
 
     void DBoWHashing::computeBow(SIFTFeaturePoints& sf) {
@@ -173,26 +175,35 @@ namespace rtf {
     }
 
 
-    void DBoWHashing::queryVisualIndex(DBoWVocabulary* voc, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores) {
+    void DBoWHashing::queryVisualIndex(vector<DBoWVocabulary*> vocs, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores) {
         DBoW2::BowVector &bow = sf->getMBowVec();
-        int num = voc->size();
-
-        vector<uint> wordCounts(num, 0);
-        {
-            CUDAArrayu cudaWordCounts(num);
-            vector<uint> curWords = sf->getMBowVec().words();
-            CUDAArrayu cudaCurWords(curWords);
-            CUDAPtrArray<CUDABoW> gpuVoc = voc->gpuVoc.uploadToCUDA();
-            wordsCount(gpuVoc, cudaCurWords, cudaWordCounts);
-            cudaWordCounts.download(wordCounts);
-        }
-
+        map<int, int> indexMap;
         map<int, int> sharedWordFrames;
-        for(int i=0; i<num; i++) {
-            if(wordCounts[i]) {
-                sharedWordFrames.insert(map<int,int>::value_type(i, wordCounts[i]));
+        vector<int> startVec;
+        int start = 0;
+        for(int i=0; i<vocs.size(); i++) {
+            DBoWVocabulary* voc = vocs[i];
+            int num = voc->size();
+            vector<uint> wordCounts(num, 0);
+            {
+                CUDAArrayu cudaWordCounts(num);
+                vector<uint> curWords = sf->getMBowVec().words();
+                CUDAArrayu cudaCurWords(curWords);
+                CUDAPtrArray<CUDABoW> gpuVoc = voc->gpuVoc.uploadToCUDA();
+                wordsCount(gpuVoc, cudaCurWords, cudaWordCounts);
+                cudaWordCounts.download(wordCounts);
             }
+
+            for(int j=0; j<num; j++) {
+                if(wordCounts[j]) {
+                    sharedWordFrames.insert(map<int,int>::value_type(start+j, wordCounts[j]));
+                    indexMap.insert(map<int,int>::value_type(start+j, i));
+                }
+            }
+            startVec.emplace_back(start);
+            start += num;
         }
+
 
 
         // filter by maxWordCount and minWordCount
@@ -207,9 +218,12 @@ namespace rtf {
         for (auto &sharedWordFrame : sharedWordFrames) {
             if (sharedWordFrame.second >= minCommonWords) {
                 int ind = sharedWordFrame.first;
-                DBoW2::BowVector &ibow = (*voc).cpuVoc[ind].second->getMBowVec();
+                int vocInd = indexMap[ind];
+                ind = ind - startVec[vocInd];
+                auto item = (*vocs[vocInd]).cpuVoc[ind];
+                DBoW2::BowVector &ibow = item.second->getMBowVec();
                 float score = siftVocabulary->score(bow, ibow);
-                imageScores->emplace_back((*voc).cpuVoc[ind].first, score);
+                imageScores->emplace_back(item.first, score);
             }
         }
 
@@ -253,18 +267,22 @@ namespace rtf {
         vector<vector<MatchScore>> cMatchScores;
         vector<future<void>> invokeFutures;
         if(prepared) {// hava image in visual index
-            cMatchScores.resize(viInds.size()+1);
+            cMatchScores.resize(viInds.empty()?1:2);
+            vector<DBoWVocabulary*> vocs;
+            vocs.emplace_back(featureCata);
             invokeFutures.emplace_back(queryPool->enqueue(bind(&DBoWHashing::queryVisualIndex
-                    , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), featureCata, &sf, &cMatchScores[viInds.size()]));
+                    , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), vocs, &sf, &cMatchScores[viInds.empty()?0:1]));
         }else {
-            cMatchScores.resize(viInds.size());
+            cMatchScores.resize(1);
         }
 
-        int ind=0;
+        vector<DBoWVocabulary*> vocs;
         for(uint viInd: viInds) {
+            vocs.emplace_back(featureCatas+viInd);
+        }
+        if(!vocs.empty()) {
             invokeFutures.emplace_back(queryPool->enqueue(bind(&DBoWHashing::queryVisualIndex
-                    , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), featureCatas+viInd, &sf, &cMatchScores[ind]));
-            ind++;
+                    , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), vocs, &sf, &cMatchScores[0]));
         }
 
         for(int i=0; i<invokeFutures.size(); i++) {
@@ -292,7 +310,7 @@ namespace rtf {
             }
         }else if(hasLost&&prepared) {
             int maxJ = cMatchScores.size()-1;
-            for(start=0; start<2&&start<cMatchScores[maxJ].size()&&start<config.numNeighs; start++) {
+            for(start=0; start<1&&start<cMatchScores[maxJ].size()&&start<config.numNeighs; start++) {
                 matchScore.emplace_back(cMatchScores[maxJ][inds[maxJ]]);
                 inds[maxJ]++;
             }

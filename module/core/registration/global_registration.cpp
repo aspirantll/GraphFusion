@@ -76,17 +76,38 @@ namespace rtf {
         }
     }
 
-    int GlobalRegistration::selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe) {
-        int bestIndex = -1;
-        float bestScore = 0;
-        for(const shared_ptr<Frame>& f: keyframe->getFrames()) {
-            float score = siftVocabulary->score(bow, f->getKps().getMBowVec());
-            if(f->isVisible()&&score>bestScore) { // must select visible frame
-                bestIndex = f->getFrameIndex();
-                bestScore = score;
-            }
+    bool GlobalRegistration::loopClosureDetection() {
+        vector<int> candidates = ViewGraphUtil::findCircleComponent(viewGraph, viewGraph.getNodesNum()-1);
+        if(!candidates.empty()) {
+            loopCount++;
+            loopCandidates.insert(candidates.begin(), candidates.end());
+        }else {
+            loopCount = 0;
+            loopCandidates.clear();
         }
-        return bestIndex;
+
+        if(loopCount>=3) {
+            cout << "loop closure detected!!!" << endl;
+            vector<int> circleCandidates(loopCandidates.begin(), loopCandidates.end());
+            TransformVector gtTransVec;
+            bool isConnected = findShortestPathTransVec(viewGraph, circleCandidates, gtTransVec);
+            LOG_ASSERT(isConnected) << " occur a error: the view graph is not connected ";
+            BARegistration bundleAdjustment(globalConfig);
+            bundleAdjustment.multiViewBundleAdjustment(viewGraph, circleCandidates,
+                                                       gtTransVec).printReport();
+            // update the relative transformation
+            for(int i=0; i<circleCandidates.size(); i++) {
+                for(int j=i+1; j<circleCandidates.size(); j++) {
+                    Edge& edge = viewGraph(circleCandidates[i], circleCandidates[j]);
+                    if(!edge.isUnreachable())
+                        edge.setTransform(GeoUtil::reverseTransformation(gtTransVec[i])*gtTransVec[j]);
+                }
+            }
+            loopCount = 0;
+            loopCandidates.clear();
+        }else {
+            return false;
+        }
     }
 
     void GlobalRegistration::registrationEdges(shared_ptr<KeyFrame> cur, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges) {
@@ -153,7 +174,7 @@ namespace rtf {
     }
 
     GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
-        dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, false);
+        dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, true);
         matcher = new SIFTFeatureMatcher();
         pnpRegistration = new PnPRegistration(globalConfig);
     }
@@ -220,26 +241,6 @@ namespace rtf {
         dBoWHashing->updateVisualIndex(updateIds, poses);
     }
 
-    void GlobalRegistration::trackKeyFrames(shared_ptr<Frame> frame) {
-        /*if (viewGraph.getFramesNum() > 0) {
-            clock_t start = clock();
-            vector<int> overlapFrames;
-            vector<int> innerIndexes;
-            vector<Edge, Eigen::aligned_allocator<Edge>> pairEdges;
-            registrationEdges(frame, overlapFrames, innerIndexes, pairEdges);
-
-            for(int i=0; i<pairEdges.size(); i++) {
-                if (!pairEdges[i].isUnreachable()) {
-                    edges.emplace_back(pairEdges[i]);
-                    curIndexes.emplace_back(frame->getFrameIndex());
-                    refIndexes.emplace_back(overlapFrames[i]);
-                }
-            }
-
-            cout << "pair registration:" << double(clock() - start) / CLOCKS_PER_SEC << "s" << endl;
-        }*/
-    }
-
     void GlobalRegistration::insertKeyFrames(shared_ptr<KeyFrame> keyframe) {
         siftVocabulary->computeBow(keyframe->getKps());
         viewGraph.extendNode(keyframe);
@@ -281,6 +282,8 @@ namespace rtf {
 
             }
 
+//            loopClosureDetection();
+
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
 //                mergeViewGraph();
             }
@@ -311,7 +314,7 @@ namespace rtf {
 
         cout << "------------------------compute global transform for view graph------------------------" << endl;
         vector<vector<int>> ccs = viewGraph.getConnectComponents();
-        vector<TransformVector> gtTransVecs = viewGraph.getCCGtTransforms();
+        EigenVector(TransformVector) gtTransVecs = viewGraph.getCCGtTransforms();
 
         for(int i=0; i<ccs.size(); i++) {
             vector<int>& cc = ccs[i];
@@ -321,9 +324,13 @@ namespace rtf {
                     BARegistration bundleAdjustment(globalConfig);
                     bundleAdjustment.multiViewBundleAdjustment(viewGraph, cc, gtTransVec).printReport();
                 }
-                for (int j = 1; j < cc.size(); j++) {
-                    viewGraph[cc[j]].nGtTrans = viewGraph[cc[0]].nGtTrans*gtTransVec[j];
+                for (int j = 0; j < cc.size(); j++) {
+                    viewGraph[cc[j]].nGtTrans = viewGraph[cc[0]].nGtTrans * gtTransVec[j];
+                    cout << cc[j] << ":" << gtTransVec[j] << endl;
                 }
+                cout << "------------------" << i << "--------------------------" << endl;
+            }else {
+
             }
         }
         cout << "invisible count:" << lostNum << endl;
@@ -337,8 +344,6 @@ namespace rtf {
     GlobalRegistration::~GlobalRegistration() {
         delete matcher;
         delete dBoWHashing;
-        delete egRegistration;
-        delete homoRegistration;
         delete pnpRegistration;
     }
 }

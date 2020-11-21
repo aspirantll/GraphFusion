@@ -226,8 +226,6 @@ namespace rtf {
         SIFTFeatureMatcher* matcher;
         ViewGraph localViewGraph;
         DBoWHashing* localDBoWHashing;
-        EGRegistration* egRegistration;
-        HomographyRegistration* homoRegistration;
         PnPRegistration* pnpRegistration;
         SIFTVocabulary* siftVocabulary;
         mutex printMutex;
@@ -264,8 +262,6 @@ namespace rtf {
         SIFTFeatureMatcher* matcher;
         ViewGraph viewGraph;
         DBoWHashing* dBoWHashing;
-        EGRegistration* egRegistration;
-        HomographyRegistration* homoRegistration;
         PnPRegistration* pnpRegistration;
         SIFTVocabulary * siftVocabulary;
         mutex printMutex;
@@ -277,13 +273,16 @@ namespace rtf {
         bool notLost;// the status for tracking
         int lostNum;
 
+        int loopCount = 0;
+        set<int> loopCandidates;
+
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
 
         void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream);
 
         void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges);
 
-        int selectBestFrameFromKeyFrame(DBoW2::BowVector& bow, shared_ptr<KeyFrame> keyframe);
+        bool loopClosureDetection();
 
         bool mergeViewGraph();
 
@@ -292,8 +291,6 @@ namespace rtf {
     public:
 
         GlobalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
-
-        void trackKeyFrames(shared_ptr<Frame> frame);
 
         void insertKeyFrames(shared_ptr<KeyFrame> frame);
 

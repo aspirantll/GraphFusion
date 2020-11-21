@@ -16,8 +16,6 @@ namespace rtf {
         localViewGraph.reset(0);
         matcher = new SIFTFeatureMatcher();
         localDBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, false);
-        egRegistration = new EGRegistration(globalConfig);
-        homoRegistration = new HomographyRegistration(globalConfig);
         pnpRegistration = new PnPRegistration(globalConfig);
     }
 
@@ -362,8 +360,6 @@ namespace rtf {
     LocalRegistration::~LocalRegistration() {
         delete matcher;
         delete localDBoWHashing;
-        delete egRegistration;
-        delete homoRegistration;
         delete pnpRegistration;
     }
 }

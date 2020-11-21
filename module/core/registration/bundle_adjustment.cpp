@@ -381,16 +381,6 @@ namespace rtf {
         return report;
     }
 
-
-    constexpr Scalar kHuberWeight = 1.2;
-    template <typename Scalar> Scalar ComputeHuberCost(Scalar squared_residual, Scalar huber_parameter) {
-        if (squared_residual < huber_parameter * huber_parameter) {
-            return static_cast<Scalar>(0.5) * squared_residual;
-        } else {
-            return huber_parameter * (sqrtf(squared_residual) - static_cast<Scalar>(0.5) * huber_parameter);
-        }
-    }
-
     MatrixX featureKeypoints2Matrix(vector<FeatureKeypoint>& features) {
         int n = features.size();
 
@@ -435,7 +425,7 @@ namespace rtf {
         for(int i=0; i<poseNum; i++) {
             for(int j=i+1; j<poseNum; j++) {
                 Edge edge = viewGraph.getEdge(cc[i], cc[j]);
-                if(!edge.isUnreachable()&&(costThreshold==-1||edge.getCost()<=costThreshold)) {
+                if(!edge.isUnreachable()) {
                     vector<FeatureKeypoint>& kx = edge.getKxs();
                     vector<FeatureKeypoint>& ky = edge.getKys();
                     // construct the cuda edge
@@ -527,7 +517,7 @@ namespace rtf {
             double cost = costSummator.sum()(0,0);
             double deltaCost = 0;
             for(const auto& deltaSE: deltaSEs) {
-                deltaCost += ComputeHuberCost(deltaSE.squaredNorm(), kHuberWeight);
+                deltaCost += deltaSE.norm()*totalCount;
             }
 //            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
             cost += deltaCost;
@@ -565,7 +555,7 @@ namespace rtf {
                     testGtSEs[j] << solvePCGIteration(lambda, relaxtion, max_inner_iterations, gtLMSumMatsVector[j], initGtSEs[j], gtSEs[j]);
                 }
                 for(int j=0; j < n; j++) {
-                    testDeltaSEs[j] << solvePCGIteration(lambda, relaxtion, max_inner_iterations, deltaLMSumMatsVector[j], initDeltaSEs[j], deltaSEs[j]);
+                    testDeltaSEs[j] << solvePCGIteration(lambda, relaxtion, max_inner_iterations, deltaLMSumMatsVector[j].mulWeight(totalCount), initDeltaSEs[j], deltaSEs[j]);
                 }
 
                 // compute relative transformation for edges
@@ -575,7 +565,7 @@ namespace rtf {
                 computeMVBACost(cudaEdgeVector, costSummator);
                 double test_cost = costSummator.sum()(0,0);
                 for(const auto& deltaSE: testDeltaSEs) {
-                    test_cost += ComputeHuberCost(deltaSE.squaredNorm(), kHuberWeight);
+                    test_cost += deltaSE.norm()*totalCount;
                 }
 
                 if (test_cost < cost) {

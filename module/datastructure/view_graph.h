@@ -174,11 +174,12 @@ namespace rtf {
         vector<int> frameNodeIndex;
         map<int,int> frameToInnerIndex;
 
+        int lostCount = 0;
         int curMaxRoot = 0;
         vector<int> parentIndexes;
         vector<int> rootIndexes;
 
-        Transform computeTransform(int u, map<int, int>& cc, vector<bool>& visited, TransformVector& transVec);
+        Transform computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited, TransformVector& transVec);
     public:
         ViewGraph();
 
@@ -222,7 +223,7 @@ namespace rtf {
 
         vector<vector<int>> getConnectComponents();
 
-        vector<TransformVector> getCCGtTransforms();
+        EigenVector(TransformVector) getCCGtTransforms();
 
         bool isVisible(int frameIndex);
 
