@@ -174,7 +174,6 @@ namespace rtf {
         vector<int> frameNodeIndex;
         map<int,int> frameToInnerIndex;
 
-        int lostCount = 0;
         int curMaxRoot = 0;
         vector<int> parentIndexes;
         vector<int> rootIndexes;

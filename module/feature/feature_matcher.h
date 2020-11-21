@@ -18,9 +18,6 @@ namespace rtf {
 
     class SIFTMatchingConfig {
     public:
-        // Number of threads for feature matching and geometric verification.
-        int num_threads = -1;
-
         // Whether to use the GPU for feature matching.
         bool use_gpu = true;
 
@@ -46,27 +43,8 @@ namespace rtf {
         // Confidence threshold for geometric verification.
         double confidence = 0.999;
 
-        // Minimum/maximum number of RANSAC iterations. Note that this option
-        // overrules the min_inlier_ratio option.
-        int min_num_trials = 100;
-        int max_num_trials = 10000;
-
-        // A priori assumed minimum inlier ratio, which determines the maximum
-        // number of iterations.
-        double min_inlier_ratio = 0.25;
-
-        // Minimum number of inliers for an image pair to be considered as
-        // geometrically verified.
-        int min_num_inliers = 15;
-
-        // Whether to attempt to estimate multiple geometric models per image pair.
-        bool multiple_models = false;
-
-        // Whether to perform guided matching, if geometric verification succeeds.
-        bool guided_matching = false;
-
         // search radius for projection
-        float search_radius = 10;
+        float search_radius = 5;
     };
 
     class SIFTFeatureMatcher {

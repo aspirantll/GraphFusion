@@ -81,21 +81,16 @@ namespace rtf {
         stream = curStream;
         FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
         registrationPnPBA(&featureMatches, edge);
-        /*bool near = f2->getFIndex()-f1->getFIndex() <=1;
-        if(near) {
+        bool near = f2->getFIndex()-f1->getFIndex() <=1;
+        if(near&&edge->isUnreachable()) {
             registrationWithMotion(*f1, *f2, edge);
-        }
-
-        if(!near||edge->isUnreachable()) {
-            FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
-            registrationPnPBA(&featureMatches, edge);
         }
 
         if(near&&!edge->isUnreachable()) {
             velocity = edge->getTransform();
         }else if(near){
             velocity.setZero();
-        }*/
+        }
 
     }
 
@@ -311,14 +306,14 @@ namespace rtf {
                         fp->x = pos.x();
                         fp->y = pos.y();
                         fp->z = pos.z();
-                    }else if(i==0||i==m-1) {
+                    }else if(i==0) {
                         Point3D transPixel = PointUtil::transformPixel(*fp, gtTransVec[i], camera);
                         fp->x = transPixel.x;
                         fp->y = transPixel.y;
                         fp->z = transPixel.z;
                     }
 
-                    if(i==0||i==m-1||!corr.empty()) {
+                    if(i==0||!corr.empty()) {
                         kps.emplace_back(fp);
                         desc.emplace_back(sift.getDescriptors().row(j));
 
@@ -336,11 +331,11 @@ namespace rtf {
             descriptors.row(i) = desc[i];
         }
 
-        /*cerr << "visible frame num:" << m << endl;
+        cerr << "visible frame num:" << m << endl;
         cerr << "feature num:" << desc.size() << endl;
         if(desc.size()<500) {
             cerr << "index:" << keyframe->getIndex() << endl;
-        }*/
+        }
 
         sf.setBounds(minX, maxX, minY, maxY);
         sf.assignFeaturesToGrid();

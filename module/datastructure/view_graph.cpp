@@ -468,9 +468,7 @@ namespace rtf {
                 }
             }
         }
-        if(lastIndex==117) {
-            cout << "debug" << endl;
-        }
+
         if (!costsMap.empty()) {
             // update root
             bool endFlag = false;
@@ -511,13 +509,13 @@ namespace rtf {
             }
 
             curMaxRoot = maxRoot;
+        }
 
-            lostCount = 0;
-            for(int i=0; i<rootIndexes.size(); i++) {
-                nodes[i].setVisible(rootIndexes[i]==curMaxRoot);
-                if(!nodes[i].isVisible()) {
-                    lostCount += nodes[i].getFrames().size();
-                }
+        int lostCount = 0;
+        for(int i=0; i<rootIndexes.size(); i++) {
+            nodes[i].setVisible(rootIndexes[i]==curMaxRoot);
+            if(!nodes[i].isVisible()) {
+                lostCount += nodes[i].getFrames().size();
             }
         }
 
@@ -568,12 +566,7 @@ namespace rtf {
                 ccIndex.insert(map<int, int>::value_type(cc[j], j));
             }
             for(int j=0; j<cc.size(); j++) {
-                if(cc[j]==117) {
-                    cout << "d" << endl;
-                }
                 computeTransform(j, ccIndex, cc, visited, gtTrans[i]);
-                if(!GeoUtil::validateTransform(gtTrans[i][j]))
-                     cout << cc[j] << ":" << gtTrans[i][j] << endl;
             }
         }
         return gtTrans;

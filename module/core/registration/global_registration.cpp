@@ -42,7 +42,7 @@ namespace rtf {
         stream = curStream;
         registrationPnPBA(&featureMatches, edge, curStream);
 
-        if(featureMatches.getFIndexY()-featureMatches.getFIndexX()==1) { // registration
+        if(featureMatches.getFIndexY()-featureMatches.getFIndexX()==globalConfig.chunkSize) { // registration
             shared_ptr<KeyFrame> ref = viewGraph.indexFrame(featureMatches.getFIndexX());
             shared_ptr<KeyFrame> cur = viewGraph.indexFrame(featureMatches.getFIndexY());
             vector<shared_ptr<Frame>> refFrames = ref->getFrames();
@@ -54,7 +54,7 @@ namespace rtf {
             Edge frameEdge = Edge::UNREACHABLE;
             registrationPnPBA(&frameMatches, &frameEdge, curStream);
 
-            if(edge->isUnreachable()||(edge->getKxs().size()<frameEdge.getKxs().size()&&edge->getCost()>frameEdge.getCost())) {
+            if(!frameEdge.isUnreachable()&&(edge->isUnreachable()||(edge->getKxs().size()<frameEdge.getKxs().size()&&edge->getCost()>frameEdge.getCost()))) {
                 Transform transX = lastRefFrame->getTransform();
 
                 Intrinsic kX = viewGraph[0].getK();
@@ -282,7 +282,7 @@ namespace rtf {
 
             }
 
-//            loopClosureDetection();
+            loopClosureDetection();
 
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
 //                mergeViewGraph();
@@ -329,8 +329,6 @@ namespace rtf {
                     cout << cc[j] << ":" << gtTransVec[j] << endl;
                 }
                 cout << "------------------" << i << "--------------------------" << endl;
-            }else {
-
             }
         }
         cout << "invisible count:" << lostNum << endl;
