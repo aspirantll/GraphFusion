@@ -3,7 +3,7 @@
 //
 
 #include "frame_types.h"
-#include "../controller/config.h"
+#include "config.h"
 #include "../processor/pointcloud_generator.h"
 
 namespace rtf {

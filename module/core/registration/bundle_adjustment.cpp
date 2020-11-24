@@ -409,18 +409,20 @@ namespace rtf {
         }
     }
 
-    RegReport BARegistration::multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold) {
+    RegReport BARegistration::multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc) {
         int poseNum = cc.size();
         RegReport report;
         //1. determine points num and collect edge for each pose
         CUDAEdgeVector cudaEdgeVector;
         TransformVector deltaTransVec;
+        TransformVector gtTransVec;
         vector<int> gTCount(poseNum);
         vector<int> deltaCount;
         int totalCount = 0;
         // initialize gtCount and cudaGtTransVec
         for(int i=0; i<poseNum; i++) {
             gTCount[i] = 0;
+            gtTransVec.emplace_back(viewGraph[cc[i]].nGtTrans);
         }
         for(int i=0; i<poseNum; i++) {
             for(int j=i+1; j<poseNum; j++) {
@@ -519,7 +521,7 @@ namespace rtf {
             for(const auto& deltaSE: deltaSEs) {
                 deltaCost += deltaSE.norm()*totalCount;
             }
-//            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
+            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
             cost += deltaCost;
             double meanTrace = 0;
             int num = 0;
@@ -555,7 +557,7 @@ namespace rtf {
                     testGtSEs[j] << solvePCGIteration(lambda, relaxtion, max_inner_iterations, gtLMSumMatsVector[j], initGtSEs[j], gtSEs[j]);
                 }
                 for(int j=0; j < n; j++) {
-                    testDeltaSEs[j] << solvePCGIteration(lambda, relaxtion, max_inner_iterations, deltaLMSumMatsVector[j].mulWeight(totalCount), initDeltaSEs[j], deltaSEs[j]);
+                    testDeltaSEs[j] << solvePCGIteration(lambda, relaxtion, max_inner_iterations, deltaLMSumMatsVector[j], initDeltaSEs[j], deltaSEs[j]);
                 }
 
                 // compute relative transformation for edges
@@ -598,6 +600,9 @@ namespace rtf {
         }
 
         report.success = true;
+        for(int i=0; i<poseNum; i++) {
+            viewGraph[cc[i]].nGtTrans = gtTransVec[i];
+        }
         return report;
     }
 }

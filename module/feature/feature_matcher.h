@@ -44,7 +44,7 @@ namespace rtf {
         double confidence = 0.999;
 
         // search radius for projection
-        float search_radius = 5;
+        float search_radius = 10;
     };
 
     class SIFTFeatureMatcher {

@@ -14,12 +14,20 @@ namespace rtf {
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
         RegReport ba;
         if (pnp.success) {
-            vector<FeatureKeypoint> kxs, kys;
-            featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-            featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
-
             BARegistration baRegistration(globalConfig);
-            ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+            vector<FeatureKeypoint> kxs, kys;
+            if(pnp.inliers.size()<100) {
+                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
+                featureMatchesToPoints(matches, kxs, kys);
+
+                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
+            }else {
+                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
+
+                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+            }
+
             if (ba.success) {
                 double cost = ba.avgCost();
                 if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
@@ -89,18 +97,13 @@ namespace rtf {
         if(loopCount>=3) {
             cout << "loop closure detected!!!" << endl;
             vector<int> circleCandidates(loopCandidates.begin(), loopCandidates.end());
-            TransformVector gtTransVec;
-            bool isConnected = findShortestPathTransVec(viewGraph, circleCandidates, gtTransVec);
-            LOG_ASSERT(isConnected) << " occur a error: the view graph is not connected ";
-            BARegistration bundleAdjustment(globalConfig);
-            bundleAdjustment.multiViewBundleAdjustment(viewGraph, circleCandidates,
-                                                       gtTransVec).printReport();
+            optimizer->optimize(viewGraph, circleCandidates).printReport();
             // update the relative transformation
             for(int i=0; i<circleCandidates.size(); i++) {
                 for(int j=i+1; j<circleCandidates.size(); j++) {
                     Edge& edge = viewGraph(circleCandidates[i], circleCandidates[j]);
                     if(!edge.isUnreachable())
-                        edge.setTransform(GeoUtil::reverseTransformation(gtTransVec[i])*gtTransVec[j]);
+                        edge.setTransform(GeoUtil::reverseTransformation(viewGraph[circleCandidates[i]].nGtTrans)*viewGraph[circleCandidates[j]].nGtTrans);
                 }
             }
             loopCount = 0;
@@ -177,6 +180,7 @@ namespace rtf {
         dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, true);
         matcher = new SIFTFeatureMatcher();
         pnpRegistration = new PnPRegistration(globalConfig);
+        optimizer = new MultiviewOptimizer(globalConfig);
     }
 
     bool GlobalRegistration::mergeViewGraph() {
@@ -191,17 +195,13 @@ namespace rtf {
         // initialize new view graph
         NodeVector nodes(n);
         EigenUpperTriangularMatrix<Edge> adjMatrix(n, Edge::UNREACHABLE);
-        vector<TransformVector> transforms(n);
         // merge nodes and transformation
         for (int i = 0; i < n; i++) {
-            bool isConnected = findShortestPathTransVec(viewGraph, connectedComponents[i], transforms[i]);
-            LOG_ASSERT(isConnected) << " occur a error: the view graph is not connected ";
             if (connectedComponents[i].size() > 1) {
                 cout << "multiview" << endl;
                 BARegistration bundleAdjustment(globalConfig);
-                bundleAdjustment.multiViewBundleAdjustment(viewGraph, connectedComponents[i],
-                                                         transforms[i]).printReport();
-                mergeComponentNodes(viewGraph, connectedComponents[i], transforms[i], nodes[i]);
+                bundleAdjustment.multiViewBundleAdjustment(viewGraph, connectedComponents[i]).printReport();
+                mergeComponentNodes(viewGraph, connectedComponents[i], nodes[i]);
             } else {
                 nodes[i] = viewGraph[connectedComponents[i][0]];
             }
@@ -209,11 +209,9 @@ namespace rtf {
         }
         for (int i = 0; i < n; i++) {
             vector<int> cc1 = connectedComponents[i];
-            TransformVector trans1 = transforms[i];
             for (int j = i + 1; j < n; j++) {
                 vector<int> cc2 = connectedComponents[j];
-                TransformVector trans2 = transforms[j];
-                adjMatrix(i, j) = selectEdgeBetweenComponents(viewGraph, cc1, trans1, cc2, trans2);
+                adjMatrix(i, j) = selectEdgeBetweenComponents(viewGraph, cc1, cc2);
             }
         }
 
@@ -282,7 +280,7 @@ namespace rtf {
 
             }
 
-            loopClosureDetection();
+//            loopClosureDetection();
 
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
 //                mergeViewGraph();
@@ -314,21 +312,14 @@ namespace rtf {
 
         cout << "------------------------compute global transform for view graph------------------------" << endl;
         vector<vector<int>> ccs = viewGraph.getConnectComponents();
-        EigenVector(TransformVector) gtTransVecs = viewGraph.getCCGtTransforms();
+        viewGraph.computeGtTransforms();
 
         for(int i=0; i<ccs.size(); i++) {
             vector<int>& cc = ccs[i];
             if(cc.size()>1) {
-                TransformVector& gtTransVec = gtTransVecs[i];
                 if(opt) {
-                    BARegistration bundleAdjustment(globalConfig);
-                    bundleAdjustment.multiViewBundleAdjustment(viewGraph, cc, gtTransVec).printReport();
+                    optimizer->optimize(viewGraph, cc).printReport();
                 }
-                for (int j = 0; j < cc.size(); j++) {
-                    viewGraph[cc[j]].nGtTrans = viewGraph[cc[0]].nGtTrans * gtTransVec[j];
-                    cout << cc[j] << ":" << gtTransVec[j] << endl;
-                }
-                cout << "------------------" << i << "--------------------------" << endl;
             }
         }
         cout << "invisible count:" << lostNum << endl;

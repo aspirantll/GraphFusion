@@ -125,6 +125,7 @@ namespace rtf {
     }
 
     void Edge::setTransform(Transform transformation) {
+        LOG_ASSERT(GeoUtil::validateTransform(transformation)) << " " << transformation;
         this->transformation << transformation;
     }
 
@@ -271,17 +272,18 @@ namespace rtf {
         return nodes[nodeIndex].nGtTrans*sourceFrames[innerIndex]->getTransform();
     }
 
-    Transform ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited, TransformVector& transVec) {
-        if(visited[u]) return transVec[u];
+    Transform ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited) {
+        int nodeIndex = cc[u];
+        if(visited[u]) return nodes[nodeIndex].nGtTrans;
         int parent = parentIndexes[cc[u]];
         if(parent==-1) {
-            transVec[u] = Transform::Identity();
+            nodes[nodeIndex].nGtTrans = Transform::Identity();
         }else {
             int v = innerMap[parent];
-            transVec[u] = computeTransform(v, innerMap, cc, visited, transVec)*getEdgeTransform(parent, cc[u]);
+            nodes[nodeIndex].nGtTrans = computeTransform(v, innerMap, cc, visited)*getEdgeTransform(parent, nodeIndex);
         }
         visited[u] = true;
-        return transVec[u];
+        return nodes[nodeIndex].nGtTrans;
 
 
     }
@@ -509,6 +511,22 @@ namespace rtf {
             }
 
             curMaxRoot = maxRoot;
+
+            // update transformation for node
+            vector<int> cc;
+            map<int, int> ccIndex;
+            vector<bool> visited;
+            for(int j=0; j<rootIndexes.size(); j++) {
+                if(rootIndexes[j]==lastRoot) {
+                    cc.emplace_back(j);
+                    ccIndex.insert(map<int, int>::value_type(j, cc.size()-1));
+                    visited.emplace_back(!needUpdateRoot.count(j));
+                }
+            }
+
+            for(int j=0; j<cc.size(); j++) {
+                computeTransform(j, ccIndex, cc, visited);
+            }
         }
 
         int lostCount = 0;
@@ -520,6 +538,10 @@ namespace rtf {
         }
 
         return lostCount;
+    }
+
+    int ViewGraph::getParent(int nodeIndex) {
+        return parentIndexes[nodeIndex];
     }
 
 
@@ -545,7 +567,7 @@ namespace rtf {
         return ccs;
     }
 
-    EigenVector(TransformVector) ViewGraph::getCCGtTransforms() {
+    void ViewGraph::computeGtTransforms() {
         map<int, vector<int>> ccMap;
         for(int i=0; i<rootIndexes.size(); i++) {
             int root = rootIndexes[i];
@@ -555,21 +577,18 @@ namespace rtf {
             ccMap[root].emplace_back(i);
         }
 
-        EigenVector(TransformVector) gtTrans(ccMap.size());
         auto mit = ccMap.begin();
-        for(int i=0; i<gtTrans.size(); i++, mit++) {
+        for(int i=0; i<ccMap.size(); i++, mit++) {
             vector<int>& cc = mit->second;
-            gtTrans[i].resize(cc.size());
             vector<bool> visited(cc.size(), false);
             map<int, int> ccIndex;
             for(int j=0; j<cc.size(); j++) {
                 ccIndex.insert(map<int, int>::value_type(cc[j], j));
             }
             for(int j=0; j<cc.size(); j++) {
-                computeTransform(j, ccIndex, cc, visited, gtTrans[i]);
+                computeTransform(j, ccIndex, cc, visited);
             }
         }
-        return gtTrans;
     }
 
 
@@ -612,10 +631,8 @@ namespace rtf {
     bool edgeCompare(Edge& one, Edge& another) {
         if(one.isUnreachable()) return false;
         if(!one.isUnreachable()&&another.isUnreachable()) return true;
-        /*if(fabs(one.getCost()-another.getCost())<0.3) {
-            return one.getKxs().size() > another.getKys().size();
-        }*/
-        return one.getCost() < another.getCost();
+        float factor = (float)one.getKxs().size()/another.getKxs().size();
+        return one.getCost() < factor*another.getCost();
     }
 }
 

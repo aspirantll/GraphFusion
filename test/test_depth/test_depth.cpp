@@ -2,7 +2,7 @@
 // Created by liulei on 2020/6/5.
 //
 
-#include "../../module/controller/config.h"
+#include "../../module/datastructure/config.h"
 #include "../../module/processor/image_cuda.cuh"
 #include "../../module/inputsource/file_inputsource.h"
 #include "../../module/core/solver/matrix_conversion.h"

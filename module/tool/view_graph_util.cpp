@@ -134,14 +134,14 @@ namespace rtf {
         }
 
         // merge nodes in the same connected component
-        void mergeComponentNodes(ViewGraph& viewGraph, vector<int>& cc, const TransformVector& transVec, Node& node) {
+        void mergeComponentNodes(ViewGraph& viewGraph, vector<int>& cc, Node& node) {
             // pick the principal frame of first node as new node's the principal frame
             bool visible = true;
             for(int i=0; i<cc.size(); i++) {
                 Node& cur = viewGraph[cc[i]];
                 for(int j=0; j<cur.getFrames().size(); j++) {
                     const auto& frame = cur.getFrames()[j];
-                    Transform trans = transVec[i] * frame->getTransform();
+                    Transform trans = viewGraph[cc[i]].nGtTrans * frame->getTransform();
                     frame->setTransform(trans);
                     node.addFrame(frame);
                 }
@@ -204,7 +204,7 @@ namespace rtf {
             return edges;
         }
 
-        Edge selectEdgeBetweenComponents(ViewGraph& viewGraph, vector<int>& cc1, const TransformVector& transVec1, vector<int>& cc2, const TransformVector& transVec2) {
+        Edge selectEdgeBetweenComponents(ViewGraph& viewGraph, vector<int>& cc1, vector<int>& cc2) {
             // principal K for two components
             Intrinsic k1 = viewGraph[cc1[0]].getK();
             Intrinsic k2 = viewGraph[cc2[0]].getK();
@@ -225,8 +225,8 @@ namespace rtf {
                 }
             }
             if(!bestEdge.isUnreachable()&&!bestEdge.getKxs().empty()) {
-                Transform transX = transVec1[bestI];
-                Transform transY = transVec2[bestJ];
+                Transform transX = viewGraph[cc1[bestI]].nGtTrans;
+                Transform transY = viewGraph[cc2[bestJ]].nGtTrans;
 
                 Intrinsic kX = viewGraph[cc1[bestI]].getK();
                 Intrinsic kY = viewGraph[cc2[bestJ]].getK();

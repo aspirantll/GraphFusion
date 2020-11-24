@@ -7,6 +7,7 @@
 
 #include <glog/logging.h>
 #include<Eigen/StdVector>
+#include <g2o/core/sparse_optimizer.h>
 
 #include "../../datastructure/context.h"
 #include "../../datastructure/point_types.h"
@@ -84,7 +85,7 @@ namespace rtf {
     public:
         BARegistration(const GlobalConfig &config);
 
-        RegReport multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc, TransformVector& gtTransVec, double costThreshold=1);
+        RegReport multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc);
 
         RegReport bundleAdjustment(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
                                    vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys,
@@ -219,6 +220,18 @@ namespace rtf {
         void registrationFunctionThread(FeatureMatches *featureMatches, RANSAC2DReport *report);
     };
 
+    class MultiviewOptimizer {
+    private:
+        GlobalConfig globalConfig;
+        BARegistration* baRegistration;
+
+        void poseGraphOptimize(ViewGraph &viewGraph, const vector<int>& cc);
+    public:
+        MultiviewOptimizer(const GlobalConfig &globalConfig);
+
+        RegReport optimize(ViewGraph &viewGraph, const vector<int>& cc);
+    };
+
     class LocalRegistration {
     protected:
         GlobalConfig globalConfig;
@@ -267,7 +280,6 @@ namespace rtf {
         mutex printMutex;
 
         EigenVector(Edge) edges;
-        vector<int> curIndexes, refIndexes, refInnerIndexes;
 
         float3 lastPos;
         bool notLost;// the status for tracking
@@ -275,6 +287,8 @@ namespace rtf {
 
         int loopCount = 0;
         set<int> loopCandidates;
+
+        MultiviewOptimizer* optimizer;
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
 

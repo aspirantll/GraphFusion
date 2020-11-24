@@ -6,8 +6,8 @@
 #define GraphFusion_CONFIG_H
 
 #include <string>
-#include "../datastructure/camera.h"
-#include "../datastructure/cuda_types.h"
+#include "camera.h"
+#include "cuda_types.h"
 
 
 using namespace std;
@@ -133,7 +133,7 @@ namespace rtf {
 
         // view graph
         int chunkSize = 30;
-        float maxPointError = 0.01f;
+        float maxPointError = 0.03f;
 
         GlobalConfig(const string &workspace);
 

@@ -13,7 +13,11 @@ add_library(${SUBSYS_NAME} STATIC
         context.h
         cuda_types.h
         view_graph.cpp
-        view_graph.h base_type.cpp cuda_types.cpp)
+        view_graph.h
+        base_type.cpp
+        cuda_types.cpp
+        config.cpp
+        config.h)
 
 
 
@@ -22,7 +26,6 @@ target_link_libraries(${SUBSYS_NAME}
         ${PCL_LIBRARIES}
         ${OpenCV_LIBRARIES}
         tool
-        controller
         processor
         )
 

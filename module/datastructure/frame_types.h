@@ -10,7 +10,7 @@
 #include "../tool/geo_util.h"
 #include "../tool/file_util.h"
 #include "../tool/string_util.h"
-#include "../controller/config.h"
+#include "config.h"
 #include "point_types.h"
 
 #include <map>

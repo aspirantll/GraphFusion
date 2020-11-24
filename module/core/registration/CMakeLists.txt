@@ -13,14 +13,21 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         local_registration.cpp
         registrations.h
         pnp_registration.cpp
-        homography.cpp)
+        homography.cpp
+        multiview_optimizer.cpp)
 
+#The library for logging
+find_package(G2O REQUIRED)
+include_directories(${G2O_INCLUDE_DIRS})
+link_libraries(${G2O_LIBRARIES})
+
+SET(G2O_LIBS g2o_core g2o_types_slam3d g2o_stuff g2o_solver_eigen)
 
 target_link_libraries(${SUBSYS_NAME}
         ${CUDA_LIBRARIES}
         ${PCL_LIBRARIES}
         ${OpenCV_LIBRARIES}
-        ${CUDA_cusolver_LIBRARY}
+        ${G2O_LIBS}
         datastructure
         tool
         )

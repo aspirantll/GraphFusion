@@ -6,7 +6,7 @@
 #define GraphFusion_OFFLINE_RECONSTRUCTION_H
 
 
-#include "config.h"
+#include "../datastructure/config.h"
 #include "../feature/feature2d.h"
 #include "../feature/feature_matcher.h"
 #include "../core/registration/registrations.h"

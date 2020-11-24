@@ -4,7 +4,6 @@
 
 #include "registrations.h"
 #include "../../tool/view_graph_util.h"
-#include "../../feature/feature_matcher.h"
 #include <glog/logging.h>
 
 #include <utility>
@@ -23,12 +22,20 @@ namespace rtf {
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
         RegReport ba;
         if (pnp.success) {
-            vector<FeatureKeypoint> kxs, kys;
-            featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-            featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
-
             BARegistration baRegistration(globalConfig);
-            ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+            vector<FeatureKeypoint> kxs, kys;
+            if(pnp.inliers.size()<100) {
+                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
+                featureMatchesToPoints(matches, kxs, kys);
+
+                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
+            }else {
+                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
+
+                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+            }
+
             if (ba.success) {
                 double cost = ba.avgCost();
                 if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
@@ -200,6 +207,7 @@ namespace rtf {
         localViewGraph.extendNode(keyframe);
         if (localViewGraph.getFramesNum() > 1) {
             updateLocalEdges();
+            localViewGraph.updateSpanningTree();
         }
         localDBoWHashing->addVisualIndex(make_float3(0,0,0), keyframe->getKps(), localViewGraph.getFramesNum()-1);
     }
@@ -219,13 +227,11 @@ namespace rtf {
     shared_ptr<KeyFrame> LocalRegistration::mergeFramesIntoKeyFrame() {
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
-        TransformVector gtTransVec;
         vector<vector<int>> connectedComponents = findConnectedComponents(localViewGraph, globalConfig.maxAvgCost);
-        findShortestPathTransVec(localViewGraph, connectedComponents[0], gtTransVec);
 
         cout << "multiview" << endl;
-        BARegistration icp(globalConfig);
-        icp.multiViewBundleAdjustment(localViewGraph, connectedComponents[0], gtTransVec).printReport();
+        BARegistration baRegistration(globalConfig);
+        baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();
 
         // 2. initialize key frame
         set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());
@@ -239,8 +245,7 @@ namespace rtf {
         // update transforms
         vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
         for(int i=0; i<connectedComponents[0].size(); i++) {
-            frames[connectedComponents[0][i]]->setTransform(gtTransVec[i]);
-            LOG_ASSERT(GeoUtil::validateTransform(gtTransVec[i]));
+            frames[connectedComponents[0][i]]->setTransform(localViewGraph[connectedComponents[0][i]].nGtTrans);
         }
 
         //3. collect keypoints
@@ -270,14 +275,14 @@ namespace rtf {
                         FeatureKeypoint px = edge.getKxs()[k];
                         FeatureKeypoint py = edge.getKys()[k];
 
-                        Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), gtTransVec[i]);
-                        Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), gtTransVec[j]);
+                        Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), localViewGraph[connectedComponents[0][i]].nGtTrans);
+                        Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), localViewGraph[connectedComponents[0][j]].nGtTrans);
                         if((qx-qy).norm()<globalConfig.maxPointError) {
                             int ix = startIndexes[i] + px.getIndex();
                             int iy = startIndexes[j] + py.getIndex();
 
-                            correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, gtTransVec[j], camera)));
-                            correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, gtTransVec[i], camera)));
+                            correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[connectedComponents[0][j]].nGtTrans, camera)));
+                            correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[connectedComponents[0][i]].nGtTrans, camera)));
                         }
                     }
                 }
@@ -298,22 +303,22 @@ namespace rtf {
 
                     collectCorrespondences(correlations, visited, curIndex, corrIndexes, corr);
                     if(!corr.empty()) {
-                        Vector3 pos = Vector3::Zero();
+                        vector<Scalar> xs, ys, zs;
                         for(const Point3D& c: corr) {
-                            pos += c.toVector3();
+                            xs.emplace_back(c.x);
+                            ys.emplace_back(c.y);
+                            zs.emplace_back(c.z);
                         }
-                        pos /= corr.size();
-                        fp->x = pos.x();
-                        fp->y = pos.y();
-                        fp->z = pos.z();
-                    }else if(i==0) {
-                        Point3D transPixel = PointUtil::transformPixel(*fp, gtTransVec[i], camera);
-                        fp->x = transPixel.x;
-                        fp->y = transPixel.y;
-                        fp->z = transPixel.z;
+                        sort(xs.begin(), xs.end());
+                        sort(ys.begin(), ys.end());
+                        sort(zs.begin(), zs.end());
+                        int mid = xs.size()/2;
+                        fp->x = xs[mid];
+                        fp->y = ys[mid];
+                        fp->z = zs[mid];
                     }
 
-                    if(i==0||!corr.empty()) {
+                    if(!corr.empty()) {
                         kps.emplace_back(fp);
                         desc.emplace_back(sift.getDescriptors().row(j));
 

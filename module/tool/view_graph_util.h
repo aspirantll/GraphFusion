@@ -26,13 +26,13 @@ namespace rtf {
         bool findShortestPathTransVec(ViewGraph& viewGraph, vector<int>& cc,TransformVector& transVec);
 
         // merge nodes in the same connected component
-        void mergeComponentNodes(ViewGraph& viewGraph, vector<int>& cc, const TransformVector& transVec, Node& node);
+        void mergeComponentNodes(ViewGraph& viewGraph, vector<int>& cc, Node& node);
 
         void transformFeatureKeypoints(vector<FeatureKeypoint>& keypoints, const Rotation& R, const Translation& t);
 
         vector<Edge> findEdgesBetweenComponents(ViewGraph& viewGraph, vector<int>& cc1, const TransformVector& transVec1, vector<int>& cc2, const TransformVector& transVec2);
 
-        Edge selectEdgeBetweenComponents(ViewGraph& viewGraph, vector<int>& cc1, const TransformVector& transVec1 , vector<int>& cc2, const TransformVector& transVec2);
+        Edge selectEdgeBetweenComponents(ViewGraph& viewGraph, vector<int>& cc1, vector<int>& cc2);
     }
 }
 

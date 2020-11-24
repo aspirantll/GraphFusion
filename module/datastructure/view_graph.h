@@ -178,7 +178,7 @@ namespace rtf {
         vector<int> parentIndexes;
         vector<int> rootIndexes;
 
-        Transform computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited, TransformVector& transVec);
+        Transform computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited);
     public:
         ViewGraph();
 
@@ -210,6 +210,8 @@ namespace rtf {
 
         Transform getEdgeTransform(int i, int j);
 
+        int getParent(int child);
+
         int getFramesNum();
 
         vector<shared_ptr<KeyFrame>> getSourceFrames();
@@ -222,7 +224,7 @@ namespace rtf {
 
         vector<vector<int>> getConnectComponents();
 
-        EigenVector(TransformVector) getCCGtTransforms();
+        void computeGtTransforms();
 
         bool isVisible(int frameIndex);
 
