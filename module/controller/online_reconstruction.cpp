@@ -21,10 +21,6 @@ namespace rtf {
         frameCounter = 0;
     }
 
-    bool OnlineReconstruction::needMerge(shared_ptr<Frame> frame) {
-        return frameCounter-lastFrameIndex>=globalConfig.chunkSize;
-    }
-
     VoxelFusion* OnlineReconstruction::getVoxelFusion() {
         if(voxelFusion == nullptr) {
             voxelFusion = new VoxelFusion(globalConfig);
@@ -45,12 +41,12 @@ namespace rtf {
         // track local frames
         localRegistration->localTrack(frame);
         // merging graph
-        if(needMerge(frame)) {
+        if(localRegistration->needMerge()) {
             Timer merger = Timer::startTimer("merge frames");
             shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
             merger.stopTimer();
 //            kfTracker.join();
-            Timer insertKF = Timer::startTimer("merge frames");
+            Timer insertKF = Timer::startTimer("insert frames");
             globalRegistration->insertKeyFrames(kf);
             insertKF.stopTimer();
             lastFrameIndex = frameCounter;

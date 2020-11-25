@@ -41,6 +41,7 @@ target_link_libraries(${SUBSYS_NAME}
         ${PCL_LIBRARIES}
         ${OpenCV_LIBRARIES}
         yaml-cpp
+        feature
         )
 
 set_target_properties(${SUBSYS_NAME} PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

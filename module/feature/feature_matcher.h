@@ -37,14 +37,11 @@ namespace rtf {
         // Maximum number of matches.
         int max_num_matches = 8192;
 
-        // Maximum epipolar error in pixels for geometric verification.
-        double max_error = 4.0;
-
         // Confidence threshold for geometric verification.
         double confidence = 0.999;
 
         // search radius for projection
-        float search_radius = 10;
+        float search_radius = 3;
     };
 
     class SIFTFeatureMatcher {

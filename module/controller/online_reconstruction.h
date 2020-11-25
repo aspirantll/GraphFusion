@@ -31,8 +31,6 @@ namespace rtf {
         int lastFrameIndex;
         int frameCounter;
 
-        bool needMerge(shared_ptr<Frame> frame);
-
         VoxelFusion* getVoxelFusion();
     public:
         OnlineReconstruction(const GlobalConfig &globalConfig);

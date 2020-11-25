@@ -6,10 +6,7 @@
 #include <thread>
 #include <fstream>
 #include <opencv2/opencv.hpp>
-#include <glog/logging.h>
-#include <condition_variable>
 #include <mutex>
-#include <time.h>
 #include "../../module/tool/file_util.h"
 #include "../../module/inputsource/realsense_inputsource.h"
 #include "../../module/inputsource/file_inputsource.h"

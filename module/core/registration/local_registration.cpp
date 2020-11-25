@@ -158,6 +158,31 @@ namespace rtf {
         }
     }
 
+    void LocalRegistration::updateCorrelations() {
+        int curNodeIndex = localViewGraph.getNodesNum()-1;
+        shared_ptr<Camera> camera = localViewGraph[curNodeIndex].getCamera();
+        for(int refNodeIndex=0; refNodeIndex<curNodeIndex; refNodeIndex++) {
+            Edge edge = localViewGraph.getEdge(refNodeIndex, curNodeIndex);
+            if(!edge.isUnreachable()) {
+                for(int k=0; k<edge.getKxs().size(); k++) {
+                    FeatureKeypoint px = edge.getKxs()[k];
+                    FeatureKeypoint py = edge.getKys()[k];
+
+                    Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), localViewGraph[refNodeIndex].nGtTrans);
+                    Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), localViewGraph[curNodeIndex].nGtTrans);
+                    if((qx-qy).norm()<globalConfig.maxPointError) {
+                        int ix = startIndexes[refNodeIndex] + px.getIndex();
+                        int iy = startIndexes[curNodeIndex] + py.getIndex();
+
+                        if(correlations[ix].empty()&&correlations[iy].empty()) kpNum++;
+                        correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[curNodeIndex].nGtTrans, camera)));
+                        correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[refNodeIndex].nGtTrans, camera)));
+                    }
+                }
+            }
+        }
+    }
+
     void LocalRegistration::updateLocalEdges() {
         clock_t start = clock();
         vector<int> overlapFrames;
@@ -205,9 +230,12 @@ namespace rtf {
         keyframe->addFrame(frame);
         keyframe->setKps(frame->getKps());
         localViewGraph.extendNode(keyframe);
+        startIndexes.emplace_back(correlations.size());
+        correlations.resize(correlations.size()+frame->getKps().size());
         if (localViewGraph.getFramesNum() > 1) {
             updateLocalEdges();
             localViewGraph.updateSpanningTree();
+            updateCorrelations();
         }
         localDBoWHashing->addVisualIndex(make_float3(0,0,0), keyframe->getKps(), localViewGraph.getFramesNum()-1);
     }
@@ -222,6 +250,15 @@ namespace rtf {
                 collectCorrespondences(correlations, visited, v, corrIndexes, corr);
             }
         }
+    }
+
+    bool LocalRegistration::needMerge() {
+        const int n = localViewGraph.getNodesNum();
+        bool c1 = localViewGraph[n-1].getIndex() - localViewGraph[0].getIndex() + 1>=globalConfig.chunkSize;
+        bool c2 = localViewGraph[n-1].getIndex() - localViewGraph[0].getIndex() + 1>=2*globalConfig.chunkSize;
+        bool c3 = kpNum > 1000;
+
+        return (c1&&c3)||c2;
     }
 
     shared_ptr<KeyFrame> LocalRegistration::mergeFramesIntoKeyFrame() {
@@ -256,40 +293,9 @@ namespace rtf {
         FeatureDescriptors<uint8_t>& descriptors = sf.getDescriptors();
 
         int m = connectedComponents[0].size();
-        int kpNum = 0;
-        vector<int> startIndexes(m);
-        for(int i=0; i<m; i++) {
-            shared_ptr<KeyFrame> kf = localViewGraph[connectedComponents[0][i]].getFrames()[0];
-            startIndexes[i] = kpNum;
-            kpNum += kf->getKps().getKeyPoints().size();
-        }
 
         // foreach edge
-        vector<vector<pair<int, Point3D>>> correlations(kpNum);
-        shared_ptr<Camera> camera = localViewGraph[0].getCamera();
-        for(int i=0; i<m; i++) {
-            for (int j = i + 1; j < m; j++) {
-                Edge edge = localViewGraph.getEdge(connectedComponents[0][i], connectedComponents[0][j]);
-                if(!edge.isUnreachable()) {
-                    for(int k=0; k<edge.getKxs().size(); k++) {
-                        FeatureKeypoint px = edge.getKxs()[k];
-                        FeatureKeypoint py = edge.getKys()[k];
-
-                        Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), localViewGraph[connectedComponents[0][i]].nGtTrans);
-                        Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), localViewGraph[connectedComponents[0][j]].nGtTrans);
-                        if((qx-qy).norm()<globalConfig.maxPointError) {
-                            int ix = startIndexes[i] + px.getIndex();
-                            int iy = startIndexes[j] + py.getIndex();
-
-                            correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[connectedComponents[0][j]].nGtTrans, camera)));
-                            correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[connectedComponents[0][i]].nGtTrans, camera)));
-                        }
-                    }
-                }
-            }
-        }
-
-        vector<bool> visited(kpNum, false);
+        vector<bool> visited(correlations.size(), false);
         vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
         float minX=numeric_limits<float>::infinity(), maxX=0, minY=numeric_limits<float>::infinity(), maxY=0;
         for(int i=0; i<m; i++) {
@@ -349,6 +355,10 @@ namespace rtf {
         localViewGraph.reset(0);
         localDBoWHashing->clear();
         velocity.setZero();
+
+        kpNum = 0;
+        startIndexes.clear();
+        correlations.clear();
 
         return keyframe;
     }

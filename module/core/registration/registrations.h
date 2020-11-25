@@ -245,6 +245,12 @@ namespace rtf {
 
         Transform velocity;
 
+        int kpNum;
+        vector<int> startIndexes;
+        vector<vector<pair<int, Point3D>>> correlations;
+
+        void updateCorrelations();
+
         void updateLocalEdges();
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
@@ -261,6 +267,8 @@ namespace rtf {
         ViewGraph& getViewGraph();
 
         void localTrack(shared_ptr<Frame> frame);
+
+        bool needMerge();
 
         shared_ptr<KeyFrame> mergeFramesIntoKeyFrame();
 
