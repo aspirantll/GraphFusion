@@ -57,7 +57,7 @@ namespace rtf {
     }
 
     void OnlineReconstruction::finalOptimize(bool opt) {
-        if(frameCounter%globalConfig.chunkSize) {
+        if(localRegistration->isRemain()) {
             shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
             globalRegistration->insertKeyFrames(kf);
             lastFrameIndex = frameCounter;

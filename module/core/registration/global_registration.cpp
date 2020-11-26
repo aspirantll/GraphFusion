@@ -6,6 +6,7 @@
 
 #include "registrations.h"
 #include "../../tool/view_graph_util.h"
+#include "optimizer.h"
 
 using namespace rtf::ViewGraphUtil;
 
@@ -84,33 +85,45 @@ namespace rtf {
         }
     }
 
+    bool detectLoop(set<pair<int, int> >& candidates) {
+        bool c1 = candidates.size()>=2;
+
+        int delta = 0;
+        int count = 0;
+        int lastIndex = -1;
+        for(auto sit: candidates) {
+            if(lastIndex!=-1) {
+                delta += abs(sit.second-lastIndex);
+                count ++;
+            }
+            lastIndex = sit.second;
+        }
+        bool c2 = delta/max(count, 1) < 10;
+
+        return c1&&c2;
+    }
+
     bool GlobalRegistration::loopClosureDetection() {
-        vector<int> candidates = ViewGraphUtil::findCircleComponent(viewGraph, viewGraph.getNodesNum()-1);
+        set<pair<int, int>> candidates = ViewGraphUtil::findLoopEdges(viewGraph, viewGraph.getNodesNum() - 1);
         if(!candidates.empty()) {
-            loopCount++;
             loopCandidates.insert(candidates.begin(), candidates.end());
         }else {
-            loopCount = 0;
-            loopCandidates.clear();
-        }
-
-        if(loopCount>=3) {
-            cout << "loop closure detected!!!" << endl;
-            vector<int> circleCandidates(loopCandidates.begin(), loopCandidates.end());
-            optimizer->optimize(viewGraph, circleCandidates).printReport();
-            // update the relative transformation
-            for(int i=0; i<circleCandidates.size(); i++) {
-                for(int j=i+1; j<circleCandidates.size(); j++) {
-                    Edge& edge = viewGraph(circleCandidates[i], circleCandidates[j]);
-                    if(!edge.isUnreachable())
-                        edge.setTransform(GeoUtil::reverseTransformation(viewGraph[circleCandidates[i]].nGtTrans)*viewGraph[circleCandidates[j]].nGtTrans);
+            if(detectLoop(loopCandidates)) {
+                cerr << "loop candidates" << endl;
+                for(auto sit: loopCandidates) {
+                    cerr << sit.first << ", " << sit.second << endl;
                 }
+                cerr << "--------------------------------------------" << endl;
+
+                cout << "loop closure detected!!!" << endl;
+                loops.insert(loops.end(), loopCandidates.begin(), loopCandidates.end());
+                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
+                loopCandidates.clear();
+                return true;
             }
-            loopCount = 0;
             loopCandidates.clear();
-        }else {
-            return false;
         }
+        return false;
     }
 
     void GlobalRegistration::registrationEdges(shared_ptr<KeyFrame> cur, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges) {
@@ -180,7 +193,6 @@ namespace rtf {
         dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, true);
         matcher = new SIFTFeatureMatcher();
         pnpRegistration = new PnPRegistration(globalConfig);
-        optimizer = new MultiviewOptimizer(globalConfig);
     }
 
     bool GlobalRegistration::mergeViewGraph() {
@@ -280,7 +292,7 @@ namespace rtf {
 
             }
 
-//            loopClosureDetection();
+            loopClosureDetection();
 
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
 //                mergeViewGraph();
@@ -312,13 +324,14 @@ namespace rtf {
 
         cout << "------------------------compute global transform for view graph------------------------" << endl;
         vector<vector<int>> ccs = viewGraph.getConnectComponents();
-        viewGraph.computeGtTransforms();
+//        viewGraph.computeGtTransforms();
 
         for(int i=0; i<ccs.size(); i++) {
             vector<int>& cc = ccs[i];
             if(cc.size()>1) {
                 if(opt) {
-                    optimizer->optimize(viewGraph, cc).printReport();
+                    BARegistration baRegistration(globalConfig);
+                    baRegistration.multiViewBundleAdjustment(viewGraph, cc).printReport();
                 }
             }
         }

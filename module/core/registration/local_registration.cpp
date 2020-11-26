@@ -168,15 +168,15 @@ namespace rtf {
                     FeatureKeypoint px = edge.getKxs()[k];
                     FeatureKeypoint py = edge.getKys()[k];
 
-                    Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), localViewGraph[refNodeIndex].nGtTrans);
-                    Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), localViewGraph[curNodeIndex].nGtTrans);
+                    Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), localViewGraph[refNodeIndex].getGtTransform());
+                    Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), localViewGraph[curNodeIndex].getGtTransform());
                     if((qx-qy).norm()<globalConfig.maxPointError) {
                         int ix = startIndexes[refNodeIndex] + px.getIndex();
                         int iy = startIndexes[curNodeIndex] + py.getIndex();
 
                         if(correlations[ix].empty()&&correlations[iy].empty()) kpNum++;
-                        correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[curNodeIndex].nGtTrans, camera)));
-                        correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[refNodeIndex].nGtTrans, camera)));
+                        correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[curNodeIndex].getGtTransform(), camera)));
+                        correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[refNodeIndex].getGtTransform(), camera)));
                     }
                 }
             }
@@ -261,6 +261,10 @@ namespace rtf {
         return (c1&&c3)||c2;
     }
 
+    bool LocalRegistration::isRemain() {
+        return localViewGraph.getNodesNum()>0;
+    }
+
     shared_ptr<KeyFrame> LocalRegistration::mergeFramesIntoKeyFrame() {
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
@@ -282,7 +286,7 @@ namespace rtf {
         // update transforms
         vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
         for(int i=0; i<connectedComponents[0].size(); i++) {
-            frames[connectedComponents[0][i]]->setTransform(localViewGraph[connectedComponents[0][i]].nGtTrans);
+            frames[connectedComponents[0][i]]->setTransform(localViewGraph[connectedComponents[0][i]].getGtTransform());
         }
 
         //3. collect keypoints
@@ -309,19 +313,14 @@ namespace rtf {
 
                     collectCorrespondences(correlations, visited, curIndex, corrIndexes, corr);
                     if(!corr.empty()) {
-                        vector<Scalar> xs, ys, zs;
+                        Vector3 pos = Vector3::Zero();
                         for(const Point3D& c: corr) {
-                            xs.emplace_back(c.x);
-                            ys.emplace_back(c.y);
-                            zs.emplace_back(c.z);
+                            pos += c.toVector3();
                         }
-                        sort(xs.begin(), xs.end());
-                        sort(ys.begin(), ys.end());
-                        sort(zs.begin(), zs.end());
-                        int mid = xs.size()/2;
-                        fp->x = xs[mid];
-                        fp->y = ys[mid];
-                        fp->z = zs[mid];
+                        pos /= corr.size();
+                        fp->x = pos.x();
+                        fp->y = pos.y();
+                        fp->z = pos.z();
                     }
 
                     if(!corr.empty()) {
@@ -342,6 +341,8 @@ namespace rtf {
             descriptors.row(i) = desc[i];
         }
 
+        cerr << "----------------------------------------" << endl;
+        cerr << "frame index:" << keyframe->getIndex() << endl;
         cerr << "visible frame num:" << m << endl;
         cerr << "feature num:" << desc.size() << endl;
         if(desc.size()<500) {

@@ -199,6 +199,15 @@ namespace rtf {
         return frames[inner];
     }
 
+    void Node::setGtTransform(Transform trans) {
+        gtTrans = SE3(trans);
+    }
+
+    Transform Node::getGtTransform() {
+        return gtTrans.matrix();
+    }
+
+
     void Node::setVisible(bool visible) {
         this->visible = visible;
     }
@@ -269,21 +278,21 @@ namespace rtf {
     Transform ViewGraph::getFrameTransform(int frameIndex) {
         int innerIndex = frameToInnerIndex[frameIndex];
         int nodeIndex = frameNodeIndex[innerIndex];
-        return nodes[nodeIndex].nGtTrans*sourceFrames[innerIndex]->getTransform();
+        return nodes[nodeIndex].getGtTransform()*sourceFrames[innerIndex]->getTransform();
     }
 
     Transform ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited) {
         int nodeIndex = cc[u];
-        if(visited[u]) return nodes[nodeIndex].nGtTrans;
+        if(visited[u]) return nodes[nodeIndex].getGtTransform();
         int parent = parentIndexes[cc[u]];
         if(parent==-1) {
-            nodes[nodeIndex].nGtTrans = Transform::Identity();
+            nodes[nodeIndex].setGtTransform(Transform::Identity());
         }else {
             int v = innerMap[parent];
-            nodes[nodeIndex].nGtTrans = computeTransform(v, innerMap, cc, visited)*getEdgeTransform(parent, nodeIndex);
+            nodes[nodeIndex].setGtTransform(computeTransform(v, innerMap, cc, visited)*getEdgeTransform(parent, nodeIndex));
         }
         visited[u] = true;
-        return nodes[nodeIndex].nGtTrans;
+        return nodes[nodeIndex].getGtTransform();
 
 
     }
@@ -299,7 +308,7 @@ namespace rtf {
     Node& ViewGraph::extendNode(shared_ptr<KeyFrame> frame) {
         Node node;
         node.addFrame(frame);
-        node.nGtTrans.setIdentity();
+        node.setGtTransform(Transform::Identity());
         node.status = 1;
 
         nodes.emplace_back(node);
@@ -349,6 +358,13 @@ namespace rtf {
         LOG_ASSERT(!(*this)(i,j).isUnreachable());
         Transform trans = (*this)(i, j).getTransform();
         return i<=j?trans:GeoUtil::reverseTransformation(trans);
+    }
+
+    void ViewGraph::setEdgeTransform(int i, int j, Transform trans) {
+        if(i<j) (*this)(i, j).setTransform(trans);
+        else {
+            (*this)(i, j).setTransform(GeoUtil::reverseTransformation(trans));
+        }
     }
 
     void ViewGraph::updateNodeIndex(vector<vector<int>>& ccs) {
@@ -590,7 +606,6 @@ namespace rtf {
             }
         }
     }
-
 
     void ViewGraph::check() {
         CHECK_EQ(nodes.size(), adjMatrix->getN());

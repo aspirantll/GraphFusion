@@ -130,15 +130,12 @@ namespace rtf {
         map<int, int> frameIndexesToInnerIndexes;
         // flag for vis
         bool visible = true;
+        SE3 gtTrans;
 
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
         int status; //0-frame node 1-keyframe node
-
-        Transform oGtTrans;
-
-        Transform nGtTrans;
 
         Node();
 
@@ -157,6 +154,10 @@ namespace rtf {
         Transform getTransform(int frameIndex);
 
         shared_ptr<KeyFrame> getKeyFrame(int frameIndex);
+
+        void setGtTransform(Transform trans);
+
+        Transform getGtTransform();
 
         void setVisible(bool visible);
 
@@ -209,6 +210,8 @@ namespace rtf {
         double getEdgeCost(int i, int j);
 
         Transform getEdgeTransform(int i, int j);
+
+        void setEdgeTransform(int i, int j, Transform trans);
 
         int getParent(int child);
 

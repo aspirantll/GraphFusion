@@ -12,6 +12,7 @@
 #include <glog/logging.h>
 #include <Eigen/Core>
 #include <Eigen/StdVector>
+#include <sophus/se3.hpp>
 
 #define EigenVector(type) vector<type, Eigen::aligned_allocator<type>>
 using namespace std;
@@ -36,6 +37,8 @@ typedef Vector3 Translation;
 typedef Vector6 SEVector;
 
 typedef EigenVector(Transform) TransformVector;
+
+typedef Sophus::SE3<Scalar> SE3;
 
 namespace rtf {
     class Serializable {

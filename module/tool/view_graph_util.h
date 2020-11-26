@@ -20,7 +20,7 @@ namespace rtf {
          * @param u
          * @return
          */
-        vector<int> findCircleComponent(ViewGraph& viewGraph, int u);
+        set<pair<int, int> > findLoopEdges(ViewGraph& viewGraph, int u);
 
             // find shortest path by prim
         bool findShortestPathTransVec(ViewGraph& viewGraph, vector<int>& cc,TransformVector& transVec);

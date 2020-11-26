@@ -35,7 +35,7 @@ namespace rtf {
             return components;
         }
 
-        void findCircle(ViewGraph& viewGraph, vector<bool>& visited, vector<int>& path, int k, set<int>& circleCandidates) {
+        void findCircle(ViewGraph& viewGraph, vector<bool>& visited, vector<int>& path, int k, set<pair<int, int> >& circleCandidates) {
             path.emplace_back(k);
             visited[k] = true;
             int n = viewGraph.getNodesNum();
@@ -43,8 +43,8 @@ namespace rtf {
                 Edge edge = viewGraph.getEdge(k, j);
                 if(!edge.isUnreachable()) {
                     if(visited[j]) {
-                        if(j == path[0]&&path.size()>=10) {
-                            circleCandidates.insert(path.begin(), path.end());
+                        if(j == path[0]&&path.size()>=5) {
+                            circleCandidates.insert(make_pair(path[0], path[1]));
                         }
                     }else {
                         findCircle(viewGraph, visited, path, j, circleCandidates);
@@ -54,15 +54,15 @@ namespace rtf {
             path.erase(path.end()-1);
         }
 
-        vector<int> findCircleComponent(ViewGraph& viewGraph, int u) {
+        set<pair<int, int> > findLoopEdges(ViewGraph& viewGraph, int u) {
             int n = viewGraph.getNodesNum();
             vector<bool> visited(n);
             for(int i=0; i<n; i++) visited[i] = false;
 
             vector<int> path;
-            set<int> circleCandidates;
+            set<pair<int, int> > circleCandidates;
             findCircle(viewGraph, visited, path, u, circleCandidates);
-            return vector<int>(circleCandidates.begin(), circleCandidates.end());
+            return circleCandidates;
         }
 
 
@@ -141,7 +141,7 @@ namespace rtf {
                 Node& cur = viewGraph[cc[i]];
                 for(int j=0; j<cur.getFrames().size(); j++) {
                     const auto& frame = cur.getFrames()[j];
-                    Transform trans = viewGraph[cc[i]].nGtTrans * frame->getTransform();
+                    Transform trans = viewGraph[cc[i]].getGtTransform() * frame->getTransform();
                     frame->setTransform(trans);
                     node.addFrame(frame);
                 }
@@ -149,7 +149,7 @@ namespace rtf {
             }
 
             node.status = 0;
-            node.nGtTrans = viewGraph[cc[0]].nGtTrans;
+            node.setGtTransform(viewGraph[cc[0]].getGtTransform());
             node.setVisible(visible);
         }
 
@@ -225,8 +225,8 @@ namespace rtf {
                 }
             }
             if(!bestEdge.isUnreachable()&&!bestEdge.getKxs().empty()) {
-                Transform transX = viewGraph[cc1[bestI]].nGtTrans;
-                Transform transY = viewGraph[cc2[bestJ]].nGtTrans;
+                Transform transX = viewGraph[cc1[bestI]].getGtTransform();
+                Transform transY = viewGraph[cc2[bestJ]].getGtTransform();
 
                 Intrinsic kX = viewGraph[cc1[bestI]].getK();
                 Intrinsic kY = viewGraph[cc2[bestJ]].getK();

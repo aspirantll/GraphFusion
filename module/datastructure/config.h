@@ -133,7 +133,8 @@ namespace rtf {
 
         // view graph
         int chunkSize = 30;
-        float maxPointError = 0.03f;
+        float maxPointError = 0.01f;
+        int frameNeighs = 1;
 
         GlobalConfig(const string &workspace);
 

@@ -422,7 +422,7 @@ namespace rtf {
         // initialize gtCount and cudaGtTransVec
         for(int i=0; i<poseNum; i++) {
             gTCount[i] = 0;
-            gtTransVec.emplace_back(viewGraph[cc[i]].nGtTrans);
+            gtTransVec.emplace_back(viewGraph[cc[i]].getGtTransform());
         }
         for(int i=0; i<poseNum; i++) {
             for(int j=i+1; j<poseNum; j++) {
@@ -601,7 +601,7 @@ namespace rtf {
 
         report.success = true;
         for(int i=0; i<poseNum; i++) {
-            viewGraph[cc[i]].nGtTrans = gtTransVec[i];
+            viewGraph[cc[i]].setGtTransform(gtTransVec[i]);
         }
         return report;
     }

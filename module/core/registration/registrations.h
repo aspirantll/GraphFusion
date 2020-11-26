@@ -7,7 +7,6 @@
 
 #include <glog/logging.h>
 #include<Eigen/StdVector>
-#include <g2o/core/sparse_optimizer.h>
 
 #include "../../datastructure/context.h"
 #include "../../datastructure/point_types.h"
@@ -220,18 +219,6 @@ namespace rtf {
         void registrationFunctionThread(FeatureMatches *featureMatches, RANSAC2DReport *report);
     };
 
-    class MultiviewOptimizer {
-    private:
-        GlobalConfig globalConfig;
-        BARegistration* baRegistration;
-
-        void poseGraphOptimize(ViewGraph &viewGraph, const vector<int>& cc);
-    public:
-        MultiviewOptimizer(const GlobalConfig &globalConfig);
-
-        RegReport optimize(ViewGraph &viewGraph, const vector<int>& cc);
-    };
-
     class LocalRegistration {
     protected:
         GlobalConfig globalConfig;
@@ -270,6 +257,8 @@ namespace rtf {
 
         bool needMerge();
 
+        bool isRemain();
+
         shared_ptr<KeyFrame> mergeFramesIntoKeyFrame();
 
         ~LocalRegistration();
@@ -293,10 +282,8 @@ namespace rtf {
         bool notLost;// the status for tracking
         int lostNum;
 
-        int loopCount = 0;
-        set<int> loopCandidates;
-
-        MultiviewOptimizer* optimizer;
+        vector<pair<int, int> > loops;
+        set<pair<int, int> > loopCandidates;
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
 
