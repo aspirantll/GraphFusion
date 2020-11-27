@@ -801,7 +801,7 @@ namespace rtf {
         }
 
         report.success = r.success;
-        report.T = r.model.inverse();
+        report.T = GeoUtil::reverseTransformation(r.model);
         report.inliers = r.support.inlierIndexes;
         report.maxResidual = r.maxResidual;
 

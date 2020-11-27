@@ -24,9 +24,7 @@ namespace rtf {
         int maxVINum = 500;
         float voxelSize = 2;
         int numThreads = 3;
-        int numChecks = 256;
         int numNeighs = 10;
-        int maxNumFeatures = 8192;
         bool hashing = true;
         string vocTxtPath;
     };

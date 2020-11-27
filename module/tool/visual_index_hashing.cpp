@@ -78,8 +78,6 @@ namespace rtf {
         config.vocTxtPath = globalConfig.vocTxtPath;
         config.numNeighs = globalConfig.numNeighs;
         config.numThreads = globalConfig.numThreads;
-        config.numChecks = globalConfig.numChecks;
-        config.maxNumFeatures = globalConfig.maxNumFeatures;
         config.hashing = hashing;
         initialize();
     }

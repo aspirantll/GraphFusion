@@ -109,11 +109,11 @@ namespace rtf {
             loopCandidates.insert(candidates.begin(), candidates.end());
         }else {
             if(detectLoop(loopCandidates)) {
-                cerr << "loop candidates" << endl;
+                cout << "loop candidates" << endl;
                 for(auto sit: loopCandidates) {
-                    cerr << sit.first << ", " << sit.second << endl;
+                    cout << sit.first << ", " << sit.second << endl;
                 }
-                cerr << "--------------------------------------------" << endl;
+                cout << "--------------------------------------------" << endl;
 
                 cout << "loop closure detected!!!" << endl;
                 loops.insert(loops.end(), loopCandidates.begin(), loopCandidates.end());
