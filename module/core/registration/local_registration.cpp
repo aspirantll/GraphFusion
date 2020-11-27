@@ -341,13 +341,13 @@ namespace rtf {
             descriptors.row(i) = desc[i];
         }
 
-        cerr << "----------------------------------------" << endl;
+        /*cerr << "----------------------------------------" << endl;
         cerr << "frame index:" << keyframe->getIndex() << endl;
         cerr << "visible frame num:" << m << endl;
         cerr << "feature num:" << desc.size() << endl;
         if(desc.size()<500) {
             cerr << "index:" << keyframe->getIndex() << endl;
-        }
+        }*/
 
         sf.setBounds(minX, maxX, minY, maxY);
         sf.assignFeaturesToGrid();

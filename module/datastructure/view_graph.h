@@ -40,7 +40,7 @@ namespace rtf {
     protected:
         vector<shared_ptr<Frame>> frames;
         map<int, int> indexToInnerMap;
-        Transform transform;
+        SE3 transform;
         SIFTFeaturePoints kps;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -78,7 +78,7 @@ namespace rtf {
         vector<FeatureKeypoint> kys;
         map<int, int> matchIndexesX;
         map<int, int> matchIndexesY;
-        Transform transformation;
+        SE3 transform;
         double cost;
         bool unreachable = false;
     private:
@@ -110,6 +110,10 @@ namespace rtf {
         void setUnreachable();
 
         Transform getTransform();
+
+        void setSE(SE3 t);
+
+        SE3 getSE();
 
         double getCost();
 
@@ -159,6 +163,10 @@ namespace rtf {
 
         Transform getGtTransform();
 
+        void setGtSE(SE3 gt);
+
+        SE3 getGtSE();
+
         void setVisible(bool visible);
 
         bool isVisible();
@@ -179,7 +187,7 @@ namespace rtf {
         vector<int> parentIndexes;
         vector<int> rootIndexes;
 
-        Transform computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited);
+        SE3 computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited);
     public:
         ViewGraph();
 
@@ -211,7 +219,11 @@ namespace rtf {
 
         Transform getEdgeTransform(int i, int j);
 
+        SE3 getEdgeSE(int i, int j);
+
         void setEdgeTransform(int i, int j, Transform trans);
+
+        bool existEdge(int i, int j);
 
         int getParent(int child);
 

@@ -3,16 +3,6 @@
 //
 
 #include "optimizer.h"
-
-#include "g2o/core/block_solver.h"
-#include "g2o/core/optimization_algorithm_levenberg.h"
-#include "g2o/solvers/eigen/linear_solver_eigen.h"
-#include "g2o/types/slam3d/vertex_se3.h"
-#include "g2o/types/slam3d/edge_se3.h"
-
-typedef g2o::BlockSolver< g2o::BlockSolverTraits<g2o::VertexSE3::Dimension, -1>> SlamBlockSolver;
-typedef g2o::LinearSolverEigen<SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
-
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/autodiff_cost_function.h>
@@ -97,74 +87,6 @@ private:
 };
 
 namespace rtf {
-
-    void Optimizer::poseGraphOptimize(ViewGraph &viewGraph, const vector<pair<int, int> >& loops) {
-        // pose graph optimization
-        // How the problem is mapped to g2o:
-        // The nodes get the global_T_frame transformation.
-        // The edges get A as "from" (vertices()[0]),
-        //               B as "to" (vertices()[1]), and
-        //               A_tr_B as measurement.
-        SlamLinearSolver* linearSolver = new SlamLinearSolver();
-        SlamBlockSolver* blockSolver = new SlamBlockSolver(linearSolver);
-        g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(blockSolver);
-        solver->setUserLambdaInit(1e-16);
-
-        g2o::SparseOptimizer optimizer;
-        optimizer.setAlgorithm( solver );
-        optimizer.setVerbose( false );
-
-        //1.add frame as node
-        for (int i = 0; i < viewGraph.getNodesNum(); i++) {
-            g2o::VertexSE3* node = new g2o::VertexSE3();
-            node->setId(i);
-            node->setEstimate(Eigen::Isometry3d(GeoUtil::reverseTransformation(viewGraph[i].getGtTransform()).cast<double>()));
-            optimizer.addVertex(node);
-        }
-
-        // Fix the first pose to account for gauge freedom.
-        optimizer.vertex(0)->setFixed(true);
-
-        // 2. add edges in connected components
-        for(int i=0; i<viewGraph.getNodesNum()-1; i++) {
-            g2o::EdgeSE3* edge = new g2o::EdgeSE3();
-            edge->vertices()[0] = optimizer.vertex(i);
-            edge->vertices()[1] = optimizer.vertex(i+1);
-            Transform trans = viewGraph[i+1].getGtTransform().reverse()*viewGraph[i].getGtTransform();
-            edge->setMeasurement(Eigen::Isometry3d(trans.cast<double>()));
-            edge->setInformation(Eigen::Matrix<double, 6, 6>::Identity());
-            optimizer.addEdge(edge);
-        }
-
-        // loops
-        for(int i=0; i<loops.size(); i++) {
-            int refIndex = loops[i].first;
-            int curIndex = loops[i].second;
-            Edge connection = viewGraph.getEdge(refIndex, curIndex);
-            if (!connection.isUnreachable()) {
-                g2o::EdgeSE3* edge = new g2o::EdgeSE3();
-                edge->vertices()[0] = optimizer.vertex(refIndex);
-                edge->vertices()[1] = optimizer.vertex(curIndex);
-                edge->setMeasurement(Eigen::Isometry3d(connection.getTransform().reverse().cast<double>()));
-                edge->setInformation(Eigen::Matrix<double, 6, 6>::Identity());
-                optimizer.addEdge(edge);
-            }
-        }
-
-        optimizer.save("/home/liulei/result_before.g2o");
-        //3. pose graph optimization
-        optimizer.initializeOptimization();
-        constexpr int kMaxIterations = 20;
-        optimizer.optimize(kMaxIterations);
-        optimizer.save("/home/liulei/result_after.g2o");
-
-        //4. update global transformation
-        for(int i=0; i<viewGraph.getNodesNum(); i++) {
-            Transform globalToFrame = reinterpret_cast<const g2o::VertexSE3*>(optimizer.vertex(i))->estimate().matrix().cast<float>();
-            viewGraph[i].setGtTransform(GeoUtil::reverseTransformation(globalToFrame));
-        }
-    }
-
     void Optimizer::poseGraphOptimizeCeres(ViewGraph &viewGraph, const vector<pair<int, int> >& loops) {
         //Loss Function can be changed!
         // ceres::LossFunction* loss_function = new ceres::CauchyLoss(1.0);
@@ -175,29 +97,22 @@ namespace rtf {
         // collect cere poses
         CeresPoseVector ceresVectorPoses;
         for (int i = 0; i < viewGraph.getNodesNum(); i++) {
-            Sophus::SE3f se3Pose(viewGraph[i].getGtTransform());
-            ceresVectorPoses.emplace_back(se3Pose.cast<double>());
+            ceresVectorPoses.emplace_back(viewGraph[i].getGtSE().cast<double>());
         }
         ceresVectorPoses[0].setPoseFixed();
         // 2. add edges in connected components
-        for(int i=0; i<viewGraph.getNodesNum(); i++) {
-            for(int j=i+1; j<viewGraph.getNodesNum(); j++) {
-                Edge connection = viewGraph.getEdge(i, j);
-                if (!connection.isUnreachable()) {
-                    Transform trans = connection.getTransform();
-                    const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
-                    ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create(Sophus::SE3f(trans).cast<double>(), sqrt_information);
+        for(int i=0; i<viewGraph.getNodesNum()-1; i++) {
+            const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+            ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create((viewGraph[i].getGtSE().inverse()*viewGraph[i+1].getGtSE()).cast<double>(), sqrt_information);
 
-                    CeresPose& T_W_i = ceresVectorPoses[i];
-                    CeresPose& T_W_j = ceresVectorPoses[j];
+            CeresPose& T_W_i = ceresVectorPoses[i];
+            CeresPose& T_W_j = ceresVectorPoses[i+1];
 
-                    problem.AddResidualBlock(cost_function, loss_function,
-                                             T_W_i.t.data(),T_W_i.q.coeffs().data(),
-                                             T_W_j.t.data(),T_W_j.q.coeffs().data());
-                    problem.SetParameterization(T_W_i.q.coeffs().data(), quaternion_local_parameterization);
-                    problem.SetParameterization(T_W_j.q.coeffs().data(), quaternion_local_parameterization);
-                }
-            }
+            problem.AddResidualBlock(cost_function, loss_function,
+                                      T_W_i.t.data(),T_W_i.q.coeffs().data(),
+                                      T_W_j.t.data(),T_W_j.q.coeffs().data());
+            problem.SetParameterization(T_W_i.q.coeffs().data(), quaternion_local_parameterization);
+            problem.SetParameterization(T_W_j.q.coeffs().data(), quaternion_local_parameterization);
         }
 
         // loops
@@ -206,10 +121,9 @@ namespace rtf {
             int curIndex = loops[i].second;
             Edge connection = viewGraph.getEdge(refIndex, curIndex);
             if (!connection.isUnreachable()) {
-                for(int j=0; j<10; j++) {
-                    Transform trans = connection.getTransform();
+                for(int j=0; j<5; j++) {
                     const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
-                    ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create(Sophus::SE3f(trans).cast<double>(), sqrt_information);
+                    ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create(connection.getSE().cast<double>(), sqrt_information);
 
                     CeresPose& T_W_i = ceresVectorPoses[refIndex];
                     CeresPose& T_W_j = ceresVectorPoses[curIndex];
@@ -229,7 +143,7 @@ namespace rtf {
         options.num_threads = 1;
         ceres::Solver::Summary summary;
         ceres::Solve(options, &problem, &summary);
-        std::cerr << summary.FullReport() << '\n';
+        std::cout << summary.FullReport() << '\n';
 
         for(int i=0; i<viewGraph.getNodesNum(); i++) {
             viewGraph[i].setGtTransform(ceresVectorPoses[i].returnPose().matrix().cast<Scalar>());

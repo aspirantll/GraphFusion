@@ -213,7 +213,7 @@ namespace rtf {
                 maxCommonWords = sharedWordNode.second;
             }
         }
-        int minCommonWords = maxCommonWords * 0.8f;
+        int minCommonWords = maxCommonWords * 0.6f;
         imageScores->clear();
         for (auto &sharedWordFrame : sharedWordFrames) {
             if (sharedWordFrame.second >= minCommonWords) {

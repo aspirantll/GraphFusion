@@ -404,7 +404,7 @@ namespace rtf {
         // compute relative transformation for edges
         for(int j=0; j < cudaEdgeVector.getNum(); j++) {
             CUDAEdge edge = cudaEdgeVector[j];
-            Transform trans = GeoUtil::reverseTransformation(gtTransVec[edge.indexX])*gtTransVec[edge.indexY]*deltaTransVec[j];
+            Transform trans = gtTransVec[edge.indexX].inverse()*gtTransVec[edge.indexY]*deltaTransVec[j];
             edge.transform = MatrixConversion::toCUDA(trans);
         }
     }
@@ -455,7 +455,7 @@ namespace rtf {
                     totalCount += curCount;
                     deltaCount.emplace_back(curCount);
 
-                    auto deltaTrans = GeoUtil::reverseTransformation(gtTransVec[j]) * gtTransVec[i] *
+                    auto deltaTrans = gtTransVec[j].inverse() * gtTransVec[i] *
                             edge.getTransform();
                     deltaTransVec.emplace_back(deltaTrans);
 

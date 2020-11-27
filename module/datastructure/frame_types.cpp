@@ -258,47 +258,45 @@ namespace rtf {
 
     /** FrameRGBDT begin */
     FrameRGBDT::FrameRGBDT(YAML::Node serNode): FrameRGBD(serNode), FrameBase(serNode) {
-        // load point cloud
-        YAMLUtil::matrixDeserialize<Transform>(serNode["T"], T);
+
     }
 
     void FrameRGBDT::setTransform(const Transform &transform) {
-        T << transform;
+        T = SE3(transform);
     }
 
 
     Transform FrameRGBDT::getTransform() {
-        return T;
+        return T.matrix();
     }
 
     Rotation FrameRGBDT::getRotation() {
-        return T.block<3, 3>(0, 0);
+        return T.rotationMatrix();
     }
 
 
     Translation FrameRGBDT::getTranslation() {
-        return T.block<3, 1>(0, 3);
+        return T.translation();
     }
 
     YAML::Node FrameRGBDT::serialize() {
         // invoke the parent method
         YAML::Node node = FrameRGBD::serialize();
-        node["T"] = YAMLUtil::matrixSerialize(T);
         return node;
     }
 
     FrameRGBDT::FrameRGBDT(int frameId, shared_ptr<Camera> &camera, shared_ptr<cv::Mat> &rgbImage,
                            shared_ptr<cv::Mat> &depthImage, const Transform& t) : FrameRGBD(frameId, camera, rgbImage,
                                                                                              depthImage), FrameBase(frameId, camera) {
-        T << t;
+        T = SE3(t);
     }
 
     FrameRGBDT::FrameRGBDT(shared_ptr<FrameRGBD> other, const Transform& t) : FrameRGBD(other), FrameBase(*other) {
-        T << t;
+        T = SE3(t);
     }
 
     FrameRGBDT::FrameRGBDT(shared_ptr<FrameRGBD> other): FrameRGBD(other), FrameBase(*other) {
-        T << Transform::Identity();
+        T = SE3(Transform::Identity());
     }
 
 

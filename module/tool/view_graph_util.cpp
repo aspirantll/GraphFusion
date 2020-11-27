@@ -194,7 +194,7 @@ namespace rtf {
                         transformFeatureKeypoints(edge.getKys(), rY, tY);
 
                         // trans12 = trans1*relative_trans*trans2^-1
-                        Transform relativeTrans = transX * edge.getTransform() * GeoUtil::reverseTransformation(transY);
+                        Transform relativeTrans = transX * edge.getTransform() * transY.inverse();
                         edge.setTransform(relativeTrans);
 
                         edges.emplace_back(edge);
@@ -242,7 +242,7 @@ namespace rtf {
                 transformFeatureKeypoints(bestEdge.getKys(), rY, tY);
 
                 // trans12 = trans1*relative_trans*trans2^-1
-                Transform relativeTrans = transX * bestEdge.getTransform() * GeoUtil::reverseTransformation(transY);
+                Transform relativeTrans = transX * bestEdge.getTransform() * transY.inverse();
                 bestEdge.setTransform(relativeTrans);
             }
 

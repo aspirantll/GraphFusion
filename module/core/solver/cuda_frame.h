@@ -50,7 +50,8 @@ public:
 
     __host__ void setTransform(const Transform& trans) {
         transformation = MatrixConversion::toCUDA(trans);
-        transformationInverse = MatrixConversion::toCUDA(rtf::GeoUtil::reverseTransformation(trans));
+        Transform invTrans = trans.inverse();
+        transformationInverse = MatrixConversion::toCUDA(invTrans);
     }
 
     __device__ inline bool isInCameraFrustumApprox(float3 globalPos) const {

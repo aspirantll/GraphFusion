@@ -38,7 +38,7 @@ namespace rtf {
     }
 
     KeyFrame::KeyFrame(){
-        transform.setIdentity();
+        transform = SE3(Transform::Identity());
     }
 
     int KeyFrame::getIndex() {
@@ -50,7 +50,7 @@ namespace rtf {
     }
 
     Transform KeyFrame::getTransform() {
-        return transform;
+        return transform.matrix();
     }
 
     Transform KeyFrame::getTransform(int frameIndex) {
@@ -58,7 +58,7 @@ namespace rtf {
     }
 
     void KeyFrame::setTransform(Transform trans) {
-        transform = std::move(trans);
+        transform = SE3(trans);
     }
 
     Intrinsic KeyFrame::getK() {
@@ -92,7 +92,15 @@ namespace rtf {
     }
 
     Transform Edge::getTransform() {
-        return transformation;
+        return transform.matrix();
+    }
+
+    void Edge::setSE(SE3 t) {
+        transform = t;
+    }
+
+    SE3 Edge::getSE() {
+        return transform;
     }
 
     double Edge::getCost() {
@@ -104,7 +112,7 @@ namespace rtf {
         if(!edge.isUnreachable()) {
             edge.setKxs(kys);
             edge.setKys(kxs);
-            edge.transformation << GeoUtil::reverseTransformation(transformation);
+            edge.transform = transform.inverse();
             edge.cost = cost;
             edge.matchIndexesX = matchIndexesY;
             edge.matchIndexesY = matchIndexesX;
@@ -125,8 +133,7 @@ namespace rtf {
     }
 
     void Edge::setTransform(Transform transformation) {
-        LOG_ASSERT(GeoUtil::validateTransform(transformation)) << " " << transformation;
-        this->transformation << transformation;
+        this->transform = SE3(transformation);
     }
 
     void Edge::setCost(double cost) {
@@ -136,7 +143,6 @@ namespace rtf {
 
     YAML::Node Edge::serialize() {
         YAML::Node node;
-        node["transformation"] = YAMLUtil::matrixSerialize(transformation);
         node["cost"] = cost;
         node["unreachable"] = unreachable;
 
@@ -205,6 +211,14 @@ namespace rtf {
 
     Transform Node::getGtTransform() {
         return gtTrans.matrix();
+    }
+
+    void Node::setGtSE(SE3 gt) {
+        gtTrans = gt;
+    }
+
+    SE3 Node::getGtSE() {
+        return gtTrans;
     }
 
 
@@ -281,18 +295,19 @@ namespace rtf {
         return nodes[nodeIndex].getGtTransform()*sourceFrames[innerIndex]->getTransform();
     }
 
-    Transform ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited) {
+    SE3 ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited) {
         int nodeIndex = cc[u];
-        if(visited[u]) return nodes[nodeIndex].getGtTransform();
+        if(visited[u]) return nodes[nodeIndex].getGtSE();
         int parent = parentIndexes[cc[u]];
         if(parent==-1) {
             nodes[nodeIndex].setGtTransform(Transform::Identity());
         }else {
             int v = innerMap[parent];
-            nodes[nodeIndex].setGtTransform(computeTransform(v, innerMap, cc, visited)*getEdgeTransform(parent, nodeIndex));
+            SE3 trans = computeTransform(v, innerMap, cc, visited)*getEdgeSE(parent, nodeIndex);
+            nodes[nodeIndex].setGtSE(trans);
         }
         visited[u] = true;
-        return nodes[nodeIndex].getGtTransform();
+        return nodes[nodeIndex].getGtSE();
 
 
     }
@@ -357,13 +372,19 @@ namespace rtf {
     Transform ViewGraph::getEdgeTransform(int i, int j) {
         LOG_ASSERT(!(*this)(i,j).isUnreachable());
         Transform trans = (*this)(i, j).getTransform();
-        return i<=j?trans:GeoUtil::reverseTransformation(trans);
+        return i<=j?trans:trans.inverse();
+    }
+
+    SE3 ViewGraph::getEdgeSE(int i, int j) {
+        LOG_ASSERT(!(*this)(i,j).isUnreachable());
+        SE3 trans = (*this)(i, j).getSE();
+        return i<=j?trans:trans.inverse();
     }
 
     void ViewGraph::setEdgeTransform(int i, int j, Transform trans) {
         if(i<j) (*this)(i, j).setTransform(trans);
         else {
-            (*this)(i, j).setTransform(GeoUtil::reverseTransformation(trans));
+            (*this)(i, j).setTransform(trans.inverse());
         }
     }
 
@@ -607,6 +628,10 @@ namespace rtf {
         }
     }
 
+    bool ViewGraph::existEdge(int i, int j) {
+        return !(*this)(i, j).isUnreachable();
+    }
+
     void ViewGraph::check() {
         CHECK_EQ(nodes.size(), adjMatrix->getN());
     }
@@ -646,7 +671,7 @@ namespace rtf {
     bool edgeCompare(Edge& one, Edge& another) {
         if(one.isUnreachable()) return false;
         if(!one.isUnreachable()&&another.isUnreachable()) return true;
-        float factor = (float)one.getKxs().size()/another.getKxs().size();
+        float factor = 1; //(float)one.getKxs().size()/another.getKxs().size();
         return one.getCost() < factor*another.getCost();
     }
 }

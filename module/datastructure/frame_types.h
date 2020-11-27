@@ -148,7 +148,7 @@ namespace rtf {
 
     class FrameRGBDT: public FrameRGBD {
     protected:
-        Transform T;
+        SE3 T;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 

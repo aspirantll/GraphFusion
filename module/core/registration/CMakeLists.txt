@@ -5,7 +5,6 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         bundle_adjustment.cpp
         bundle_adjustment.cu
         bundle_adjustment.cuh
-        CMakeLists.txt
         epipolar_geometry.cpp
         epipolar_geometry.cu
         epipolar_geometry.cuh
@@ -16,14 +15,6 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         homography.cpp
         optimizer.cpp
         optimizer.h)
-
-#The library for logging
-find_package(G2O REQUIRED)
-include_directories(${G2O_INCLUDE_DIRS})
-link_libraries(${G2O_LIBRARIES})
-
-SET(G2O_LIBS g2o_core g2o_types_slam3d g2o_stuff g2o_solver_eigen)
-
 find_package(Ceres REQUIRED)
 include_directories(${Ceres_INCLUDE_DIRS})
 link_libraries(${Ceres_LIBRARIES})
@@ -33,7 +24,6 @@ target_link_libraries(${SUBSYS_NAME}
         ${PCL_LIBRARIES}
         ${OpenCV_LIBRARIES}
         ${CERES_LIBRARIES}
-        ${G2O_LIBS}
         datastructure
         tool
         )

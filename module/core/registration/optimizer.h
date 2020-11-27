@@ -10,8 +10,6 @@
 namespace rtf {
     class Optimizer {
     public:
-        static void poseGraphOptimize(ViewGraph &viewGraph, const vector<pair<int, int> >& loops);
-
         static void poseGraphOptimizeCeres(ViewGraph &viewGraph, const vector<pair<int, int> >& loops);
     };
 }
