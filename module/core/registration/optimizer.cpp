@@ -103,7 +103,7 @@ namespace rtf {
         // 2. add edges in connected components
         for(int i=0; i<viewGraph.getNodesNum()-1; i++) {
             const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
-            ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create((viewGraph[i].getGtSE().inverse()*viewGraph[i+1].getGtSE()).cast<double>(), sqrt_information);
+            ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create((viewGraph[i].getGtSE().inverse()*viewGraph[i+1].getGtSE()), sqrt_information);
 
             CeresPose& T_W_i = ceresVectorPoses[i];
             CeresPose& T_W_j = ceresVectorPoses[i+1];
@@ -121,9 +121,9 @@ namespace rtf {
             int curIndex = loops[i].second;
             Edge connection = viewGraph.getEdge(refIndex, curIndex);
             if (!connection.isUnreachable()) {
-                for(int j=0; j<5; j++) {
+                for(int j=0; j<3; j++) {
                     const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
-                    ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create(connection.getSE().cast<double>(), sqrt_information);
+                    ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create(connection.getSE(), sqrt_information);
 
                     CeresPose& T_W_i = ceresVectorPoses[refIndex];
                     CeresPose& T_W_j = ceresVectorPoses[curIndex];
@@ -146,7 +146,7 @@ namespace rtf {
         std::cout << summary.FullReport() << '\n';
 
         for(int i=0; i<viewGraph.getNodesNum(); i++) {
-            viewGraph[i].setGtTransform(ceresVectorPoses[i].returnPose().matrix().cast<Scalar>());
+            viewGraph[i].setGtTransform(ceresVectorPoses[i].returnPose().matrix());
         }
     }
 }

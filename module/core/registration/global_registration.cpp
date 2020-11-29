@@ -86,7 +86,7 @@ namespace rtf {
     }
 
     bool detectLoop(set<pair<int, int> >& candidates) {
-        bool c1 = candidates.size()>=1;
+        bool c1 = candidates.size()>=2;
 
         int delta = 0;
         int count = 0;
@@ -98,7 +98,7 @@ namespace rtf {
             }
             lastIndex = sit.second;
         }
-        bool c2 = delta/max(count, 1) < 5;
+        bool c2 = delta/max(count, 1) < 10;
 
         return c1&&c2;
     }

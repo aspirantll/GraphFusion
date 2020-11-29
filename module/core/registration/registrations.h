@@ -172,42 +172,6 @@ namespace rtf {
         }
     };
 
-    class EGRegistration {
-    protected:
-        RANSAC2DConfig config;
-
-        void decomposeEssentialMatrix(Matrix3 &E, vector<Point3D> &x, vector<Point3D> &y, Rotation &R, Translation &t,
-                                      vector<double> &xDs, vector<double> &yDs);
-
-    public:
-        EGRegistration(const GlobalConfig &config);
-
-        EGRegistration(const RANSAC2DConfig &config);
-
-        void updateStartResidual(double residual);
-
-        RANSAC2DReport filterMatches(FeatureMatches &featureMatches);
-
-        RANSAC2DReport registrationFunction(FeatureMatches &featureMatches);
-    };
-
-    class HomographyRegistration {
-    protected:
-        RANSAC2DConfig config;
-
-        void decomposeHomographyMatrix(Matrix3 &H, Intrinsic kx, Intrinsic ky,
-                                       vector<Point3D> &x, vector<Point3D> &y, Rotation &R,
-                                       Translation &t, vector<double> &xDs,
-                                       vector<double> &yDs);
-
-    public:
-        HomographyRegistration(const GlobalConfig &config);
-
-        HomographyRegistration(const RANSAC2DConfig &config);
-
-        RANSAC2DReport registrationFunction(FeatureMatches &featureMatches);
-    };
-
     class PnPRegistration {
     private:
         RANSAC2DConfig config;

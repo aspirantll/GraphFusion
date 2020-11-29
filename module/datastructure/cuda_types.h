@@ -188,7 +188,7 @@ namespace rtf {
 
     };
 
-    typedef CUDAArray<Scalar> CUDAArrays;
+    typedef CUDAArray<CudaScalar> CUDAArrays;
     typedef CUDAArray<float> CUDAArrayf;
     typedef CUDAArray<unsigned int> CUDAArrayu;
 
@@ -301,7 +301,7 @@ namespace rtf {
         }
     };
 
-    typedef CUDAMatrix<Scalar> CUDAMatrixs;
+    typedef CUDAMatrix<CudaScalar> CUDAMatrixs;
     typedef CUDAMatrix<float> CUDAMatrixf;
     typedef CUDAMatrix<long> CUDAMatrixl;
     typedef CUDAMatrix<uchar> CUDAMatrixc;
@@ -396,7 +396,7 @@ namespace rtf {
         }
     };
 
-    typedef CUDAPtr<Scalar> CUDAPtrs;
+    typedef CUDAPtr<CudaScalar> CUDAPtrs;
     typedef CUDAPtr<float> CUDAPtrf;
     typedef CUDAPtr<long> CUDAPtrl;
     typedef CUDAPtr<unsigned int> CUDAPtru;

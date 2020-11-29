@@ -43,8 +43,8 @@ namespace rtf {
                 Edge edge = viewGraph.getEdge(k, j);
                 if(!edge.isUnreachable()) {
                     if(visited[j]) {
-                        if(j == path[0]&&path.size()>=5) {
-                            circleCandidates.insert(make_pair(path[0], path[1]));
+                        if(j == path[0]&&path.size()>=10) {
+                            circleCandidates.insert(make_pair(path[0], min(path[1], path[path.size()-1])));
                         }
                     }else {
                         findCircle(viewGraph, visited, path, j, circleCandidates);

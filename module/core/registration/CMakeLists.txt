@@ -5,14 +5,10 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         bundle_adjustment.cpp
         bundle_adjustment.cu
         bundle_adjustment.cuh
-        epipolar_geometry.cpp
-        epipolar_geometry.cu
-        epipolar_geometry.cuh
         global_registration.cpp
         local_registration.cpp
         registrations.h
         pnp_registration.cpp
-        homography.cpp
         optimizer.cpp
         optimizer.h)
 find_package(Ceres REQUIRED)

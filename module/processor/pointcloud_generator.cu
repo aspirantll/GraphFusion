@@ -63,7 +63,7 @@ namespace rtf {
         normalImg.upload(*normalImage);
 
         CUDAMatrixs kInv(3, 3);
-        MatrixX tempK(camera->getReverseK());
+        Eigen::MatrixXf tempK = camera->getReverseK().cast<CudaScalar>();
 
         kInv.upload(tempK);
 

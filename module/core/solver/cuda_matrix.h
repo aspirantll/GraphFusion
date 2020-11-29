@@ -18,12 +18,12 @@ public:
 	{
 	}
 
-	inline __device__ __host__ float2x2(Scalar a11, Scalar a12, Scalar a21, Scalar a22) {
+	inline __device__ __host__ float2x2(CudaScalar a11, CudaScalar a12, CudaScalar a21, CudaScalar a22) {
 		m11 = a11;	m12 = a12;
 		m21 = a21;	m22 = a22;
 	}
 
-	inline __device__ __host__ float2x2(const Scalar values[4])
+	inline __device__ __host__ float2x2(const CudaScalar values[4])
 	{
 		m11 = values[0];	m12 = values[1];
 		m21 = values[2];	m22 = values[3];
@@ -67,8 +67,8 @@ public:
 		return make_float2(m11*v.x + m12*v.y, m21*v.x + m22*v.y);
 	}
 
-	//! matrix scalar multiplication
-	inline __device__ __host__ float2x2 operator*(const Scalar t) const
+	//! matrix CudaScalar multiplication
+	inline __device__ __host__ float2x2 operator*(const CudaScalar t) const
 	{
 		float2x2 res;
 		res.m11 = m11 * t;	res.m12 = m12 * t;
@@ -98,18 +98,18 @@ public:
 		return res;
 	}
 	
-	inline __device__ __host__ Scalar& operator()(int i, int j)
+	inline __device__ __host__ CudaScalar& operator()(int i, int j)
 	{
 		return entries2[i][j];
 	}
 
-	inline __device__ __host__ Scalar operator()(int i, int j) const
+	inline __device__ __host__ CudaScalar operator()(int i, int j) const
 	{
 		return entries2[i][j];
 	}
 
-	static inline __device__ __host__  void swap(Scalar& v0, Scalar& v1) {
-		Scalar tmp = v0;
+	static inline __device__ __host__  void swap(CudaScalar& v0, CudaScalar& v1) {
+		CudaScalar tmp = v0;
 		v0 = v1;
 		v1 = tmp;
 	}
@@ -135,7 +135,7 @@ public:
 		return res*(1.0f / det());
 	}
 
-	inline __device__ __host__ Scalar det()
+	inline __device__ __host__ CudaScalar det()
 	{
 		return m11*m22 - m21*m12;
 	}
@@ -151,12 +151,12 @@ public:
 	{
 		struct
 		{
-			Scalar m11; Scalar m12;
-			Scalar m21; Scalar m22;
+			CudaScalar m11; CudaScalar m12;
+			CudaScalar m21; CudaScalar m22;
 		};
 
-		Scalar entries[4];
-		Scalar entries2[2][2];
+		CudaScalar entries[4];
+		CudaScalar entries2[2][2];
 	};
 };
 
@@ -172,7 +172,7 @@ public:
 	{
 	}
 
-	inline __device__ __host__ float2x3(const Scalar values[6])
+	inline __device__ __host__ float2x3(const CudaScalar values[6])
 	{
 		m11 = values[0];	m12 = values[1];	m13 = values[2];
 		m21 = values[3];	m22 = values[4];	m23 = values[5];
@@ -196,8 +196,8 @@ public:
 		return make_float2(m11*v.x + m12*v.y + m13*v.z, m21*v.x + m22*v.y + m23*v.z);
 	}
 
-	//! matrix scalar multiplication
-	inline __device__ __host__ float2x3 operator*(const Scalar t) const
+	//! matrix CudaScalar multiplication
+	inline __device__ __host__ float2x3 operator*(const CudaScalar t) const
 	{
 		float2x3 res;
 		res.m11 = m11 * t;	res.m12 = m12 * t;	res.m13 = m13 * t;
@@ -205,8 +205,8 @@ public:
 		return res;
 	}
 
-	//! matrix scalar division
-	inline __device__ __host__ float2x3 operator/(const Scalar t) const
+	//! matrix CudaScalar division
+	inline __device__ __host__ float2x3 operator/(const CudaScalar t) const
 	{
 		float2x3 res;
 		res.m11 = m11 / t;	res.m12 = m12 / t;	res.m13 = m13 / t;
@@ -214,12 +214,12 @@ public:
 		return res;
 	}
 	
-	inline __device__ __host__ Scalar& operator()(int i, int j)
+	inline __device__ __host__ CudaScalar& operator()(int i, int j)
 	{
 		return entries2[i][j];
 	}
 
-	inline __device__ __host__ Scalar operator()(int i, int j) const
+	inline __device__ __host__ CudaScalar operator()(int i, int j) const
 	{
 		return entries2[i][j];
 	}
@@ -228,12 +228,12 @@ public:
 	{
 		struct
 		{
-			Scalar m11; Scalar m12; Scalar m13;
-			Scalar m21; Scalar m22; Scalar m23;
+			CudaScalar m11; CudaScalar m12; CudaScalar m13;
+			CudaScalar m21; CudaScalar m22; CudaScalar m23;
 		};
 
-		Scalar entries[6];
-		Scalar entries2[3][2];
+		CudaScalar entries[6];
+		CudaScalar entries2[3][2];
 	};
 };
 
@@ -249,7 +249,7 @@ public:
 	{
 	}
 
-	inline __device__ __host__ float3x2(const Scalar values[6])
+	inline __device__ __host__ float3x2(const CudaScalar values[6])
 	{
 		m11 = values[0];	m12 = values[1];
 		m21 = values[2];	m22 = values[3];
@@ -269,7 +269,7 @@ public:
 		return make_float3(m11*v.x + m12*v.y, m21*v.x + m22*v.y, m31*v.x + m32*v.y);
 	}
 
-	inline __device__ __host__ float3x2 operator*(const Scalar t) const
+	inline __device__ __host__ float3x2 operator*(const CudaScalar t) const
 	{
 		float3x2 res;
 		res.m11 = m11 * t;	res.m12 = m12 * t;
@@ -278,12 +278,12 @@ public:
 		return res;
 	}
 
-	inline __device__ __host__ Scalar& operator()(int i, int j)
+	inline __device__ __host__ CudaScalar& operator()(int i, int j)
 	{
 		return entries2[i][j];
 	}
 
-	inline __device__ __host__ Scalar operator()(int i, int j) const
+	inline __device__ __host__ CudaScalar operator()(int i, int j) const
 	{
 		return entries2[i][j];
 	}
@@ -300,13 +300,13 @@ public:
 	{
 		struct
 		{
-			Scalar m11; Scalar m12;
-			Scalar m21; Scalar m22;
-			Scalar m31; Scalar m32;
+			CudaScalar m11; CudaScalar m12;
+			CudaScalar m21; CudaScalar m22;
+			CudaScalar m31; CudaScalar m32;
 		};
 
-		Scalar entries[6];
-		Scalar entries2[3][2];
+		CudaScalar entries[6];
+		CudaScalar entries2[3][2];
 	};
 };
 
@@ -325,12 +325,12 @@ public:
 	inline __device__ __host__ float3x3() {
 
 	}
-	inline __device__ __host__ float3x3(Scalar a11, Scalar a12, Scalar a13, Scalar a21, Scalar a22, Scalar a23, Scalar a31, Scalar a32, Scalar a33) {
+	inline __device__ __host__ float3x3(CudaScalar a11, CudaScalar a12, CudaScalar a13, CudaScalar a21, CudaScalar a22, CudaScalar a23, CudaScalar a31, CudaScalar a32, CudaScalar a33) {
 		m11 = a11;	m12 = a12;	m13 = a13;
 		m21 = a21;	m22 = a22;	m23 = a23;
 		m31 = a31;	m32 = a32;	m33 = a33;
 	}
-	inline __device__ __host__ float3x3(const Scalar values[9]) {
+	inline __device__ __host__ float3x3(const CudaScalar values[9]) {
 		m11 = values[0];	m12 = values[1];	m13 = values[2];
 		m21 = values[3];	m22 = values[4];	m23 = values[5];
 		m31 = values[6];	m32 = values[7];	m33 = values[8];
@@ -361,17 +361,17 @@ public:
 		return *this;
 	}
 
-	inline __device__ __host__ Scalar& operator()(int i, int j) {
+	inline __device__ __host__ CudaScalar& operator()(int i, int j) {
 		return entries2[i][j];
 	}
 
-	inline __device__ __host__ Scalar operator()(int i, int j) const {
+	inline __device__ __host__ CudaScalar operator()(int i, int j) const {
 		return entries2[i][j];
 	}
 
 
-	static inline __device__ __host__  void swap(Scalar& v0, Scalar& v1) {
-		Scalar tmp = v0;
+	static inline __device__ __host__  void swap(CudaScalar& v0, CudaScalar& v1) {
+		CudaScalar tmp = v0;
 		v0 = v1;
 		v1 = tmp;
 	}
@@ -406,11 +406,11 @@ public:
 		res.entries[6] = entries[3]*entries[7] - entries[4]*entries[6];
 		res.entries[7] = -entries[0]*entries[7] + entries[1]*entries[6];
 		res.entries[8] = entries[0]*entries[4] - entries[1]*entries[3];
-		Scalar nom = 1.0f/det();
+		CudaScalar nom = 1.0f/det();
 		return res * nom;
 	}
 
-	inline __device__ __host__ void setZero(Scalar value = 0.0f) {
+	inline __device__ __host__ void setZero(CudaScalar value = 0.0f) {
 		m11 = m12 = m13 = value;
 		m21 = m22 = m23 = value;
 		m31 = m32 = m33 = value;
@@ -424,7 +424,7 @@ public:
 		m31 = 0.0f;	m32 = 0.0f;	m33 = 1.0f;
 	}
 
-	inline __device__ __host__ Scalar det() const {
+	inline __device__ __host__ CudaScalar det() const {
 		return
 			+ m11*m22*m33
 			+ m12*m23*m31
@@ -434,7 +434,7 @@ public:
 			- m33*m21*m12;
 	}
 
-	inline __device__ __host__ Scalar trace() const {
+	inline __device__ __host__ CudaScalar trace() const {
 		return m11 + m22 + m33;
 	}
 
@@ -522,7 +522,7 @@ public:
 			);
 	}
 
-	inline __device__ __host__ float3x3 operator*(const Scalar t) const {
+	inline __device__ __host__ float3x3 operator*(const CudaScalar t) const {
 		float3x3 res;
 		res.m11 = m11 * t;		res.m12 = m12 * t;		res.m13 = m13 * t;
 		res.m21 = m21 * t;		res.m22 = m22 * t;		res.m23 = m23 * t;
@@ -567,7 +567,7 @@ public:
 		return res;
 	}
 
-	static inline __device__ __host__ float3x3 getDiagonalMatrix(Scalar diag = 1.0f) {
+	static inline __device__ __host__ float3x3 getDiagonalMatrix(CudaScalar diag = 1.0f) {
 		float3x3 res;
 		res.m11 = diag;		res.m12 = 0.0f;		res.m13 = 0.0f;
 		res.m21 = 0.0f;		res.m22 = diag;		res.m23 = 0.0f;
@@ -575,7 +575,7 @@ public:
 		return res;
 	}
 
-	static inline __device__ __host__ float3x3 getDiagonalMatrix(Scalar d0, Scalar d1, Scalar d2) {
+	static inline __device__ __host__ float3x3 getDiagonalMatrix(CudaScalar d0, CudaScalar d1, CudaScalar d2) {
 		float3x3 res;
 		res.m11 = d0;		res.m12 = 0.0f;		res.m13 = 0.0f;
 		res.m21 = 0.0f;		res.m22 = d1;		res.m23 = 0.0f;
@@ -591,10 +591,10 @@ public:
 		return res;
 	}
 
-	inline __device__ __host__ const Scalar* ptr() const {
+	inline __device__ __host__ const CudaScalar* ptr() const {
 		return entries;
 	}
-	inline __device__ __host__ Scalar* ptr() {
+	inline __device__ __host__ CudaScalar* ptr() {
 		return entries;
 	}
 
@@ -609,12 +609,12 @@ public:
 
 	union {
 		struct {
-			Scalar m11; Scalar m12; Scalar m13;
-			Scalar m21; Scalar m22; Scalar m23;
-			Scalar m31; Scalar m32; Scalar m33;
+			CudaScalar m11; CudaScalar m12; CudaScalar m13;
+			CudaScalar m21; CudaScalar m22; CudaScalar m23;
+			CudaScalar m31; CudaScalar m32; CudaScalar m33;
 		};
-		Scalar entries[9];
-		Scalar entries2[3][3];
+		CudaScalar entries[9];
+		CudaScalar entries2[3][3];
 	};
 };
 
@@ -649,7 +649,7 @@ public:
 	inline __device__ __host__ float3x4() {
 
 	}
-	inline __device__ __host__ float3x4(const Scalar values[12]) {
+	inline __device__ __host__ float3x4(const CudaScalar values[12]) {
 		m11 = values[0];	m12 = values[1];	m13 = values[2];	m14 = values[3];
 		m21 = values[4];	m22 = values[5];	m23 = values[6];	m24 = values[7];
 		m31 = values[8];	m32 = values[9];	m33 = values[10];	m34 = values[11];
@@ -700,28 +700,28 @@ public:
 			);
 	}
 
-	//! matrix scalar multiplication
-	inline __device__ __host__ float3x4 operator*(const Scalar t) const {
+	//! matrix CudaScalar multiplication
+	inline __device__ __host__ float3x4 operator*(const CudaScalar t) const {
 		float3x4 res;
 		res.m11 = m11 * t;		res.m12 = m12 * t;		res.m13 = m13 * t;		res.m14 = m14 * t;
 		res.m21 = m21 * t;		res.m22 = m22 * t;		res.m23 = m23 * t;		res.m24 = m24 * t;
 		res.m31 = m31 * t;		res.m32 = m32 * t;		res.m33 = m33 * t;		res.m34 = m34 * t;
 		return res;
 	}
-	inline __device__ __host__ float3x4& operator*=(const Scalar t) {
+	inline __device__ __host__ float3x4& operator*=(const CudaScalar t) {
 		*this = *this * t;
 		return *this;
 	}
 
-	//! matrix scalar division
-	inline __device__ __host__ float3x4 operator/(const Scalar t) const {
+	//! matrix CudaScalar division
+	inline __device__ __host__ float3x4 operator/(const CudaScalar t) const {
 		float3x4 res;
 		res.m11 = m11 / t;		res.m12 = m12 / t;		res.m13 = m13 / t;		res.m14 = m14 / t;
 		res.m21 = m21 / t;		res.m22 = m22 / t;		res.m23 = m23 / t;		res.m24 = m24 / t;
 		res.m31 = m31 / t;		res.m32 = m32 / t;		res.m33 = m33 / t;		res.m34 = m34 / t;
 		return res;
 	}
-	inline __device__ __host__ float3x4& operator/=(const Scalar t) {
+	inline __device__ __host__ float3x4& operator/=(const CudaScalar t) {
 		*this = *this / t;
 		return *this;
 	}
@@ -775,11 +775,11 @@ public:
 
 
 
-	inline __device__ __host__ Scalar& operator()(int i, int j) {
+	inline __device__ __host__ CudaScalar& operator()(int i, int j) {
 		return entries2[i][j];
 	}
 
-	inline __device__ __host__ Scalar operator()(int i, int j) const {
+	inline __device__ __host__ CudaScalar operator()(int i, int j) const {
 		return entries2[i][j];
 	}
 
@@ -841,12 +841,12 @@ public:
 
 	union {
 		struct {
-			Scalar m11; Scalar m12; Scalar m13; Scalar m14;
-			Scalar m21; Scalar m22; Scalar m23; Scalar m24;
-			Scalar m31; Scalar m32; Scalar m33; Scalar m34;
+			CudaScalar m11; CudaScalar m12; CudaScalar m13; CudaScalar m14;
+			CudaScalar m21; CudaScalar m22; CudaScalar m23; CudaScalar m24;
+			CudaScalar m31; CudaScalar m32; CudaScalar m33; CudaScalar m34;
 		};
-		Scalar entries[9];
-		Scalar entries2[3][4];
+		CudaScalar entries[9];
+		CudaScalar entries2[3][4];
 	};
 };
 
@@ -857,7 +857,7 @@ public:
 	inline __device__ __host__ float4x4() {
 
 	}
-	inline __device__ __host__ float4x4(const Scalar values[16]) {
+	inline __device__ __host__ float4x4(const CudaScalar values[16]) {
 		m11 = values[0];	m12 = values[1];	m13 = values[2];	m14 = values[3];
 		m21 = values[4];	m22 = values[5];	m23 = values[6];	m24 = values[7];
 		m31 = values[8];	m32 = values[9];	m33 = values[10];	m34 = values[11];
@@ -865,10 +865,10 @@ public:
 	}
 
 	inline __device__ __host__ float4x4(
-		Scalar v11, Scalar v12, Scalar v13, Scalar v14,
-		Scalar v21, Scalar v22, Scalar v23, Scalar v24,
-		Scalar v31, Scalar v32, Scalar v33, Scalar v34,
-		Scalar v41, Scalar v42, Scalar v43, Scalar v44) {
+		CudaScalar v11, CudaScalar v12, CudaScalar v13, CudaScalar v14,
+		CudaScalar v21, CudaScalar v22, CudaScalar v23, CudaScalar v24,
+		CudaScalar v31, CudaScalar v32, CudaScalar v33, CudaScalar v34,
+		CudaScalar v41, CudaScalar v42, CudaScalar v43, CudaScalar v44) {
 		m11 = v11;	m12 = v12;	m13 = v13;	m14 = v14;
 		m21 = v21;	m22 = v22;	m23 = v23;	m24 = v24;
 		m31 = v31;	m32 = v32;	m33 = v33;	m34 = v34;
@@ -943,21 +943,21 @@ public:
 			);
 	}
 
-	inline __device__ __host__ Scalar& operator[](int i) {
+	inline __device__ __host__ CudaScalar& operator[](int i) {
 		return entries[i];
 	}
 	
-	inline __device__ __host__ Scalar& operator()(int i, int j) {
+	inline __device__ __host__ CudaScalar& operator()(int i, int j) {
 		return entries2[i][j];
 	}
 
-	inline __device__ __host__ Scalar operator()(int i, int j) const {
+	inline __device__ __host__ CudaScalar operator()(int i, int j) const {
 		return entries2[i][j];
 	}
 
 
-	static inline __device__ __host__  void swap(Scalar& v0, Scalar& v1) {
-		Scalar tmp = v0;
+	static inline __device__ __host__  void swap(CudaScalar& v0, CudaScalar& v1) {
+		CudaScalar tmp = v0;
 		v0 = v1;
 		v1 = tmp;
 	}
@@ -978,7 +978,7 @@ public:
 
 	//! return the inverse matrix; but does not change the current matrix
 	inline __device__ __host__ float4x4 getInverse() const {
-		Scalar inv[16];
+		CudaScalar inv[16];
 
 		inv[0] = entries[5] * entries[10] * entries[15] -
 			entries[5] * entries[11] * entries[14] -
@@ -1092,9 +1092,9 @@ public:
 			entries[8] * entries[1] * entries[6] -
 			entries[8] * entries[2] * entries[5];
 
-		Scalar matrixDet = entries[0] * inv[0] + entries[1] * inv[4] + entries[2] * inv[8] + entries[3] * inv[12];
+		CudaScalar matrixDet = entries[0] * inv[0] + entries[1] * inv[4] + entries[2] * inv[8] + entries[3] * inv[12];
 
-		Scalar matrixDetr = 1.0f / matrixDet;
+		CudaScalar matrixDetr = 1.0f / matrixDet;
 
 		float4x4 res;
 		for (unsigned int i = 0; i < 16; i++) {
@@ -1136,7 +1136,7 @@ public:
 	}
 
 	//! sets the 4x4 part of the matrix to identity
-	inline __device__ __host__ void setValue(Scalar v)
+	inline __device__ __host__ void setValue(CudaScalar v)
 	{
 		m11 = v;	m12 = v;	m13 = v;	m14 = v;
 		m21 = v;	m22 = v;	m23 = v;	m24 = v;
@@ -1187,22 +1187,22 @@ public:
 	}
 
 
-	inline __device__ __host__ const Scalar* ptr() const {
+	inline __device__ __host__ const CudaScalar* ptr() const {
 		return entries;
 	}
-	inline __device__ __host__ Scalar* ptr() {
+	inline __device__ __host__ CudaScalar* ptr() {
 		return entries;
 	}
 
 	union {
 		struct {
-			Scalar m11; Scalar m12; Scalar m13; Scalar m14;
-			Scalar m21; Scalar m22; Scalar m23; Scalar m24;
-			Scalar m31; Scalar m32; Scalar m33; Scalar m34;
-			Scalar m41; Scalar m42; Scalar m43; Scalar m44;
+			CudaScalar m11; CudaScalar m12; CudaScalar m13; CudaScalar m14;
+			CudaScalar m21; CudaScalar m22; CudaScalar m23; CudaScalar m24;
+			CudaScalar m31; CudaScalar m32; CudaScalar m33; CudaScalar m34;
+			CudaScalar m41; CudaScalar m42; CudaScalar m43; CudaScalar m44;
 		};
-		Scalar entries[16];
-		Scalar entries2[4][4];
+		CudaScalar entries[16];
+		CudaScalar entries2[4][4];
 	};
 };
 
@@ -1224,13 +1224,13 @@ class matNxM
 		{
 		}
 
-		inline __device__ __host__ matNxM(const Scalar values[N*M])
+		inline __device__ __host__ matNxM(const CudaScalar values[N*M])
 		{
 			__CONDITIONAL_UNROLL__
 			for(unsigned int i = 0; i<N*M; i++) entries[i] = values[i];
 		}
 
-		inline __device__ __host__ matNxM(volatile const Scalar values[N*M])
+		inline __device__ __host__ matNxM(volatile const CudaScalar values[N*M])
 		{
 			__CONDITIONAL_UNROLL__
 				for (unsigned int i = 0; i < N*M; i++) entries[i] = values[i];
@@ -1325,7 +1325,7 @@ class matNxM
 			matNxM<N*NOther, M*MOther> res;
 			for (unsigned int r = 0; r < N; r++) {
 				for (unsigned int c = 0; c < M; c++) {
-					Scalar val = entries2D[r][c];
+					CudaScalar val = entries2D[r][c];
 					for (unsigned int rr = 0; rr < NOther; rr++) {
 						for (unsigned int cc = 0; cc < MOther; cc++) {
 							res(r*NOther + rr, c*MOther + cc) = val * other(rr, cc);
@@ -1351,7 +1351,7 @@ class matNxM
 				__CONDITIONAL_UNROLL__
 				for(unsigned int j = 0; j<MOther; j++)
 				{
-					Scalar sum = 0.0f;
+					CudaScalar sum = 0.0f;
 					__CONDITIONAL_UNROLL__
 					for(unsigned int k = 0; k<M; k++)
 					{
@@ -1369,7 +1369,7 @@ class matNxM
 		// Matrix - Inversion
 		//////////////////////////////
 
-		inline __device__ __host__ Scalar det() const;
+		inline __device__ __host__ CudaScalar det() const;
 		inline __device__ __host__  matNxM<N, M> getInverse() const;
 
 		//////////////////////////////
@@ -1427,16 +1427,16 @@ class matNxM
 		}
 
 		//////////////////////////////
-		// Matrix - Scalar Multiplication
+		// Matrix - CudaScalar Multiplication
 		//////////////////////////////
-		inline __device__ __host__ matNxM<N,M> operator*(const Scalar t) const
+		inline __device__ __host__ matNxM<N,M> operator*(const CudaScalar t) const
 		{
 			matNxM<N,M> res = (*this);
 			res*=t;
 			return res;
 		}
 
-		inline __device__ __host__ matNxM<N, M>& operator*=(const Scalar t)
+		inline __device__ __host__ matNxM<N, M>& operator*=(const CudaScalar t)
 		{
 			__CONDITIONAL_UNROLL__
 			for(unsigned int i = 0; i<N*M; i++) entries[i] *= t;
@@ -1444,16 +1444,16 @@ class matNxM
 		}
 
 		//////////////////////////////
-		// Matrix - Scalar Division
+		// Matrix - CudaScalar Division
 		//////////////////////////////
-		inline __device__ __host__ matNxM<N, M> operator/(const Scalar t) const
+		inline __device__ __host__ matNxM<N, M> operator/(const CudaScalar t) const
 		{
 			matNxM<N, M> res = (*this);
 			res/=t;
 			return res;
 		}
 
-		inline __device__ __host__ matNxM<N, M>& operator/=(const Scalar t)
+		inline __device__ __host__ matNxM<N, M>& operator/=(const CudaScalar t)
 		{
 			__CONDITIONAL_UNROLL__
 			for(unsigned int i = 0; i<N*M; i++) entries[i] /= t;
@@ -1473,25 +1473,25 @@ class matNxM
 			return M;
 		}
 
-		inline __device__ __host__ Scalar& operator()(unsigned int i, unsigned int j)
+		inline __device__ __host__ CudaScalar& operator()(unsigned int i, unsigned int j)
 		{
 			cudaAssert(i<N && j<M);
 			return entries2D[i][j];
 		}
 
-		inline __device__ __host__ Scalar operator()(unsigned int i, unsigned int j) const
+		inline __device__ __host__ CudaScalar operator()(unsigned int i, unsigned int j) const
 		{
 			cudaAssert(i<N && j<M);
 			return entries2D[i][j];
 		}
 
-		inline __device__ __host__ Scalar& operator()(unsigned int i)
+		inline __device__ __host__ CudaScalar& operator()(unsigned int i)
 		{
 			cudaAssert(i<N*M);
 			return entries[i];
 		}
 
-		inline __device__ __host__ Scalar operator()(unsigned int i) const
+		inline __device__ __host__ CudaScalar operator()(unsigned int i) const
 		{
 			cudaAssert(i<N*M);
 			return entries[i];
@@ -1514,15 +1514,15 @@ class matNxM
 		}
 
 
-		inline __device__ __host__ const Scalar* getPointer() const {
+		inline __device__ __host__ const CudaScalar* getPointer() const {
 			return entries;
 		}
 	private:
 
 		union
 		{
-			Scalar entries[N*M];
-			Scalar entries2D[N][M];
+			CudaScalar entries[N*M];
+			CudaScalar entries2D[N][M];
 		};
 };
 
@@ -1532,19 +1532,19 @@ class matNxM
 //////////////////////////////
 
 template<>
-inline __device__ __host__ Scalar  matNxM<3, 3>::det() const
+inline __device__ __host__ CudaScalar  matNxM<3, 3>::det() const
 {
-	const Scalar& m11 = entries2D[0][0];
-	const Scalar& m12 = entries2D[0][1];
-	const Scalar& m13 = entries2D[0][2];
+	const CudaScalar& m11 = entries2D[0][0];
+	const CudaScalar& m12 = entries2D[0][1];
+	const CudaScalar& m13 = entries2D[0][2];
 
-	const Scalar& m21 = entries2D[1][0];
-	const Scalar& m22 = entries2D[1][1];
-	const Scalar& m23 = entries2D[1][2];
+	const CudaScalar& m21 = entries2D[1][0];
+	const CudaScalar& m22 = entries2D[1][1];
+	const CudaScalar& m23 = entries2D[1][2];
 
-	const Scalar& m31 = entries2D[2][0];
-	const Scalar& m32 = entries2D[2][1];
-	const Scalar& m33 = entries2D[2][2];
+	const CudaScalar& m31 = entries2D[2][0];
+	const CudaScalar& m32 = entries2D[2][1];
+	const CudaScalar& m33 = entries2D[2][2];
 
 	return m11*m22*m33 + m12*m23*m31 + m13*m21*m32 - m31*m22*m13 - m32*m23*m11 - m33*m21*m12;
 }
@@ -1568,7 +1568,7 @@ inline __device__ __host__ matNxM<3, 3> matNxM<3, 3>::getInverse() const
 }
 
 template<>
-inline __device__ __host__ Scalar matNxM<2, 2>::det() const
+inline __device__ __host__ CudaScalar matNxM<2, 2>::det() const
 {
 	return (*this)(0, 0)*(*this)(1, 1)-(*this)(1, 0)*(*this)(0, 1);
 }

@@ -5,11 +5,11 @@
 #include "map_reduce.h"
 
 namespace rtf {
-    __global__ void reduceSum(Scalar* data, long len, Scalar* result, long elementSize) {
+    __global__ void reduceSum(CudaScalar* data, long len, CudaScalar* result, long elementSize) {
         const int tid = threadIdx.x;
         const int bid = blockIdx.x;
         const int n = bid*blockDim.x+tid;
-        extern __shared__ Scalar threadData[];
+        extern __shared__ CudaScalar threadData[];
         if(n<len) {
             for(int i=0; i<elementSize; i++) {
                 threadData[tid*elementSize+i] = data[n*elementSize+i];
@@ -60,13 +60,13 @@ namespace rtf {
             gridNum = (gridNum+blockDim-1)/blockDim;
             dim3 block(blockDim);
             dim3 grid(gridNum);
-            reduceSum<<<grid,block,sizeof(Scalar)*blockDim*rows*cols>>>(dataMat->data, len, dataMat->data, rows*cols);
+            reduceSum<<<grid,block,sizeof(CudaScalar)*blockDim*rows*cols>>>(dataMat->data, len, dataMat->data, rows*cols);
             CUDA_CHECKED_NO_ERROR();
         } while (gridNum>1);
 
-        MatrixX result(rows, cols);
+        Eigen::MatrixXf result(rows, cols);
         dataMat->download(result.data(), 0, rows*cols);
-        return result;
+        return result.cast<Scalar>();
     }
 
 
@@ -79,7 +79,7 @@ namespace rtf {
         // upload data
         long offset = 0;
         for(auto element: elements) {
-            MatrixX elementf = element.cast<Scalar>();
+            Eigen::MatrixXf elementf = element.cast<CudaScalar>();
             dataMat->upload(elementf.data(), offset, elementSize);
             offset += elementSize;
         }
@@ -88,10 +88,10 @@ namespace rtf {
     }
 
 
-    MatrixX Summator::sum(MatrixX elements, int wise) {
+    MatrixX Summator::sum(Eigen::MatrixXf elements, int wise) {
         long rows=elements.rows(), cols=elements.cols(), length;
 
-        MatrixX mat = elements;
+        Eigen::MatrixXf mat = elements;
 
         switch (wise) {
             case 0:
@@ -108,13 +108,12 @@ namespace rtf {
                 rows = 1;
                 cols = 1;
         }
-        MatrixX matf = mat.cast<Scalar>();
-        dataMat->upload(matf.data(), 0, length*rows*cols);
+        dataMat->upload(elements.data(), 0, length*rows*cols);
         return sum(length, rows, cols);
     }
 
     MatrixX Summator::sum(CUDAMatrixs elements, int wise) {
-        MatrixX data;
+        Eigen::MatrixXf data;
         elements.download(data);
         return sum(data, wise);
     }
