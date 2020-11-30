@@ -17,7 +17,6 @@
 #define EigenVector(type) vector<type, Eigen::aligned_allocator<type>>
 using namespace std;
 
-typedef float CudaScalar;
 typedef double Scalar;
 
 typedef Eigen::Matrix<Scalar, -1, -1> MatrixX;

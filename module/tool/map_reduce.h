@@ -56,7 +56,7 @@ namespace rtf {
          * @param wise 0-rows, 1-cols, 2-element
          * @return
          */
-        MatrixX sum(Eigen::MatrixXf, int wise);
+        MatrixX sum(MatrixX elements, int wise);
 
 
         /**

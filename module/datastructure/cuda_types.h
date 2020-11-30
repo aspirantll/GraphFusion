@@ -17,8 +17,8 @@
 using namespace std;
 extern thread_local cudaStream_t stream;
 
-#define BLOCK_X 16
-#define BLOCK_Y 16
+#define BLOCK_X 8
+#define BLOCK_Y 8
 
 #define CUDA_CHECKED_CALL(cuda_call) \
     do{                              \
@@ -188,7 +188,7 @@ namespace rtf {
 
     };
 
-    typedef CUDAArray<CudaScalar> CUDAArrays;
+    typedef CUDAArray<Scalar> CUDAArrays;
     typedef CUDAArray<float> CUDAArrayf;
     typedef CUDAArray<unsigned int> CUDAArrayu;
 
@@ -301,7 +301,7 @@ namespace rtf {
         }
     };
 
-    typedef CUDAMatrix<CudaScalar> CUDAMatrixs;
+    typedef CUDAMatrix<Scalar> CUDAMatrixs;
     typedef CUDAMatrix<float> CUDAMatrixf;
     typedef CUDAMatrix<long> CUDAMatrixl;
     typedef CUDAMatrix<uchar> CUDAMatrixc;
@@ -396,7 +396,7 @@ namespace rtf {
         }
     };
 
-    typedef CUDAPtr<CudaScalar> CUDAPtrs;
+    typedef CUDAPtr<Scalar> CUDAPtrs;
     typedef CUDAPtr<float> CUDAPtrf;
     typedef CUDAPtr<long> CUDAPtrl;
     typedef CUDAPtr<unsigned int> CUDAPtru;

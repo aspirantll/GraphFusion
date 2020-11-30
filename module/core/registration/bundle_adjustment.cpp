@@ -153,8 +153,8 @@ namespace rtf {
         vector<unsigned char> mask(n, 1);
         cudaMask = new CUDAMatrixc(mask);
         cudaMaskBak = new CUDAMatrixc(mask);
-        cudaPoints = new CUDAMatrixs(points.cast<CudaScalar>());
-        cudaPixels = new CUDAMatrixs(pixels.cast<CudaScalar>());
+        cudaPoints = new CUDAMatrixs(points);
+        cudaPixels = new CUDAMatrixs(pixels);
         cudaK = MatrixConversion::toCUDA(cx->getK());
         costSummator = new Summator(n, 1, 1);
         hSummator = new Summator(n, 6, 6);
@@ -438,8 +438,8 @@ namespace rtf {
                     cudaEdge.sumIndexY = gTCount[j];
                     cudaEdge.costIndex = totalCount;
 
-                    auto * kxPtr = new CUDAMatrixs(featureKeypoints2Matrix(kx).cast<CudaScalar>());
-                    auto * kyPtr = new CUDAMatrixs(featureKeypoints2Matrix(ky).cast<CudaScalar>());
+                    auto * kxPtr = new CUDAMatrixs(featureKeypoints2Matrix(kx));
+                    auto * kyPtr = new CUDAMatrixs(featureKeypoints2Matrix(ky));
 
                     cudaEdge.kx = *kxPtr;
                     cudaEdge.ky = *kyPtr;
