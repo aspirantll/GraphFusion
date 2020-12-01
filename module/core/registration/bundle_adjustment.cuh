@@ -13,16 +13,12 @@ namespace rtf {
     public:
         long indexX;
         long indexY;
-        long sumIndexX;
-        long sumIndexY;
-        long costIndex;
-        long count;
+        long indexZ;
         CUDAPtrs kx;
         CUDAPtrs ky;
         float3x3 intrinsicX;
         float3x3 intrinsicY;
         float4x4 transform;
-
     };
 
     typedef CUDAVector<CUDAEdge> CUDAEdgeVector;
@@ -36,9 +32,46 @@ namespace rtf {
 
     class LMSumMats {
     public:
-        Eigen::Matrix<Scalar, 6, 6> H;
-        Eigen::Matrix<Scalar, 6, 1> M;
-        Eigen::Matrix<Scalar, 6, 1> b;
+        MatrixX H;
+        VectorX M;
+        VectorX b;
+        Scalar cost;
+
+        shared_ptr<CUDAMatrixs> cH, cM, cb;
+        Scalar * cCost;
+
+        LMSumMats(int n) {
+            H.resize(n, n);
+            M.resize(n, 1);
+            b.resize(n, 1);
+
+            H.setZero();
+            M.setZero();
+            b.setZero();
+
+            cost = 0;
+        }
+
+        void uploadToCUDA() {
+            cH = make_shared<CUDAMatrixs>(H);
+            cM = make_shared<CUDAMatrixs>(M);
+            cb = make_shared<CUDAMatrixs>(b);
+            CUDA_CHECKED_CALL(cudaMalloc(&cCost, sizeof(Scalar)));
+            CUDA_CHECKED_CALL(cudaMemcpyAsync(cCost, &cost, sizeof(Scalar), cudaMemcpyHostToDevice, stream));
+        }
+
+        void downloadToHost() {
+            cH->download(H);
+            cM->download(M);
+            cb->download(b);
+            CUDA_CHECKED_CALL(cudaMemcpyAsync(&cost, cCost, sizeof(Scalar), cudaMemcpyDeviceToHost, stream));
+            CUDA_SYNCHRONIZE();
+
+            cH->setZero();
+            cM->setZero();
+            cb->setZero();
+            CUDA_CHECKED_CALL(cudaMemsetAsync(cCost, 0, sizeof(Scalar), stream));
+        }
 
         LMSumMats& mulWeight(Scalar weight) {
             H *= weight;
@@ -48,46 +81,15 @@ namespace rtf {
         }
     };
 
-    class LMSummators{
-    public:
-        Summator * H = nullptr;
-        Summator * M = nullptr;
-        Summator * b = nullptr;
-
-        LMSummators(int n) {
-            H = new Summator(n, 6, 6);
-            M = new Summator(n, 6, 1);
-            b = new Summator(n, 6, 1);
-        }
-
-        CUDALMSummators uploadToCUDA() {
-            CUDALMSummators summators;
-            summators.H = *H->dataMat;
-            summators.M = *M->dataMat;
-            summators.b = *b->dataMat;
-            return summators;
-        }
-
-        LMSumMats sum() {
-            return {H->sum(), M->sum(), b->sum()};
-        }
-
-        ~LMSummators() {
-            if(H) delete H;
-            if(M) delete M;
-            if(b) delete b;
-        }
-    };
-
     void computeBACostAndJacobi(CUDAMatrixs& objectPoints, CUDAMatrixs& tarPixels, float4x4& T, float3x3& K, CUDAMatrixc& mask, Summator& costSummator, Summator& hSummator, Summator& mSummator, Summator& bSummator);
 
     void computeBACost(CUDAMatrixs& objectPoints, CUDAMatrixs& tarPixels, float4x4& T, float3x3& K, CUDAMatrixc& mask, Summator& costSummator);
 
     void computerInliers(Summator& costSummator, CUDAMatrixc& inliers, Scalar th);
 
-    void computeMVBACostAndJacobi(CUDAEdgeVector &edges, CUDAVector<CUDALMSummators>& gtSummators, CUDAVector<CUDALMSummators>& deltaSummators, Summator& costSummator);
+    void computeMVBACostAndJacobi(CUDAEdgeVector &edges, LMSumMats& sumMats);
 
-    void computeMVBACost(CUDAEdgeVector &edges, Summator& costSummator);
+    void computeMVBACost(CUDAEdgeVector &edges, Scalar& cost);
 
 
 }

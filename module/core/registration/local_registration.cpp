@@ -24,7 +24,7 @@ namespace rtf {
         if (pnp.success) {
             BARegistration baRegistration(globalConfig);
             vector<FeatureKeypoint> kxs, kys;
-            if(pnp.inliers.size()<100) {
+            if(pnp.inliers.size()<0) {
                 FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
                 featureMatchesToPoints(matches, kxs, kys);
 
@@ -303,9 +303,10 @@ namespace rtf {
         vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
         float minX=numeric_limits<float>::infinity(), maxX=0, minY=numeric_limits<float>::infinity(), maxY=0;
         for(int i=0; i<m; i++) {
-            SIFTFeaturePoints &sift = localViewGraph[connectedComponents[0][i]].getFrames()[0]->getKps();
+            int nodeIndex = connectedComponents[0][i];
+            SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
             for(int j=0; j<sift.getKeyPoints().size(); j++) {
-                int curIndex = startIndexes[i]+j;
+                int curIndex = startIndexes[nodeIndex]+j;
                 if(!visited[curIndex]) {
                     shared_ptr<SIFTFeatureKeypoint> fp = make_shared<SIFTFeatureKeypoint>(*dynamic_pointer_cast<SIFTFeatureKeypoint>(sift.getKeyPoints()[j]));
                     vector<Point3D> corr;

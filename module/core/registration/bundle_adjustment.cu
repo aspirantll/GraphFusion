@@ -251,32 +251,30 @@ namespace rtf {
         jacobi[11] = -(proJacobi[3]*hat[2]+proJacobi[4]*hat[5]+proJacobi[5]*hat[8]);
     }
 
-    __device__ void computeHMb(CUDALMSummators summators, long index, Scalar weight, Scalar* jacobi, Scalar* residual, Scalar jacobiWeight) {
-        Scalar * H = summators.H.data+index*36;
-        Scalar * M = summators.M.data+index*6;
-        Scalar * b = summators.b.data+index*6;
+    __device__ void computeHMb(Scalar* H, Scalar* M, Scalar* b, Scalar weight, Scalar* jacobi, Scalar* residual) {
         for(int i=0; i<6; i++) {
             for(int j=0; j<6; j++) {
                 H[j*6+i] = jacobi[i]*jacobi[j] + jacobi[i+6]*jacobi[j+6];
             }
             M[i] = weight*H[i*6+i];
-            b[i] = -weight*jacobiWeight*(jacobi[i]*residual[0]+jacobi[i+6]*residual[1]);
+            b[i] = -weight*(jacobi[i]*residual[0]+jacobi[i+6]*residual[1]);
         }
     }
 
 
-    __global__ void computeMVCostAndJacobiForEdge(CUDAEdge edge, CUDALMSummators summatorsX, CUDALMSummators summatorsY, CUDALMSummators deltaSummators, CUDAPtrs costSummator) {
+    __global__ void computeMVCostAndJacobiForEdge(CUDAEdge edge, CUDAPtrs H, CUDAPtrs M, CUDAPtrs b, Scalar* cost) {
         // obtain parameters from
         long index = threadIdx.x + blockIdx.x*blockDim.x;
 
-        long sumIndexX = edge.sumIndexX+index;
-        long sumIndexY = edge.sumIndexY+index;
-        long costIndex = edge.costIndex+index;
         CUDAPtrs kx = edge.kx;
         CUDAPtrs ky = edge.ky;
-        float3x3 intrinsicX = edge.intrinsicX;
-        float3x3 intrinsicY = edge.intrinsicY;
-        float4x4 transform = edge.transform;
+        const float3x3 intrinsicX = edge.intrinsicX;
+        const float3x3 intrinsicY = edge.intrinsicY;
+        const float4x4 transform = edge.transform;
+        const int x = edge.indexX;
+        const int y = edge.indexY;
+        const int z = edge.indexZ;
+        const int n = H.rows;
 
         if(index>=kx.getRows()) return;
 
@@ -297,20 +295,43 @@ namespace rtf {
         residual[1] = rePixel[1] - pixel[1];
 
         Scalar weight = computeHuberWeight(residual[0], residual[1], kHuberWeight);
-        Scalar cost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
+        Scalar huberCost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
 
-        costSummator.data[costIndex]=cost;
         // compute H,M,b
-        computeHMb(summatorsX, sumIndexX, weight, jacobi, residual, 1.0);
-        computeHMb(summatorsY, sumIndexY, weight, jacobi, residual, -1.0);
-        computeHMb(deltaSummators, index, weight, jacobi, residual, 1.0);
+        Scalar tH[36], tM[6], tb[6];
+        computeHMb(tH, tM, tb, weight, jacobi, residual);
+
+        for(int i=0; i<6; i++) {
+            for(int j=0; j<6; j++) {
+                Scalar value = tH[6*j+i];
+                atomicAdd(&H.data[(6*x+j)*n+i+6*x], value);
+                atomicAdd(&H.data[(6*x+j)*n+i+6*y], -value);
+                atomicAdd(&H.data[(6*x+j)*n+i+6*z], -value);
+
+                atomicAdd(&H.data[(6*y+j)*n+i+6*x], -value);
+                atomicAdd(&H.data[(6*y+j)*n+i+6*y], value);
+                atomicAdd(&H.data[(6*y+j)*n+i+6*z], value);
+
+                atomicAdd(&H.data[(6*z+j)*n+i+6*x], -value);
+                atomicAdd(&H.data[(6*z+j)*n+i+6*y], value);
+                atomicAdd(&H.data[(6*z+j)*n+i+6*z], value);
+            }
+            atomicAdd(&M.data[6*x+i], -tM[i]);
+            atomicAdd(&M.data[6*y+i], tM[i]);
+            atomicAdd(&M.data[6*z+i], tM[i]);
+
+            atomicAdd(&b.data[6*x+i], -tb[i]);
+            atomicAdd(&b.data[6*y+i], tb[i]);
+            atomicAdd(&b.data[6*z+i], tb[i]);
+        }
+
+        atomicAdd(cost, huberCost);
     }
 
-    __global__ void computeMVCostForEdge(CUDAEdge edge, CUDAPtrs costSummator) {
+    __global__ void computeMVCostForEdge(CUDAEdge edge, Scalar* cost) {
         // obtain parameters from
         long index = threadIdx.x + blockIdx.x*blockDim.x;
 
-        long costIndex = edge.costIndex+index;
         CUDAPtrs kx = edge.kx;
         CUDAPtrs ky = edge.ky;
         float3x3 intrinsicX = edge.intrinsicX;
@@ -331,30 +352,34 @@ namespace rtf {
         residual[0] = rePixel[0] - pixel[0];
         residual[1] = rePixel[1] - pixel[1];
 
-        Scalar cost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
-
-        costSummator.data[costIndex]=cost;
+        atomicAdd(cost, ComputeHuberCost(residual[0], residual[1], kHuberWeight));
     }
 
 
-    void computeMVBACostAndJacobi(CUDAEdgeVector &edges, CUDAVector<CUDALMSummators>& gtSummators, CUDAVector<CUDALMSummators>& deltaSummators, Summator& costSummator) {
+    void computeMVBACostAndJacobi(CUDAEdgeVector &edges, LMSumMats& sumMats) {
         for(long index=0; index<edges.getNum(); index++) {
-            CUDA_LINE_BLOCK(edges[index].count);
+            CUDA_LINE_BLOCK(edges[index].kx.rows);
 
-            computeMVCostAndJacobiForEdge<<<grid, block, 0, stream>>>(edges[index], gtSummators[edges[index].indexX], gtSummators[edges[index].indexY], deltaSummators[index], *costSummator.dataMat);
+            computeMVCostAndJacobiForEdge<<<grid, block, 0, stream>>>(edges[index], *sumMats.cH, *sumMats.cM, *sumMats.cb, sumMats.cCost);
 
             CUDA_CHECKED_NO_ERROR();
         }
     }
 
-    void computeMVBACost(CUDAEdgeVector &edges, Summator& costSummator) {
+    void computeMVBACost(CUDAEdgeVector &edges, Scalar& cost) {
+        cost = 0;
+        Scalar *cCost;
+        CUDA_CHECKED_CALL(cudaMalloc(&cCost, sizeof(Scalar)));
+        CUDA_CHECKED_CALL(cudaMemcpy(cCost, &cost, sizeof(Scalar), cudaMemcpyHostToDevice));
         for(long index=0; index<edges.getNum(); index++) {
-            CUDA_LINE_BLOCK(edges[index].count);
+            CUDA_LINE_BLOCK(edges[index].kx.rows);
 
-            computeMVCostForEdge<<<grid, block, 0, stream>>>(edges[index], *costSummator.dataMat);
+            computeMVCostForEdge<<<grid, block, 0, stream>>>(edges[index], cCost);
 
             CUDA_CHECKED_NO_ERROR();
         }
+        CUDA_CHECKED_CALL(cudaMemcpy(&cost, cCost, sizeof(Scalar), cudaMemcpyDeviceToHost));
+        CUDA_CHECKED_CALL(cudaFree(cCost));
     }
 
 }

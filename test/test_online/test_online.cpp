@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new FileInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
@@ -103,12 +103,12 @@ int main(int argc, char* argv[]) {
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
     cout << "mean tracked time: " << ttrack/fileInputSource->getFrameNum() << endl;
-    cout << "finish to online reconstruction: " << ttrack << endl;
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
-    onlineRecon.finalOptimize(false);
+    onlineRecon.finalOptimize(true);
 //    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
+    cout << "finish to online reconstruction: " << ttrack << endl;
     saveATP(onlineRecon.getViewGraph(), globalConfig);
 
 //    while(!onlineRecon.closed());

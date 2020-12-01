@@ -6,8 +6,8 @@
 
 namespace rtf {
     namespace ViewGraphUtil {
-        void dfs(ViewGraph& viewGraph, vector<bool>& visited, vector<int>& cc, int k, double minCost) {
-            cc.emplace_back(k);
+        void dfs(ViewGraph& viewGraph, vector<bool>& visited, set<int>& cc, int k, double minCost) {
+            cc.insert(k);
             visited[k] = true;
             int n = viewGraph.getNodesNum();
             for(int j=0; j<n; j++) {
@@ -27,9 +27,9 @@ namespace rtf {
             vector<vector<int>> components;
             for(int i=0; i<n; i++) {
                 if(!visited[i]) {
-                    vector<int> cc;
+                    set<int> cc;
                     dfs(viewGraph, visited, cc, i, minCost);
-                    components.emplace_back(cc);
+                    components.emplace_back(vector<int>(cc.begin(), cc.end()));
                 }
             }
             return components;

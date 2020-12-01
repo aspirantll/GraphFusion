@@ -105,6 +105,10 @@ namespace rtf {
             }
         }
 
+        __host__ __device__ void setZero() {
+            CUDA_CHECKED_CALL(cudaMemsetAsync(data, 0, sizeof(DataT)*size, stream));
+        }
+
         __host__ __device__ void mallocHost(const DataT * src, long uploadSize) {
             if(uploadData) {
                 cudaFreeHost(uploadData);
