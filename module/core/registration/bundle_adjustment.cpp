@@ -412,7 +412,10 @@ namespace rtf {
         for(int j=0; j < cudaEdgeVector.getNum(); j++) {
             CUDAEdge edge = cudaEdgeVector[j];
             Transform trans = transVec[edge.indexX].inverse()*transVec[edge.indexY]*transVec[edge.indexZ];
+            Transform transInv = trans.inverse();
+
             edge.transform = MatrixConversion::toCUDA(trans);
+            edge.transformInv = MatrixConversion::toCUDA(transInv);
         }
     }
 
@@ -445,14 +448,16 @@ namespace rtf {
                     cudaEdge.kx = *kxPtr;
                     cudaEdge.ky = *kyPtr;
 
-                    cudaEdge.intrinsicX = MatrixConversion::toCUDA(viewGraph[cc[i]].getK());
-                    cudaEdge.intrinsicY = MatrixConversion::toCUDA(viewGraph[cc[j]].getK());
+                    cudaEdge.intrinsic = MatrixConversion::toCUDA(viewGraph[cc[i]].getK());
 
                     Transform deltaTrans = transVec[j].inverse() * transVec[i] *
                                       edge.getTransform();
                     transVec.emplace_back(deltaTrans);
 
-                    cudaEdge.transform = MatrixConversion::toCUDA(edge.getTransform());
+                    Transform trans = edge.getTransform();
+                    Transform transInv = trans.inverse();
+                    cudaEdge.transform = MatrixConversion::toCUDA(trans);
+                    cudaEdge.transformInv = MatrixConversion::toCUDA(transInv);
 
                     cudaEdgeVector.addItem(cudaEdge);
 
@@ -514,7 +519,6 @@ namespace rtf {
                 }
                 deltaCost += deltaNorm*totalCount*10;
             }
-//            cout << "ba cost:" << cost << ", delta cost:" << deltaCost << endl;
             cost += deltaCost;
             if (lambda < 0) {
                 constexpr float kInitialLambdaFactor = 0.01;
@@ -538,9 +542,6 @@ namespace rtf {
                     }
                     testNorm += deltaNorm*totalCount*10;
                 }
-                /*cout << "lambda:" << lambda << endl;
-                cout << "test cost:" << testCost << ", delta cost:" << testNorm << endl;*/
-
                 testCost += testNorm;
 
                 if (testCost+0.01 < cost) {

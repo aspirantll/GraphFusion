@@ -100,14 +100,14 @@ int main(int argc, char* argv[]) {
         onlineRecon.appendFrame(frame);
         frame->releaseImages();
     }
+//    onlineRecon.getViewGraph().print();
+//    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
+    onlineRecon.finalOptimize(false);
+//    onlineRecon.saveMesh(savePath);
+//    saveResult(onlineRecon.getViewGraph());
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
     cout << "mean tracked time: " << ttrack/fileInputSource->getFrameNum() << endl;
-//    onlineRecon.getViewGraph().print();
-//    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
-    onlineRecon.finalOptimize(true);
-//    onlineRecon.saveMesh(savePath);
-//    saveResult(onlineRecon.getViewGraph());
     cout << "finish to online reconstruction: " << ttrack << endl;
     saveATP(onlineRecon.getViewGraph(), globalConfig);
 

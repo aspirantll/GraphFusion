@@ -16,9 +16,9 @@ namespace rtf {
         long indexZ;
         CUDAPtrs kx;
         CUDAPtrs ky;
-        float3x3 intrinsicX;
-        float3x3 intrinsicY;
+        float3x3 intrinsic;
         float4x4 transform;
+        float4x4 transformInv;
     };
 
     typedef CUDAVector<CUDAEdge> CUDAEdgeVector;
