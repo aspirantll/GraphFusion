@@ -304,94 +304,6 @@ namespace rtf {
         }
     }
 
-    // compute
-    VectorX solvePCGIteration(double lambda, double relaxtion, int max_inner_iterations, LMSumMats& lmSumMats, const VectorX& initSE3Vec, const VectorX& se3Vec) {
-        int rows = initSE3Vec.rows();
-        VectorX init_r = lmSumMats.b, init_P;
-        computePX(init_r, lmSumMats.M, lambda, init_P);
-
-        // Solve the system.
-        VectorX r = init_r, p = init_P, finalDeltaVec(rows), g, deltaVec(rows);
-        finalDeltaVec.setZero();
-        deltaVec.setZero();
-        // alpha_n = r^T * p
-        double alpha_d, alpha_n = r.transpose() * p, beta_n;
-
-        // Run PCG inner iterations to determine pcg_delta
-        double prev_r_norm = numeric_limits<double>::infinity();
-        int num_iterations_without_improvement = 0;
-
-        double initial_r_norm = numeric_limits<double>::quiet_NaN();
-        double smallest_r_norm = numeric_limits<double>::infinity();
-        for (int step = 0; step < max_inner_iterations; ++ step) {
-            if (step > 0) {
-                // Set pcg_alpha_n_ to pcg_beta_n_ by swapping the pointers (since we
-                // don't need to preserve pcg_beta_n_).
-                // NOTE: This is wrong in the Opt paper, it says "beta" only instead of
-                //       "beta_n" which is something different.
-                std::swap(alpha_n, beta_n);
-            }
-
-            // Run PCG step 1 & 2
-            g = lmSumMats.H * p;
-            alpha_d = p.transpose() * g;
-            // TODO: Default to 1 or to 0 if denominator is near-zero? stop optimization if that happens?
-            double alpha =
-                    (alpha_d >= 1e-35f) ? (alpha_n/alpha_d) : 0;
-            deltaVec += alpha * p;
-            r = r - alpha*(g + lambda*p);
-            computePX(r, lmSumMats.M, lambda, g);
-            beta_n = r.transpose() * g;
-
-            // Check for convergence of the inner iterations
-            double r_norm = sqrt(beta_n);
-            if (step == 0) {
-                initial_r_norm = r_norm;
-            }
-            if (r_norm < smallest_r_norm) {
-                smallest_r_norm = r_norm;
-                finalDeltaVec = deltaVec;
-                if (r_norm == 0) {
-                    break;
-                }
-            }
-
-            if (r_norm < prev_r_norm - 1e-3) {  // TODO: Make this threshold a parameter
-                num_iterations_without_improvement = 0;
-            } else {
-                ++ num_iterations_without_improvement;
-                if (num_iterations_without_improvement >= 3) {
-                    break;
-                }
-            }
-            prev_r_norm = r_norm;
-
-            // This (and some computations from step 2) is not necessary in the last
-            // iteration since the result is already computed in pcg_final_delta.
-            // NOTE: For best speed, could make a special version of step 2 (templated)
-            //       which excludes the unnecessary operations. Probably not very relevant though.
-            if (step < max_inner_iterations - 1) {
-                // TODO: Default to 1 or to 0 if denominator is near-zero? stop optimization if that happens?
-                double beta = (alpha_n >= 1e-35f) ? (beta_n / alpha_n) : 0;
-                p = g + beta*p;
-            }
-        }  // end loop over PCG inner iterations
-
-        // Compute the test state (constrained to the calibrated image area).
-        VectorX testSe3 = se3Vec + finalDeltaVec;
-
-        for(int j=0; j<se3Vec.rows(); j++) {
-            if(testSe3(j)<initSE3Vec(j)-relaxtion) {
-                testSe3(j) = initSE3Vec(j)-relaxtion;
-            }
-            if(testSe3(j)>initSE3Vec(j)+relaxtion) {
-                testSe3(j) = initSE3Vec(j)+relaxtion;
-            }
-        }
-//        cout << "final delta:" << finalDeltaVec.maxCoeff() << endl;
-        return testSe3;
-    }
-
     MatrixX featureKeypoints2Matrix(vector<FeatureKeypoint>& features) {
         int n = features.size();
 
@@ -416,6 +328,15 @@ namespace rtf {
 
             edge.transform = MatrixConversion::toCUDA(trans);
             edge.transformInv = MatrixConversion::toCUDA(transInv);
+        }
+    }
+
+    void diagonalBlockInverse(MatrixX& mat) {
+        int rows = mat.rows();
+        int cols = mat.cols();
+        CHECK_EQ(rows, cols);
+        for(int i=0; i<rows/6; i++) {
+            mat.block<6,6>(6*i,6*i) = mat.block<6,6>(6*i,6*i).inverse();
         }
     }
 
@@ -487,8 +408,8 @@ namespace rtf {
         // 3.global bundle adjustment
         // Levenberg-Marquardt optimization algorithm.
         constexpr double kEpsilon = 1e-12;
-        constexpr int kMaxIterations = 1000;
-        constexpr int max_lm_attempts = 500;
+        constexpr int kMaxIterations = 100;
+        constexpr int max_lm_attempts = 50;
         constexpr int max_inner_iterations = 100;
 
         // initialize the variables
@@ -520,14 +441,115 @@ namespace rtf {
                 deltaCost += deltaNorm*totalCount*10;
             }
             cost += deltaCost;
+
+            int poseLen = poseNum*6;
+            MatrixX E = sumMats.H.block(0, poseLen, poseLen, varLen-poseLen);
+            MatrixX ET = sumMats.H.block(poseLen,0, varLen-poseLen, poseLen);
+            MatrixX CInv = sumMats.H.block(poseLen, poseLen, varLen-poseLen, varLen-poseLen);
+            diagonalBlockInverse(CInv);
+            MatrixX ECI = E*CInv;
+
+            MatrixX H = sumMats.H.block(0,0, poseLen, poseLen) - ECI*ET;
+            VectorX M = sumMats.M.block(0, 0, poseLen, 1);
+            VectorX w = sumMats.b.block(poseLen, 0, varLen-poseLen, 1);
+            VectorX b = sumMats.b.block(0, 0, poseLen, 1) - ECI*w;
+
             if (lambda < 0) {
                 constexpr float kInitialLambdaFactor = 0.01;
-                lambda = kInitialLambdaFactor * 0.5 * sumMats.H.trace();
+                lambda = kInitialLambdaFactor * 0.5 * H.trace();
             }
 
             bool update_accepted = false;
             for (int lm_iteration = 0; lm_iteration < max_lm_attempts; ++ lm_iteration) {
-                testTransSEs = solvePCGIteration(lambda, relaxtion, max_inner_iterations, sumMats, initTransSEs, transSEs);
+                VectorX finalDeltaVec(varLen);
+                {
+                    // solve linear equation for poses
+                    VectorX init_r = b, init_P;
+                    computePX(init_r, M, lambda, init_P);
+
+                    // Solve the system.
+                    VectorX r = init_r, p = init_P, g, poseDeltaVec(poseLen), deltaVec(poseLen);
+                    poseDeltaVec.setZero();
+                    deltaVec.setZero();
+                    // alpha_n = r^T * p
+                    double alpha_d, alpha_n = r.transpose() * p, beta_n;
+
+                    // Run PCG inner iterations to determine pcg_delta
+                    double prev_r_norm = numeric_limits<double>::infinity();
+                    int num_iterations_without_improvement = 0;
+
+                    double initial_r_norm = numeric_limits<double>::quiet_NaN();
+                    double smallest_r_norm = numeric_limits<double>::infinity();
+                    for (int step = 0; step < max_inner_iterations; ++ step) {
+                        if (step > 0) {
+                            // Set pcg_alpha_n_ to pcg_beta_n_ by swapping the pointers (since we
+                            // don't need to preserve pcg_beta_n_).
+                            // NOTE: This is wrong in the Opt paper, it says "beta" only instead of
+                            //       "beta_n" which is something different.
+                            std::swap(alpha_n, beta_n);
+                        }
+
+                        // Run PCG step 1 & 2
+                        g = H * p;
+                        alpha_d = p.transpose() * g;
+                        // TODO: Default to 1 or to 0 if denominator is near-zero? stop optimization if that happens?
+                        double alpha =
+                                (alpha_d >= 1e-35f) ? (alpha_n/alpha_d) : 0;
+                        deltaVec += alpha * p;
+                        r = r - alpha*(g + lambda*p);
+                        computePX(r, M, lambda, g);
+                        beta_n = r.transpose() * g;
+
+                        // Check for convergence of the inner iterations
+                        double r_norm = sqrt(beta_n);
+                        if (step == 0) {
+                            initial_r_norm = r_norm;
+                        }
+                        if (r_norm < smallest_r_norm) {
+                            smallest_r_norm = r_norm;
+                            poseDeltaVec = deltaVec;
+                            if (r_norm == 0) {
+                                break;
+                            }
+                        }
+
+                        if (r_norm < prev_r_norm - 1e-3) {  // TODO: Make this threshold a parameter
+                            num_iterations_without_improvement = 0;
+                        } else {
+                            ++ num_iterations_without_improvement;
+                            if (num_iterations_without_improvement >= 3) {
+                                break;
+                            }
+                        }
+                        prev_r_norm = r_norm;
+
+                        // This (and some computations from step 2) is not necessary in the last
+                        // iteration since the result is already computed in pcg_final_delta.
+                        // NOTE: For best speed, could make a special version of step 2 (templated)
+                        //       which excludes the unnecessary operations. Probably not very relevant though.
+                        if (step < max_inner_iterations - 1) {
+                            // TODO: Default to 1 or to 0 if denominator is near-zero? stop optimization if that happens?
+                            double beta = (alpha_n >= 1e-35f) ? (beta_n / alpha_n) : 0;
+                            p = g + beta*p;
+                        }
+                    }  // end loop over PCG inner iterations
+                    finalDeltaVec.block(0, 0, poseLen, 1) = poseDeltaVec;
+                }
+
+                finalDeltaVec.block(poseLen, 0, varLen-poseLen, 1) = CInv*(w-ET*finalDeltaVec.block(0, 0, poseLen, 1));
+
+                // Compute the test state (constrained to the calibrated image area).
+                testTransSEs = transSEs + finalDeltaVec;
+
+                for(int j=0; j<initTransSEs.rows(); j++) {
+                    if(testTransSEs(j)<initTransSEs(j)-relaxtion) {
+                        testTransSEs(j) = initTransSEs(j)-relaxtion;
+                    }
+                    if(testTransSEs(j)>initTransSEs(j)+relaxtion) {
+                        testTransSEs(j) = initTransSEs(j)+relaxtion;
+                    }
+                }
+
                 // compute relative transformation for edges
                 computeTransFromLie(testTransSEs, testTransVec, cudaEdgeVector);
 
