@@ -7,14 +7,6 @@
 #include <ceres/ceres.h>
 #include <ceres/autodiff_cost_function.h>
 
-struct CeresConstraint
-{
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    CeresConstraint(const Sophus::SE3d& T_ji, size_t i_, size_t j_):T_j_i(T_ji),i(i_),j(j_){}
-    Sophus::SE3d T_j_i; //transformation from i to j
-    size_t i, j; //keyframeId
-};
-
 struct CeresPose
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -86,6 +78,10 @@ private:
     const Eigen::Matrix<double,6,6> sqrt_information_;
 };
 
+
+// global bundle adjustment
+
+
 namespace rtf {
     void Optimizer::poseGraphOptimizeCeres(ViewGraph &viewGraph, const vector<pair<int, int> >& loops) {
         //Loss Function can be changed!
@@ -148,5 +144,9 @@ namespace rtf {
         for(int i=0; i<viewGraph.getNodesNum(); i++) {
             viewGraph[i].setGtTransform(ceresVectorPoses[i].returnPose().matrix());
         }
+    }
+
+    RegReport Optimizer::globalBundleAdjustmentCeres(ViewGraph &viewGraph, const vector<int>& cc) {
+
     }
 }

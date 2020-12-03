@@ -261,10 +261,13 @@ namespace rtf {
         }
     }
 
-    inline __device__ void computeResidualAndJacobi(Scalar px[3], Scalar py[3], float4x4 transform, float3x3 k, Scalar residual[2], Scalar jacobi[12]) {
+    inline __device__ void computeResidualAndJacobi(Scalar px[3], Scalar py[3], Scalar scale, float4x4 transform, float3x3 k, Scalar residual[2], Scalar jacobi[12]) {
         Scalar rePixel[2], transPoint[3], proJacobi[6], hatMat[9];
         unproject(k, py, transPoint);
         transformPoint(transform, transPoint, transPoint);
+        transPoint[0] *= scale;
+        transPoint[1] *= scale;
+        transPoint[2] *= scale;
 
         // compute jacobi
         projectJacobi(k, transPoint, proJacobi);
@@ -290,6 +293,7 @@ namespace rtf {
         const int y = edge.indexY;
         const int z = edge.indexZ;
         const int n = H.rows;
+        const double scale = edge.scale;
 
         if(index>=kx.getRows()) return;
 
@@ -298,7 +302,7 @@ namespace rtf {
         Scalar residual[2], jacobi[12], tH[36], tM[6], tb[6], weight, huberCost, costElement=0;
 
         // compute from x to y
-        computeResidualAndJacobi(px, py, transform, k, residual, jacobi);
+        computeResidualAndJacobi(px, py, scale, transform, k, residual, jacobi);
         weight = computeHuberWeight(residual[0], residual[1], kHuberWeight);
         huberCost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
 
@@ -314,7 +318,7 @@ namespace rtf {
                 atomicAdd(&H.data[(6*z+j)*n+i+6*x], -value);
                 atomicAdd(&H.data[(6*z+j)*n+i+6*z], value);
             }
-            atomicAdd(&M.data[6*x+i], -tM[i]);
+            atomicAdd(&M.data[6*x+i], tM[i]);
             atomicAdd(&M.data[6*z+i], tM[i]);
 
             atomicAdd(&b.data[6*x+i], -tb[i]);
@@ -324,7 +328,7 @@ namespace rtf {
         costElement +=huberCost;
 
         // compute from y to x
-        computeResidualAndJacobi(py, px, transformInv, k, residual, jacobi);
+        computeResidualAndJacobi(py, px, scale, transformInv, k, residual, jacobi);
         weight = computeHuberWeight(residual[0], residual[1], kHuberWeight);
         huberCost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
 
@@ -340,8 +344,8 @@ namespace rtf {
                 atomicAdd(&H.data[(6*z+j)*n+i+6*y], value);
                 atomicAdd(&H.data[(6*z+j)*n+i+6*z], value);
             }
-            atomicAdd(&M.data[6*y+i], -tM[i]);
-            atomicAdd(&M.data[6*z+i], -tM[i]);
+            atomicAdd(&M.data[6*y+i], tM[i]);
+            atomicAdd(&M.data[6*z+i], tM[i]);
 
             atomicAdd(&b.data[6*y+i], -tb[i]);
             atomicAdd(&b.data[6*z+i], -tb[i]);

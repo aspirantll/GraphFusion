@@ -62,7 +62,7 @@ namespace rtf {
     }
 
     Intrinsic KeyFrame::getK() {
-        return frames[0]->getCamera()->getK();
+        return getCamera()->getK();
     }
 
     void KeyFrame::addFrame(shared_ptr<Frame> frame) {
@@ -189,7 +189,11 @@ namespace rtf {
     }
 
     Intrinsic Node::getK() {
-        return frames[0]->getK();
+        return getCamera()->getK();
+    }
+
+    Intrinsic Node::getKInv() {
+        return getCamera()->getReverseK();
     }
 
     vector<int>& Node::getFrameIndexes() {

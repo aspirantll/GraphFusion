@@ -19,16 +19,12 @@ namespace rtf {
         float3x3 intrinsic;
         float4x4 transform;
         float4x4 transformInv;
+
+        float3 median;
+        Scalar scale;
     };
 
     typedef CUDAVector<CUDAEdge> CUDAEdgeVector;
-
-    class CUDALMSummators {
-    public:
-        CUDAPtrs H;
-        CUDAPtrs M;
-        CUDAPtrs b;
-    };
 
     class LMSumMats {
     public:

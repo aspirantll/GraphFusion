@@ -149,6 +149,8 @@ namespace rtf {
 
         Intrinsic getK();
 
+        Intrinsic getKInv();
+
         vector<shared_ptr<KeyFrame>> &getFrames();
 
         void addFrame(shared_ptr<KeyFrame> frame);

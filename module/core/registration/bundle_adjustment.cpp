@@ -311,7 +311,7 @@ namespace rtf {
         for(int i=0; i<n; i++) {
             matrix.row(i) = features[i].toVector3();
         }
-        return matrix;
+        return std::move(matrix);
     }
 
     void computeTransFromLie(const VectorX& transSEs, TransformVector& transVec,  CUDAEdgeVector& cudaEdgeVector) {
@@ -323,7 +323,7 @@ namespace rtf {
         // compute relative transformation for edges
         for(int j=0; j < cudaEdgeVector.getNum(); j++) {
             CUDAEdge edge = cudaEdgeVector[j];
-            Transform trans = transVec[edge.indexX].inverse()*transVec[edge.indexY]*transVec[edge.indexZ];
+            Transform trans = transVec[edge.indexX].inverse()*transVec[edge.indexY];//*transVec[edge.indexZ];
             Transform transInv = trans.inverse();
 
             edge.transform = MatrixConversion::toCUDA(trans);
@@ -351,6 +351,10 @@ namespace rtf {
         for(int i=0; i<poseNum; i++) {
             transVec.emplace_back(viewGraph[cc[i]].getGtTransform());
         }
+
+        vector<Scalar> xs, ys, zs;
+        EigenVector(Vector3) points;
+        vector<CUDAMatrixs *> cudaMatrixPtrs;
         for(int i=0; i<poseNum; i++) {
             for(int j=i+1; j<poseNum; j++) {
                 Edge edge = viewGraph.getEdge(cc[i], cc[j]);
@@ -363,11 +367,14 @@ namespace rtf {
                     cudaEdge.indexY = j;
                     cudaEdge.indexZ = transVec.size();
 
-                    auto * kxPtr = new CUDAMatrixs(featureKeypoints2Matrix(kx));
-                    auto * kyPtr = new CUDAMatrixs(featureKeypoints2Matrix(ky));
+                    CUDAMatrixs * kxPtr = new CUDAMatrixs(featureKeypoints2Matrix(kx));
+                    CUDAMatrixs * kyPtr = new CUDAMatrixs(featureKeypoints2Matrix(ky));
 
                     cudaEdge.kx = *kxPtr;
                     cudaEdge.ky = *kyPtr;
+
+                    cudaMatrixPtrs.emplace_back(kxPtr);
+                    cudaMatrixPtrs.emplace_back(kyPtr);
 
                     cudaEdge.intrinsic = MatrixConversion::toCUDA(viewGraph[cc[i]].getK());
 
@@ -382,15 +389,55 @@ namespace rtf {
 
                     cudaEdgeVector.addItem(cudaEdge);
 
+                    shared_ptr<CameraModel> cameraModel = viewGraph[cc[i]].getCamera()->getCameraModel();
+                    for(int k=0; k<kx.size(); k++) {
+                        Vector3 px = transVec[i].block<3,3>(0,0)*cameraModel->unproject(kx[k].x, kx[k].y, kx[k].z)+transVec[i].block<3,1>(0,3);
+                        Vector3 py = transVec[j].block<3,3>(0,0)*cameraModel->unproject(ky[k].x, ky[k].y, ky[k].z)+transVec[j].block<3,1>(0,3);
+                        points.emplace_back(px);
+                        points.emplace_back(py);
+
+                        xs.emplace_back(px.x());
+                        ys.emplace_back(px.y());
+                        zs.emplace_back(px.z());
+
+                        xs.emplace_back(py.x());
+                        ys.emplace_back(py.y());
+                        zs.emplace_back(py.z());
+                    }
+
                     totalCount += kx.size();
                 }
             }
         }
+
         report.pointsNum = totalCount;
         int varNum = transVec.size();
         if(varNum==poseNum) {
             report.success = false;
             return report;
+        }
+
+        nth_element(xs.begin(), xs.begin()+xs.size()/2, xs.end());
+        nth_element(ys.begin(), ys.begin()+ys.size()/2, ys.end());
+        nth_element(zs.begin(), zs.begin()+zs.size()/2, zs.end());
+
+        Vector3 median;
+        median << xs[xs.size()/2], ys[ys.size()/2], zs[zs.size()/2];
+
+        vector<Scalar> norms;
+        for(Vector3 point: points) {
+            norms.emplace_back((point - median).lpNorm<1>());
+        }
+        nth_element(norms.begin(), norms.begin()+norms.size()/2, norms.end());
+        const double median_absolute_deviation = norms[norms.size()/2];
+
+        // Scale so that the median absolute deviation of the resulting
+        // reconstruction is 100.
+        const double scale = 100.0 / median_absolute_deviation;
+
+        for(int i=0; i<cudaEdgeVector.getNum(); i++) {
+            cudaEdgeVector[i].median = make_float3(median.x(), median.y(), median.z());
+            cudaEdgeVector[i].scale = scale;
         }
 
         //2. initialize SE and variables
@@ -542,10 +589,10 @@ namespace rtf {
                 testTransSEs = transSEs + finalDeltaVec;
 
                 for(int j=0; j<initTransSEs.rows(); j++) {
-                    if(testTransSEs(j)<initTransSEs(j)-relaxtion) {
+                    if(isnan(testTransSEs(j))||testTransSEs(j)<initTransSEs(j)-relaxtion) {
                         testTransSEs(j) = initTransSEs(j)-relaxtion;
                     }
-                    if(testTransSEs(j)>initTransSEs(j)+relaxtion) {
+                    if(isnan(testTransSEs(j))||testTransSEs(j)>initTransSEs(j)+relaxtion) {
                         testTransSEs(j) = initTransSEs(j)+relaxtion;
                     }
                 }
@@ -583,6 +630,10 @@ namespace rtf {
             if (!update_accepted||cost < kEpsilon) {
                 break;
             }
+        }
+
+        for(CUDAMatrixs* ptr: cudaMatrixPtrs) {
+            delete ptr;
         }
 
         report.success = true;
