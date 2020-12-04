@@ -352,7 +352,7 @@ namespace rtf {
         std::unique_lock<std::mutex> lock(
                 *siftMatchingMutexes[siftMatchGPU->gpu_index]);
 
-        auto descriptors1 = k1.getDescriptors();
+        FeatureDescriptors<uint8_t>& descriptors1 = k1.getDescriptors();
 
         CHECK_EQ(descriptors1.cols(), 128);
         if (siftMatchGPU->GetMaxSift() < descriptors1.rows()) {
@@ -362,7 +362,7 @@ namespace rtf {
         siftMatchGPU->SetDescriptors(0, descriptors1.rows(),
                                      descriptors1.data());
 
-        auto descriptors2 = k2.getDescriptors();
+        FeatureDescriptors<uint8_t> &descriptors2 = k2.getDescriptors();
         CHECK_EQ(descriptors2.cols(), 128);
         if (siftMatchGPU->GetMaxSift() < descriptors2.rows()) {
             std::cout << "WARNING: Clamping features from " << descriptors2.rows() << " to " << descriptors2.rows()

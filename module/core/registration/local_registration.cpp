@@ -3,6 +3,7 @@
 //
 
 #include "registrations.h"
+#include "optimizer.h"
 #include "../../tool/view_graph_util.h"
 #include <glog/logging.h>
 
@@ -270,10 +271,6 @@ namespace rtf {
         const int n = localViewGraph.getNodesNum();
         vector<vector<int>> connectedComponents = findConnectedComponents(localViewGraph, globalConfig.maxAvgCost);
 
-        cout << "multiview" << endl;
-        BARegistration baRegistration(globalConfig);
-        baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();
-
         // 2. initialize key frame
         set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());
         shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
@@ -283,63 +280,75 @@ namespace rtf {
             frame->setVisible(visibleSet.count(i));
             keyframe->addFrame(frame);
         }
-        // update transforms
-        vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
-        for(int i=0; i<connectedComponents[0].size(); i++) {
-            frames[connectedComponents[0][i]]->setTransform(localViewGraph[connectedComponents[0][i]].getGtTransform());
-        }
+
 
         //3. collect keypoints
         SIFTFeaturePoints &sf = keyframe->getKps();
-        sf.setCamera(localViewGraph[0].getCamera());
-        sf.setFIndex(localViewGraph[0].getIndex());
-        FeatureKeypoints& kps = sf.getKeyPoints();
-        FeatureDescriptors<uint8_t>& descriptors = sf.getDescriptors();
-
         int m = connectedComponents[0].size();
+        if(m > 1) {
+            cout << "multiview" << endl;
+            /* BARegistration baRegistration(globalConfig);
+             baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();*/
+            Optimizer::globalBundleAdjustmentCeres(localViewGraph, connectedComponents[0]);
+            // update transforms
+            vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
+            for(int i=0; i<connectedComponents[0].size(); i++) {
+                frames[connectedComponents[0][i]]->setTransform(localViewGraph[connectedComponents[0][i]].getGtTransform());
+            }
 
-        // foreach edge
-        vector<bool> visited(correlations.size(), false);
-        vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
-        float minX=numeric_limits<float>::infinity(), maxX=0, minY=numeric_limits<float>::infinity(), maxY=0;
-        for(int i=0; i<m; i++) {
-            int nodeIndex = connectedComponents[0][i];
-            SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
-            for(int j=0; j<sift.getKeyPoints().size(); j++) {
-                int curIndex = startIndexes[nodeIndex]+j;
-                if(!visited[curIndex]) {
-                    shared_ptr<SIFTFeatureKeypoint> fp = make_shared<SIFTFeatureKeypoint>(*dynamic_pointer_cast<SIFTFeatureKeypoint>(sift.getKeyPoints()[j]));
-                    vector<Point3D> corr;
-                    vector<int> corrIndexes;
+            sf.setCamera(localViewGraph[0].getCamera());
+            sf.setFIndex(localViewGraph[0].getIndex());
+            FeatureKeypoints& kps = sf.getKeyPoints();
+            FeatureDescriptors<uint8_t>& descriptors = sf.getDescriptors();
 
-                    collectCorrespondences(correlations, visited, curIndex, corrIndexes, corr);
-                    if(!corr.empty()) {
-                        Vector3 pos = Vector3::Zero();
-                        for(const Point3D& c: corr) {
-                            pos += c.toVector3();
+            // foreach edge
+            vector<bool> visited(correlations.size(), false);
+            vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
+            float minX=numeric_limits<float>::infinity(), maxX=0, minY=numeric_limits<float>::infinity(), maxY=0;
+            for(int i=0; i<m; i++) {
+                int nodeIndex = connectedComponents[0][i];
+                SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
+                for(int j=0; j<sift.getKeyPoints().size(); j++) {
+                    int curIndex = startIndexes[nodeIndex]+j;
+                    if(!visited[curIndex]) {
+                        shared_ptr<SIFTFeatureKeypoint> fp = make_shared<SIFTFeatureKeypoint>(*dynamic_pointer_cast<SIFTFeatureKeypoint>(sift.getKeyPoints()[j]));
+                        vector<Point3D> corr;
+                        vector<int> corrIndexes;
+
+                        collectCorrespondences(correlations, visited, curIndex, corrIndexes, corr);
+                        if(!corr.empty()) {
+                            Vector3 pos = Vector3::Zero();
+                            for(const Point3D& c: corr) {
+                                pos += c.toVector3();
+                            }
+                            pos /= corr.size();
+                            fp->x = pos.x();
+                            fp->y = pos.y();
+                            fp->z = pos.z();
                         }
-                        pos /= corr.size();
-                        fp->x = pos.x();
-                        fp->y = pos.y();
-                        fp->z = pos.z();
-                    }
 
-                    if(!corr.empty()) {
-                        kps.emplace_back(fp);
-                        desc.emplace_back(sift.getDescriptors().row(j));
+                        if(!corr.empty()) {
+                            kps.emplace_back(fp);
+                            desc.emplace_back(sift.getDescriptors().row(j));
 
-                        minX = min(fp->x, minX);
-                        maxX = max(fp->x, maxX);
-                        minY = min(fp->y, minY);
-                        maxY = max(fp->y, maxY);
+                            minX = min(fp->x, minX);
+                            maxX = max(fp->x, maxX);
+                            minY = min(fp->y, minY);
+                            maxY = max(fp->y, maxY);
+                        }
                     }
                 }
             }
-        }
 
-        descriptors.resize(desc.size(), 128);
-        for(int i=0; i<desc.size(); i++) {
-            descriptors.row(i) = desc[i];
+            descriptors.resize(desc.size(), 128);
+            for(int i=0; i<desc.size(); i++) {
+                descriptors.row(i) = desc[i];
+            }
+
+            sf.setBounds(minX, maxX, minY, maxY);
+            sf.assignFeaturesToGrid();
+        }else if(m==1){
+            sf = localViewGraph[connectedComponents[0][0]].getFrames()[0]->getKps();
         }
 
         /*cerr << "----------------------------------------" << endl;
@@ -350,8 +359,7 @@ namespace rtf {
             cerr << "index:" << keyframe->getIndex() << endl;
         }*/
 
-        sf.setBounds(minX, maxX, minY, maxY);
-        sf.assignFeaturesToGrid();
+
 
         // reset
         localViewGraph.reset(0);
