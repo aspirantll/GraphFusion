@@ -42,7 +42,7 @@ namespace rtf {
         int getFrameNum(int cameraPos = 0);
 
         /**
-         * obtain from multi-cameras
+         * obtain from multi-tranforms
          * @return
          */
         vector<shared_ptr<FrameRGBD>> waitMultiCamFrames();

@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     OnlineReconstruction onlineRecon(globalConfig);
-    for(int i=0; i<fileInputSource->getFrameNum(); i++) {
+    for(int i=0; i<10; i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
         onlineRecon.appendFrame(frame);
         frame->releaseImages();

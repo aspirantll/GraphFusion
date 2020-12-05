@@ -323,7 +323,7 @@ namespace rtf {
         // compute relative transformation for edges
         for(int j=0; j < cudaEdgeVector.getNum(); j++) {
             CUDAEdge edge = cudaEdgeVector[j];
-            Transform trans = transVec[edge.indexX].inverse()*transVec[edge.indexY];//*transVec[edge.indexZ];
+            Transform trans = transVec[edge.indexX].inverse()*transVec[edge.indexY]*transVec[edge.indexZ];
             Transform transInv = trans.inverse();
 
             edge.transform = MatrixConversion::toCUDA(trans);

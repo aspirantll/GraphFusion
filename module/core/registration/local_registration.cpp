@@ -287,9 +287,9 @@ namespace rtf {
         int m = connectedComponents[0].size();
         if(m > 1) {
             cout << "multiview" << endl;
-            /* BARegistration baRegistration(globalConfig);
-             baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();*/
-            Optimizer::globalBundleAdjustmentCeres(localViewGraph, connectedComponents[0]);
+            BARegistration baRegistration(globalConfig);
+            baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();
+//            Optimizer::globalBundleAdjustmentCeres(localViewGraph, connectedComponents[0]);
             // update transforms
             vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
             for(int i=0; i<connectedComponents[0].size(); i++) {

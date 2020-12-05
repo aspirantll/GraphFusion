@@ -50,7 +50,7 @@ namespace rtf {
         rs2::disparity_transform* disparity_to_depth;
 
         /**
-         * initialize the cameras and test pipeline
+         * initialize the tranforms and test pipeline
          */
         void initCameras();
 
@@ -92,7 +92,7 @@ namespace rtf {
         shared_ptr<FrameRGBD> waitFrame(int cameraPos = 0, bool filtered= false, bool converted=true);
 
         /**
-         * obtain from multi-cameras
+         * obtain from multi-tranforms
          * @return
          */
         vector<shared_ptr<FrameRGBD>> waitMultiCamFrames(bool filtered= false, bool converted=true);
