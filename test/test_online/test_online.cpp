@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new FileInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
@@ -95,14 +95,14 @@ int main(int argc, char* argv[]) {
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     OnlineReconstruction onlineRecon(globalConfig);
-    for(int i=0; i<10; i++) {
+    for(int i=0; i<fileInputSource->getFrameNum(); i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
         onlineRecon.appendFrame(frame);
         frame->releaseImages();
     }
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
-    onlineRecon.finalOptimize(true);
+    onlineRecon.finalOptimize(false);
 //    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();

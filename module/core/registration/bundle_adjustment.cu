@@ -312,15 +312,23 @@ namespace rtf {
             for(int j=0; j<6; j++) {
                 Scalar value = tH[6*j+i];
                 atomicAdd(&H.data[(6*x+j)*n+i+6*x], value);
+                atomicAdd(&H.data[(6*x+j)*n+i+6*y], -value);
                 atomicAdd(&H.data[(6*x+j)*n+i+6*z], -value);
 
+                atomicAdd(&H.data[(6*y+j)*n+i+6*x], -value);
+                atomicAdd(&H.data[(6*y+j)*n+i+6*y], value);
+                atomicAdd(&H.data[(6*y+j)*n+i+6*z], value);
+
                 atomicAdd(&H.data[(6*z+j)*n+i+6*x], -value);
+                atomicAdd(&H.data[(6*z+j)*n+i+6*y], value);
                 atomicAdd(&H.data[(6*z+j)*n+i+6*z], value);
             }
             atomicAdd(&M.data[6*x+i], tM[i]);
+            atomicAdd(&M.data[6*y+i], tM[i]);
             atomicAdd(&M.data[6*z+i], tM[i]);
 
             atomicAdd(&b.data[6*x+i], -tb[i]);
+            atomicAdd(&b.data[6*y+i], tb[i]);
             atomicAdd(&b.data[6*z+i], tb[i]);
         }
 
@@ -337,15 +345,23 @@ namespace rtf {
         for(int i=0; i<6; i++) {
             for(int j=0; j<6; j++) {
                 Scalar value = tH[6*j+i];
+                atomicAdd(&H.data[(6*x+j)*n+i+6*x], value);
+                atomicAdd(&H.data[(6*x+j)*n+i+6*y], -value);
+                atomicAdd(&H.data[(6*x+j)*n+i+6*z], -value);
+
+                atomicAdd(&H.data[(6*y+j)*n+i+6*x], -value);
                 atomicAdd(&H.data[(6*y+j)*n+i+6*y], value);
                 atomicAdd(&H.data[(6*y+j)*n+i+6*z], value);
 
+                atomicAdd(&H.data[(6*z+j)*n+i+6*x], -value);
                 atomicAdd(&H.data[(6*z+j)*n+i+6*y], value);
                 atomicAdd(&H.data[(6*z+j)*n+i+6*z], value);
             }
+            atomicAdd(&M.data[6*x+i], tM[i]);
             atomicAdd(&M.data[6*y+i], tM[i]);
             atomicAdd(&M.data[6*z+i], tM[i]);
 
+            atomicAdd(&b.data[6*x+i], tb[i]);
             atomicAdd(&b.data[6*y+i], -tb[i]);
             atomicAdd(&b.data[6*z+i], -tb[i]);
         }
