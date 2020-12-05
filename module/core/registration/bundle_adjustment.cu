@@ -11,7 +11,7 @@ namespace rtf {
         return (squared_residual < huber_parameter * huber_parameter) ? 1 : (huber_parameter / sqrtf(squared_residual));
     }
 
-    inline __device__ Scalar ComputeHuberCost(Scalar residual_x, Scalar residual_y, Scalar huber_parameter) {
+    inline __device__ Scalar computeHuberCost(Scalar residual_x, Scalar residual_y, Scalar huber_parameter) {
         Scalar squared_residual = residual_x * residual_x + residual_y * residual_y;
         if (squared_residual < huber_parameter * huber_parameter) {
             return 0.5 * squared_residual;
@@ -139,7 +139,7 @@ namespace rtf {
             residual[1] = rePixel[1] - pixel[1];
 
             Scalar weight = computeHuberWeight(residual[0], residual[1], kHuberWeight);
-            Scalar cost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
+            Scalar cost = computeHuberCost(residual[0], residual[1], kHuberWeight);
 
             costSummator.data[index]=cost;
             // compute H,M,b
@@ -167,7 +167,6 @@ namespace rtf {
                 b[i] = 0;
             }
         }
-
     }
 
     __global__ void computeCost(CUDAPtrs points, CUDAPtrs pixels, float4x4 T, float3x3 K, CUDAPtrc mask, CUDAPtrs costSummator) {
@@ -186,7 +185,7 @@ namespace rtf {
             residual[0] = rePixel[0] - pixel[0];
             residual[1] = rePixel[1] - pixel[1];
 
-            Scalar cost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
+            Scalar cost = computeHuberCost(residual[0], residual[1], kHuberWeight);
 
             costSummator.data[index]=cost;
         }else {
@@ -304,7 +303,7 @@ namespace rtf {
         // compute from x to y
         computeResidualAndJacobi(px, py, scale, transform, k, residual, jacobi);
         weight = computeHuberWeight(residual[0], residual[1], kHuberWeight);
-        huberCost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
+        huberCost = computeHuberCost(residual[0], residual[1], kHuberWeight);
 
         // compute H,M,b
         computeHMb(tH, tM, tb, weight, jacobi, residual);
@@ -330,7 +329,7 @@ namespace rtf {
         // compute from y to x
         computeResidualAndJacobi(py, px, scale, transformInv, k, residual, jacobi);
         weight = computeHuberWeight(residual[0], residual[1], kHuberWeight);
-        huberCost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
+        huberCost = computeHuberCost(residual[0], residual[1], kHuberWeight);
 
         // compute H,M,b
         computeHMb(tH, tM, tb, weight, jacobi, residual);
@@ -383,11 +382,11 @@ namespace rtf {
 
         // compute from x to y
         computeResidual(px, py, transform, k, residual);
-        huberCost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
+        huberCost = computeHuberCost(residual[0], residual[1], kHuberWeight);
         atomicAdd(cost, huberCost);
 
         computeResidual(py, px, transformInv, k, residual);
-        huberCost = ComputeHuberCost(residual[0], residual[1], kHuberWeight);
+        huberCost = computeHuberCost(residual[0], residual[1], kHuberWeight);
         atomicAdd(cost, huberCost);
     }
 

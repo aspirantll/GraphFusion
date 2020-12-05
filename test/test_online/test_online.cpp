@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
     }
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
-    onlineRecon.finalOptimize(false);
+    onlineRecon.finalOptimize(true);
 //    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();

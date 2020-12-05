@@ -39,6 +39,7 @@ typedef Vector6 SEVector;
 typedef EigenVector(Transform) TransformVector;
 
 typedef Sophus::SE3<Scalar> SE3;
+typedef Sophus::SO3<Scalar> SO3;
 
 namespace rtf {
     class Serializable {

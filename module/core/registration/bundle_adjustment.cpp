@@ -15,12 +15,8 @@ namespace rtf {
     }
 
     Transform vec2Matrix(Vector6 &soVec) {
-        Vector3 so3Vec;
-        so3Vec << soVec(0), soVec(1), soVec(2);
-
-        Rotation R = Sophus::SO3<Scalar>::exp(so3Vec).matrix();
-        Translation tVec;
-        tVec << soVec(3), soVec(4), soVec(5);
+        Rotation R = Sophus::SO3<Scalar>::exp(soVec.block<3, 1>(0,0)).matrix();
+        Translation tVec = soVec.block<3,1>(3,0);
 
         Transform T;
         GeoUtil::Rt2T(R, tVec, T);
@@ -260,6 +256,9 @@ namespace rtf {
                         testSo3(j) = initSo3Vec(j) + relaxtion;
                     }
                 }
+                finalDeltaVec = testSo3 - soVec;
+                testSo3.block<3,1>(0,0) = (SO3::exp(finalDeltaVec.block<3,1>(0,0))*SO3::exp(soVec.block<3,1>(0,0))).log();
+
                 // Compute the test cost.
                 float4x4 testT = MatrixConversion::toCUDA(vec2Matrix(testSo3));
                 computeBACost(*cudaPoints, *cudaPixels, testT, cudaK, *cudaMask, *costSummator);
@@ -314,10 +313,10 @@ namespace rtf {
         return std::move(matrix);
     }
 
-    void computeTransFromLie(const VectorX& transSEs, TransformVector& transVec,  CUDAEdgeVector& cudaEdgeVector) {
+    void computeTransFromLie(const VectorX& transSEs, const VectorX& deltaTransSEs, TransformVector& transVec,  CUDAEdgeVector& cudaEdgeVector) {
         // compute transformation from se vector
         for(int j=0; j < transVec.size(); j++) {
-            transVec[j] << Sophus::SE3<Scalar>::exp(transSEs.block<6,1>(j*6, 0)).matrix();
+            transVec[j] = (SE3::exp(deltaTransSEs.block<6,1>(j*6, 0))*SE3::exp(transSEs.block<6,1>(j*6, 0))).matrix();
         }
 
         // compute relative transformation for edges
@@ -588,7 +587,7 @@ namespace rtf {
                 // Compute the test state (constrained to the calibrated image area).
                 testTransSEs = transSEs + finalDeltaVec;
 
-                for(int j=0; j<initTransSEs.rows(); j++) {
+                for(int j=3; j<6; j++) {
                     if(isnan(testTransSEs(j))||testTransSEs(j)<initTransSEs(j)-relaxtion) {
                         testTransSEs(j) = initTransSEs(j)-relaxtion;
                     }
@@ -598,7 +597,7 @@ namespace rtf {
                 }
 
                 // compute relative transformation for edges
-                computeTransFromLie(testTransSEs, testTransVec, cudaEdgeVector);
+                computeTransFromLie(transSEs, testTransSEs-transSEs, testTransVec, cudaEdgeVector);
 
                 // Compute the test cost.
                 double testCost = 0;
@@ -613,7 +612,7 @@ namespace rtf {
                 }
                 testCost += testNorm;
 
-                if (testCost+0.01 < cost) {
+                if (testCost < cost) {
                     lambda *= 0.5;
                     transSEs = testTransSEs;
                     transVec = testTransVec;

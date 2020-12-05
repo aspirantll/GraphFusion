@@ -295,7 +295,11 @@ namespace rtf {
             loopClosureDetection();
 
             if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
-//                mergeViewGraph();
+                cout << "local optimization" << endl;
+                vector<int> cc(viewGraph.getFramesNum());
+                iota(cc.begin(), cc.end(), 0);
+                BARegistration baRegistration(globalConfig);
+                baRegistration.multiViewBundleAdjustment(viewGraph, cc).printReport();
             }
             Timer grTimer = Timer::startTimer("gr");
             lostNum = viewGraph.updateSpanningTree();
