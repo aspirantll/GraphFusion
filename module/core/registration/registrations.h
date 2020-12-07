@@ -33,11 +33,9 @@ namespace rtf {
         bool success = false;
         int iterations = 0;
         int pointsNum;
+        int inlierNum;
         double cost;
         Transform T;
-        vector<FeatureKeypoint> kxs;
-        vector<FeatureKeypoint> kys;
-
 
         double avgCost() {
             return cost / pointsNum;
@@ -47,6 +45,7 @@ namespace rtf {
         void printReport() {
             cout << "-------------------------------------------------------------------------" << endl;
             cout << "success: " << success << endl;
+            cout << "inlierNum: " << inlierNum << endl;
             cout << "pointsNum: " << pointsNum << endl;
             cout << "iterations: " << iterations << endl;
             cout << "cost: " << cost << endl;
@@ -62,7 +61,6 @@ namespace rtf {
         float rmsThreshold;
         float relaxtion;
         float distTh;
-        float minInlierRatio;
         float minInliers;
 
         float3x3 cudaK;
@@ -76,6 +74,8 @@ namespace rtf {
         Summator *bSummator;
         MatrixX points;
         MatrixX pixels;
+
+        shared_ptr<Camera> camera;
         vector<FeatureKeypoint> *kxs;
         vector<FeatureKeypoint> *kys;
 
@@ -155,6 +155,7 @@ namespace rtf {
         vector<double> xDs;
         vector<double> yDs;
         vector<int> kps1, kps2;
+        vector<double> residuals;
         Transform T;
 
 
@@ -249,7 +250,7 @@ namespace rtf {
         vector<pair<int, int> > loops;
         set<pair<int, int> > loopCandidates;
 
-        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream);
+        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
 
         void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream);
 

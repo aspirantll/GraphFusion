@@ -114,7 +114,25 @@ namespace rtf {
 
     }
 
+    inline __device__ void composeJacobi(Scalar* proJacobi, Scalar* hat, Scalar* jacobi) {
+        // for t
+        jacobi[0] = proJacobi[0];
+        jacobi[1] = proJacobi[1];
+        jacobi[2] = proJacobi[2];
 
+        jacobi[6] = proJacobi[3];
+        jacobi[7] = proJacobi[4];
+        jacobi[8] = proJacobi[5];
+
+        // for R
+        jacobi[3] = -(proJacobi[0]*hat[0]+proJacobi[1]*hat[3]+proJacobi[2]*hat[6]);
+        jacobi[4] = -(proJacobi[0]*hat[1]+proJacobi[1]*hat[4]+proJacobi[2]*hat[7]);
+        jacobi[5] = -(proJacobi[0]*hat[2]+proJacobi[1]*hat[5]+proJacobi[2]*hat[8]);
+
+        jacobi[9] = -(proJacobi[3]*hat[0]+proJacobi[4]*hat[3]+proJacobi[5]*hat[6]);
+        jacobi[10] = -(proJacobi[3]*hat[1]+proJacobi[4]*hat[4]+proJacobi[5]*hat[7]);
+        jacobi[11] = -(proJacobi[3]*hat[2]+proJacobi[4]*hat[5]+proJacobi[5]*hat[8]);
+    }
 
     __global__ void computeCostAndJacobi(CUDAPtrs points, CUDAPtrs pixels, float4x4 T, float3x3 K, CUDAPtrc mask, CUDAPtrs costSummator, CUDAPtrs hSummator, CUDAPtrs mSummator, CUDAPtrs bSummator) {
         long index = threadIdx.x + blockIdx.x*blockDim.x;
@@ -123,15 +141,14 @@ namespace rtf {
         if(mask[index]) {
             Scalar point[3]={points(index, 0), points(index, 1), points(index, 2)},
                     pixel[2] = {pixels(index, 0), pixels(index, 1)}
-            , rePixel[2], transPoint[3], rotatePoint[3], proJacobi[6], hatMat[9], residual[2], jacobi[12];
+            , rePixel[2], transPoint[3], proJacobi[6], hatMat[9], residual[2], jacobi[12];
             // copy point and pixel
             transformPoint(T, point, transPoint);
 
             // compute jacobi
             projectJacobi(K, transPoint, proJacobi);
-            transformPointOnlyRotation(T, point, rotatePoint);
-            hatMatrix(rotatePoint, hatMat);
-            computeJacobi(proJacobi, hatMat, jacobi);
+            hatMatrix(transPoint, hatMat);
+            composeJacobi(proJacobi, hatMat, jacobi);
 
             projectPoint(K, transPoint, rePixel);
             // compute residual and cost
@@ -228,26 +245,6 @@ namespace rtf {
         computerInliersKernel<<<grid, block, 0, stream>>>(*costSummator.dataMat, inliers, th);
 
         CUDA_CHECKED_NO_ERROR();
-    }
-
-    inline __device__ void composeJacobi(Scalar* proJacobi, Scalar* hat, Scalar* jacobi) {
-        // for t
-        jacobi[0] = proJacobi[0];
-        jacobi[1] = proJacobi[1];
-        jacobi[2] = proJacobi[2];
-
-        jacobi[6] = proJacobi[3];
-        jacobi[7] = proJacobi[4];
-        jacobi[8] = proJacobi[5];
-
-        // for R
-        jacobi[3] = -(proJacobi[0]*hat[0]+proJacobi[1]*hat[3]+proJacobi[2]*hat[6]);
-        jacobi[4] = -(proJacobi[0]*hat[1]+proJacobi[1]*hat[4]+proJacobi[2]*hat[7]);
-        jacobi[5] = -(proJacobi[0]*hat[2]+proJacobi[1]*hat[5]+proJacobi[2]*hat[8]);
-
-        jacobi[9] = -(proJacobi[3]*hat[0]+proJacobi[4]*hat[3]+proJacobi[5]*hat[6]);
-        jacobi[10] = -(proJacobi[3]*hat[1]+proJacobi[4]*hat[4]+proJacobi[5]*hat[7]);
-        jacobi[11] = -(proJacobi[3]*hat[2]+proJacobi[4]*hat[5]+proJacobi[5]*hat[8]);
     }
 
     inline __device__ void computeHMb(Scalar* H, Scalar* M, Scalar* b, Scalar weight, Scalar* jacobi, Scalar* residual) {

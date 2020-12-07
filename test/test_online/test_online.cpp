@@ -20,7 +20,7 @@ using namespace pcl;
 
 string workspace;
 double minDepth = 0.1;
-double maxDepth = 4;
+double maxDepth = 10;
 
 void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     if(!FileUtil::exist(workspace+"/associate.txt")) {
@@ -97,6 +97,7 @@ int main(int argc, char* argv[]) {
     OnlineReconstruction onlineRecon(globalConfig);
     for(int i=0; i<fileInputSource->getFrameNum(); i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
+        frame->setDepthBounds(minDepth, maxDepth);
         onlineRecon.appendFrame(frame);
         frame->releaseImages();
     }

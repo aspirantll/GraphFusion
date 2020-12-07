@@ -747,9 +747,6 @@ namespace rtf {
             q[2] *= scale;
             q[3] *= scale;
         }
-
-
-
     };
 
     int PnPEstimator::kMinNumSamples = 4;

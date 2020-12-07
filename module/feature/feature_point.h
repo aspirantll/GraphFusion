@@ -360,6 +360,8 @@ namespace rtf {
 
     void featureMatchesToPoints(FeatureMatches& featureMatches, vector<FeatureKeypoint>& kxs, vector<FeatureKeypoint>& kys);
 
+    void featureMatchesToPoints(FeatureMatches& featureMatches, vector<int> inliers, vector<FeatureKeypoint>& kxs, vector<FeatureKeypoint>& kys);
+
     void downFeatureToSift(const FeatureKeypoints& src, SIFTFeatureKeypoints& target);
 
 

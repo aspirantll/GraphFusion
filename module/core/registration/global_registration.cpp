@@ -6,12 +6,13 @@
 
 #include "registrations.h"
 #include "../../tool/view_graph_util.h"
+#include "../../processor/downsample.h"
 #include "optimizer.h"
 
 using namespace rtf::ViewGraphUtil;
 
 namespace rtf {
-    void GlobalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream) {
+    void GlobalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge) {
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
         RegReport ba;
         if (pnp.success) {
@@ -32,6 +33,7 @@ namespace rtf {
             if (ba.success) {
                 double cost = ba.avgCost();
                 if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                    downSampleFeatureMatches(kxs, kys, featureMatches->getCx(), ba.T, 20);
                     edge->setKxs(kxs);
                     edge->setKys(kys);
                     edge->setTransform(ba.T);
@@ -49,7 +51,7 @@ namespace rtf {
 
     void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream) {
         stream = curStream;
-        registrationPnPBA(&featureMatches, edge, curStream);
+        registrationPnPBA(&featureMatches, edge);
 
         if(featureMatches.getFIndexY()-featureMatches.getFIndexX()==globalConfig.chunkSize) { // registration
             shared_ptr<KeyFrame> ref = viewGraph.indexFrame(featureMatches.getFIndexX());
@@ -61,7 +63,7 @@ namespace rtf {
             shared_ptr<Frame> curFrame = cur->getFirstFrame();
             FeatureMatches frameMatches = matcher->matchKeyPointsPair(lastRefFrame->getKps(), curFrame->getKps());
             Edge frameEdge = Edge::UNREACHABLE;
-            registrationPnPBA(&frameMatches, &frameEdge, curStream);
+            registrationPnPBA(&frameMatches, &frameEdge);
 
             if(!frameEdge.isUnreachable()&&(edge->isUnreachable()||(edge->getKxs().size()<frameEdge.getKxs().size()&&edge->getCost()>frameEdge.getCost()))) {
                 Transform transX = lastRefFrame->getTransform();
@@ -148,10 +150,11 @@ namespace rtf {
 
             FeatureMatches featureMatches = matcher->matchKeyPointsPair(refKeyFrame->getKps(),
                                                                         cur->getKps());
-            cudaStreamCreate(&streams[index]);
-            threads[index] = new thread(
-                    bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                         placeholders::_3), featureMatches, &edges[index], streams[index]);
+//            cudaStreamCreate(&streams[index]);
+//            threads[index] = new thread(
+//                    bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
+//                         placeholders::_3), featureMatches, &edges[index], streams[index]);
+            registrationPairEdge(featureMatches, &edges[index], stream);
             index++;
         }
 
@@ -172,21 +175,22 @@ namespace rtf {
                                                                                 cur->getKps());
                     overlapFrames.emplace_back(refIndex);
                     spAlreadyAddedKF.insert(refIndex);
-                    cudaStreamCreate(&streams[index]);
-                    threads[index] = new thread(
-                            bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                                 placeholders::_3), featureMatches, &edges[index], streams[index]);
+//                    cudaStreamCreate(&streams[index]);
+//                    threads[index] = new thread(
+//                            bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
+//                                 placeholders::_3), featureMatches, &edges[index], streams[index]);
+                    registrationPairEdge(featureMatches, &edges[index], stream);
                     index++;
                 }
                 if (overlapFrames.size() >= k) break;
             }
         }
 
-        for (int i = 0; i < index; i++) {
+        /*for (int i = 0; i < index; i++) {
             threads[i]->join();
             CUDA_CHECKED_CALL(cudaStreamSynchronize(streams[i]));
             CUDA_CHECKED_CALL(cudaStreamDestroy(streams[i]));
-        }
+        }*/
     }
 
     GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {

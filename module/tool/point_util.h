@@ -36,6 +36,8 @@ namespace rtf {
 
         Point3D transformPixel(Point3D pixel, Transform trans, shared_ptr<Camera> camera);
 
+        Point3D transformPixelToPoint(Point3D pixel, Transform trans, shared_ptr<Camera> camera);
+
         bool savePLYPointCloud(string path, pcl::PointCloud<pcl::PointXYZRGBNormal>& pointCloud);
 
         bool savePLYPointCloud(string path, pcl::PointCloud<pcl::PointXYZRGB>& pointCloud);

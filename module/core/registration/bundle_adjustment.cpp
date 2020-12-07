@@ -5,6 +5,7 @@
 #include <utility>
 #include "registrations.h"
 #include "bundle_adjustment.cuh"
+#include "../../processor/downsample.h"
 
 namespace rtf {
 
@@ -14,27 +15,18 @@ namespace rtf {
         }
     }
 
-    Transform vec2Matrix(Vector6 &soVec) {
-        Rotation R = Sophus::SO3<Scalar>::exp(soVec.block<3, 1>(0,0)).matrix();
-        Translation tVec = soVec.block<3,1>(3,0);
-
-        Transform T;
-        GeoUtil::Rt2T(R, tVec, T);
-        return T;
-    }
-
     BARegistration::BARegistration(const GlobalConfig &config) {
         rmsThreshold = config.rmsThreshold;
         relaxtion = config.relaxtion;
         distTh = config.maxPnPResidual;
-        minInlierRatio = config.minInlierRatio;
         minInliers = config.kMinInliers;
 
     }
 
 
     RegReport BARegistration::bundleAdjustment(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
-                                               vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, bool robust) {
+                                               vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys,
+                                               bool robust) {
         alloc(std::move(cx), std::move(cy), kxs, kys);
         RegReport report = bundleAdjustment(initT, robust);
         free();
@@ -45,6 +37,7 @@ namespace rtf {
                                vector<FeatureKeypoint> &kys) {
         this->kxs = &kxs;
         this->kys = &kys;
+        this->camera = cx;
 
         // compose parameters for ba
         const int n = kxs.size();
@@ -103,10 +96,10 @@ namespace rtf {
             for (int it = 0; it < its; it++) {
                 report = bundleAdjustment(R, t, 10);
                 // exchange the pointer
-                CUDAMatrixc * temp = cudaMask;
+                CUDAMatrixc *temp = cudaMask;
                 cudaMask = cudaMaskBak;
                 cudaMaskBak = temp;
-                if(report.iterations < iterations) {
+                if (report.iterations < iterations) {
                     break;
                 }
             }
@@ -123,18 +116,21 @@ namespace rtf {
                     kys->emplace_back(bKys[i]);
                 }
             }
-            report.success = kxs->size()>=minInliers;
-            if(report.success) {
+            report.success = kxs->size() >= minInliers;
+            if (report.success) {
                 report = bundleAdjustment(R, t, iterations);
             }
         } else {
             report = bundleAdjustment(R, t, iterations);
             report.success = true;
         }
+
+        report.inlierNum = kxs->size();
         return report;
     }
 
-    void BARegistration::bundleAdjustmentThread(Transform initT, bool robust, RegReport* report, cudaStream_t curStream) {
+    void
+    BARegistration::bundleAdjustmentThread(Transform initT, bool robust, RegReport *report, cudaStream_t curStream) {
         stream = curStream;
         *report = bundleAdjustment(initT, robust);
     }
@@ -159,15 +155,14 @@ namespace rtf {
         constexpr int max_lm_attempts = 50;
         constexpr int max_inner_iterations = 100;
 
-        Sophus::SO3<Scalar> initSo3(R);
-        Vector3 initSo3Vec = initSo3.log();
-        Vector6 soVec;
-        soVec << initSo3Vec, t;
+
+        SE3 se(R, t);
+        Vector6 initSeVec = se.log();
 
         double lambda = -1;
         for (int i = 0; i < iterations; ++i) {
             // so3 to R and t
-            float4x4 cudaT = MatrixConversion::toCUDA(vec2Matrix(soVec));
+            float4x4 cudaT = MatrixConversion::toCUDA(se.matrix());
             //compute jacobi matrix and cost
             computeBACostAndJacobi(*cudaPoints, *cudaPixels, cudaT, cudaK, *cudaMask, *costSummator, *hSummator,
                                    *mSummator, *bSummator);  // should always return true
@@ -246,27 +241,25 @@ namespace rtf {
                     }
                 }  // end loop over PCG inner iterations
                 // Compute the test state (constrained to the calibrated image area).
-                Vector6 testSo3 = soVec + finalDeltaVec;
-
-                for (int j = 0; j < 3; j++) {
-                    if (testSo3(j) < initSo3Vec(j) - relaxtion) {
-                        testSo3(j) = initSo3Vec(j) - relaxtion;
+                Vector6 testSeVec = (SE3::exp(finalDeltaVec) * se).log();
+                for (int j = 3; j < 6; j++) {
+                    if (testSeVec(j) < initSeVec(j) - relaxtion) {
+                        testSeVec(j) = initSeVec(j) - relaxtion;
                     }
-                    if (testSo3(j) > initSo3Vec(j) + relaxtion) {
-                        testSo3(j) = initSo3Vec(j) + relaxtion;
+                    if (testSeVec(j) > initSeVec(j) + relaxtion) {
+                        testSeVec(j) = initSeVec(j) + relaxtion;
                     }
                 }
-                finalDeltaVec = testSo3 - soVec;
-                testSo3.block<3,1>(0,0) = (SO3::exp(finalDeltaVec.block<3,1>(0,0))*SO3::exp(soVec.block<3,1>(0,0))).log();
 
+                SE3 testSe = SE3::exp(testSeVec);
                 // Compute the test cost.
-                float4x4 testT = MatrixConversion::toCUDA(vec2Matrix(testSo3));
+                float4x4 testT = MatrixConversion::toCUDA(testSe.matrix());
                 computeBACost(*cudaPoints, *cudaPixels, testT, cudaK, *cudaMask, *costSummator);
                 double test_cost = costSummator->sum()(0, 0);
 
-                if (test_cost < cost) {
+                if (!isnan(test_cost) && test_cost < cost) {
                     lambda *= 0.5;
-                    soVec = testSo3;
+                    se = testSe;
                     update_accepted = true;
                     break;
                 } else {
@@ -274,10 +267,6 @@ namespace rtf {
                 }
             }
 
-            Vector3 so3Vec;
-            so3Vec << soVec(0), soVec(1), soVec(2);
-            R = Sophus::SO3<Scalar>::exp(so3Vec).matrix();
-            t << soVec(3), soVec(4), soVec(5);
             report.cost = cost;
             report.iterations = i + 1;
 
@@ -289,11 +278,10 @@ namespace rtf {
                 break;
             }
         }
-        GeoUtil::Rt2T(R, t, report.T);
+        report.T = se.matrix();
         report.success = true;
         return report;
     }
-
 
 
     void computePX(VectorX r, VectorX M, double lambda, VectorX &p) {
@@ -303,20 +291,39 @@ namespace rtf {
         }
     }
 
-    MatrixX featureKeypoints2Matrix(vector<FeatureKeypoint>& features) {
+    MatrixX featureKeypoints2Matrix(vector<FeatureKeypoint> &features) {
         int n = features.size();
 
         MatrixX matrix(n, 3);
-        for(int i=0; i<n; i++) {
+        for (int i = 0; i < n; i++) {
             matrix.row(i) = features[i].toVector3();
         }
         return std::move(matrix);
     }
 
-    void computeTransFromLie(const VectorX& transSEs, const VectorX& deltaTransSEs, TransformVector& transVec,  CUDAEdgeVector& cudaEdgeVector) {
+    void plusDeltaToSEVec(const VectorX& initSEsVec, double relaxtion, const TransformVector& transSEs, const VectorX& finalDeltaVec, VectorX& testSEsVec) {
+        int tranNum = transSEs.size();
+        testSEsVec.resize(tranNum*6);
+        for(int i=0; i<tranNum; i++) {
+            Vector6 testSeVec = (SE3::exp(finalDeltaVec.block<6,1>(6*i, 0))*SE3(transSEs[i])).log();
+            Vector6 initSeVec = initSEsVec.block<6,1>(6*i, 0);
+            for (int j = 3; j < 6; j++) {
+                if (testSeVec(j) < initSeVec(j) - relaxtion) {
+                    testSeVec(j) = initSeVec(j) - relaxtion;
+                }
+                if (testSeVec(j) > initSeVec(j) + relaxtion) {
+                    testSeVec(j) = initSeVec(j) + relaxtion;
+                }
+            }
+            testSEsVec.block<6, 1>(6*i, 0) = testSeVec;
+        }
+
+    }
+
+    void computeTransFromLie(const VectorX& transSEs, TransformVector& transVec,  CUDAEdgeVector& cudaEdgeVector) {
         // compute transformation from se vector
         for(int j=0; j < transVec.size(); j++) {
-            transVec[j] = (SE3::exp(deltaTransSEs.block<6,1>(j*6, 0))*SE3::exp(transSEs.block<6,1>(j*6, 0))).matrix();
+            transVec[j] = SE3::exp(transSEs.block<6,1>(j*6, 0)).matrix();
         }
 
         // compute relative transformation for edges
@@ -327,15 +334,6 @@ namespace rtf {
 
             edge.transform = MatrixConversion::toCUDA(trans);
             edge.transformInv = MatrixConversion::toCUDA(transInv);
-        }
-    }
-
-    void diagonalBlockInverse(MatrixX& mat) {
-        int rows = mat.rows();
-        int cols = mat.cols();
-        CHECK_EQ(rows, cols);
-        for(int i=0; i<rows/6; i++) {
-            mat.block<6,6>(6*i,6*i) = mat.block<6,6>(6*i,6*i).inverse();
         }
     }
 
@@ -456,7 +454,7 @@ namespace rtf {
         constexpr double kEpsilon = 1e-12;
         constexpr int kMaxIterations = 100;
         constexpr int max_lm_attempts = 50;
-        constexpr int max_inner_iterations = 100;
+        constexpr int max_inner_iterations = 1000;
 
         // initialize the variables
         VectorX initTransSEs = transSEs;
@@ -566,19 +564,10 @@ namespace rtf {
                 }  // end loop over PCG inner iterations
 
                 // Compute the test state (constrained to the calibrated image area).
-                testTransSEs = transSEs + finalDeltaVec;
-
-                for(int j=3; j<6; j++) {
-                    if(isnan(testTransSEs(j))||testTransSEs(j)<initTransSEs(j)-relaxtion) {
-                        testTransSEs(j) = initTransSEs(j)-relaxtion;
-                    }
-                    if(isnan(testTransSEs(j))||testTransSEs(j)>initTransSEs(j)+relaxtion) {
-                        testTransSEs(j) = initTransSEs(j)+relaxtion;
-                    }
-                }
+                plusDeltaToSEVec(initTransSEs, relaxtion, transVec, finalDeltaVec, testTransSEs);
 
                 // compute relative transformation for edges
-                computeTransFromLie(transSEs, testTransSEs-transSEs, testTransVec, cudaEdgeVector);
+                computeTransFromLie(transSEs, testTransVec, cudaEdgeVector);
 
                 // Compute the test cost.
                 double testCost = 0;
@@ -593,7 +582,7 @@ namespace rtf {
                 }
                 testCost += testNorm;
 
-                if (testCost+0.001 < cost) {
+                if (!isnan(testCost)&&testCost+0.01 < cost) {
                     lambda *= 0.5;
                     transSEs = testTransSEs;
                     transVec = testTransVec;

@@ -5,6 +5,7 @@
 #include "registrations.h"
 #include "optimizer.h"
 #include "../../tool/view_graph_util.h"
+#include "../../processor/downsample.h"
 #include <glog/logging.h>
 
 #include <utility>
@@ -25,7 +26,7 @@ namespace rtf {
         if (pnp.success) {
             BARegistration baRegistration(globalConfig);
             vector<FeatureKeypoint> kxs, kys;
-            if(pnp.inliers.size()<0) {
+            if(pnp.inliers.size()<100) {
                 FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
                 featureMatchesToPoints(matches, kxs, kys);
 
@@ -120,10 +121,11 @@ namespace rtf {
             spAlreadyAddedKF.insert(refIndex);
             overlapFrames.emplace_back(refIndex);
 
-            cudaStreamCreate(&streams[index]);
-            threads[index] = new thread(
-                    bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                         placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
+//            cudaStreamCreate(&streams[index]);
+//            threads[index] = new thread(
+//                    bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
+//                         placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
+            registrationPairEdge(&frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], stream);
             index++;
         }
 
@@ -140,10 +142,11 @@ namespace rtf {
                     if (!spAlreadyAddedKF.count(refIndex)) {
                         overlapFrames.emplace_back(refIndex);
                         spAlreadyAddedKF.insert(refIndex);
-                        cudaStreamCreate(&streams[index]);
-                        threads[index] = new thread(
-                                bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-                                     placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
+//                        cudaStreamCreate(&streams[index]);
+//                        threads[index] = new thread(
+//                                bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
+//                                     placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
+                        registrationPairEdge(&frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], stream);
 
                         index++;
                     }
@@ -152,11 +155,11 @@ namespace rtf {
             }
         }
 
-        for (int i = 0; i < index; i++) {
+        /*for (int i = 0; i < index; i++) {
             threads[i]->join();
             CUDA_CHECKED_CALL(cudaStreamSynchronize(streams[i]));
             CUDA_CHECKED_CALL(cudaStreamDestroy(streams[i]));
-        }
+        }*/
     }
 
     void LocalRegistration::updateCorrelations() {
@@ -302,6 +305,8 @@ namespace rtf {
             FeatureDescriptors<uint8_t>& descriptors = sf.getDescriptors();
 
             // foreach edge
+            shared_ptr<CameraModel> cameraModel = localViewGraph[0].getCamera()->getCameraModel();
+            vector<double> scores;
             vector<bool> visited(correlations.size(), false);
             vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
             float minX=numeric_limits<float>::infinity(), maxX=0, minY=numeric_limits<float>::infinity(), maxY=0;
@@ -317,17 +322,27 @@ namespace rtf {
 
                         collectCorrespondences(correlations, visited, curIndex, corrIndexes, corr);
                         if(!corr.empty()) {
-                            Vector3 pos = Vector3::Zero();
+                            Vector3 point = Vector3::Zero();
+                            Vector3 mean = Vector3::Zero();
+                            EigenVector(Vector3) points;
                             for(const Point3D& c: corr) {
-                                pos += c.toVector3();
+                                point += c.toVector3();
+                                points.emplace_back(cameraModel->unproject(c.x, c.y, c.z));
+                                mean += points.back();
                             }
-                            pos /= corr.size();
-                            fp->x = pos.x();
-                            fp->y = pos.y();
-                            fp->z = pos.z();
-                        }
+                            point /= corr.size();
+                            mean /= corr.size();
 
-                        if(!corr.empty()) {
+                            double rms = 0;
+                            for(const Vector3& p: points) {
+                                rms += (p-mean).squaredNorm();
+                            }
+
+                            fp->x = point.x();
+                            fp->y = point.y();
+                            fp->z = point.z();
+
+                            scores.emplace_back(sqrt(rms/corr.size()));
                             kps.emplace_back(fp);
                             desc.emplace_back(sift.getDescriptors().row(j));
 
@@ -337,6 +352,44 @@ namespace rtf {
                             maxY = max(fp->y, maxY);
                         }
                     }
+                }
+            }
+
+            if(sf.size()>2400) {
+                cout << "before:" << sf.size() <<endl;
+                int gridSize = 20;
+                int num = sf.size();
+                int width = maxX-minX, height=maxY-minY;
+                int rows = floor(width/gridSize), cols = floor(height/gridSize);
+
+                map<int, vector<int>> gridGroup;
+                for(int i=0; i<num; i++) {
+                    auto kp = kps[i];
+                    int gridx = floor(kp->x-minX/gridSize);
+                    int gridy = floor(kp->y-minY/gridSize);
+                    int gridIndex = gridx*cols+gridy;
+                    if(!gridGroup.count(gridIndex)) {
+                        gridGroup.insert(map<int, vector<int>>::value_type(gridIndex, vector<int>()));
+                    }
+                    gridGroup[gridIndex].emplace_back(i);
+                }
+
+                FeatureKeypoints bKps(kps.begin(), kps.end());
+                vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> bDesc(desc.begin(), desc.end());
+
+                kps.clear();
+                desc.clear();
+                for(auto mit: gridGroup) {
+                    int selectedIndex = -1;
+                    double score = numeric_limits<double>::infinity();
+                    for(int ind: mit.second) {
+                        if(scores[ind]<score) {
+                            selectedIndex = ind;
+                            score = scores[ind];
+                        }
+                    }
+                    kps.emplace_back(bKps[selectedIndex]);
+                    desc.emplace_back(bDesc[selectedIndex]);
                 }
             }
 
@@ -351,15 +404,12 @@ namespace rtf {
             sf = localViewGraph[connectedComponents[0][0]].getFrames()[0]->getKps();
         }
 
-        /*cerr << "----------------------------------------" << endl;
-        cerr << "frame index:" << keyframe->getIndex() << endl;
-        cerr << "visible frame num:" << m << endl;
-        cerr << "feature num:" << desc.size() << endl;
-        if(desc.size()<500) {
-            cerr << "index:" << keyframe->getIndex() << endl;
-        }*/
 
 
+        cout << "----------------------------------------" << endl;
+        cout << "frame index:" << keyframe->getIndex() << endl;
+        cout << "visible frame num:" << m << endl;
+        cout << "feature num:" << sf.size() << endl;
 
         // reset
         localViewGraph.reset(0);
