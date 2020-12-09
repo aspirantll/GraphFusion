@@ -53,13 +53,12 @@ namespace rtf {
 
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
-    template <class T>
     class FeaturePoints: public Serializable {
     protected:
         int fIndex;
         shared_ptr<Camera> camera;
         FeatureKeypoints keyPoints;
-        FeatureDescriptors<T> descriptors;
+        FeatureDescriptors<uint8_t> descriptors;
         DBoW2::BowVector mBowVec;
         DBoW2::FeatureVector mFeatVec;
 
@@ -73,163 +72,51 @@ namespace rtf {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-        FeaturePoints() {
+        FeaturePoints();
 
-        }
+        void deserialize(YAML::Node serNode);
 
-        void deserialize(YAML::Node serNode) {
-            camera = CameraFactory::getCamera(serNode["camera"].as<string>());
-            YAMLUtil::vectorDeserialize(serNode["keyPoints"], keyPoints);
-            YAMLUtil::matrixDeserialize(serNode["descriptors"], descriptors);
-        }
+        int getFIndex() const;
 
-        int getFIndex() const {
-            return fIndex;
-        }
+        void setFIndex(int fIndex);
 
-        void setFIndex(int fIndex) {
+        void setCamera(const shared_ptr<Camera> &camera);
 
-            FeaturePoints::fIndex = fIndex;
-        }
+        shared_ptr<Camera> getCamera();
 
-        void setCamera(const shared_ptr<Camera> &camera) {
-            FeaturePoints::camera = camera;
-            setBounds(camera->getMinX(), camera->getMaxX(), camera->getMinY(), camera->getMaxY());
-        }
+        shared_ptr<FeatureKeypoint> getKeypoint(int index);
 
-        shared_ptr<Camera> getCamera() {
-            return this->camera;
-        }
+        void setBounds(float minX, float maxX, float minY, float maxY);
 
-        shared_ptr<FeatureKeypoint> getKeypoint(int index) {
-            CHECK_LT(index, this->keyPoints.size());
-            return this->keyPoints[index];
-        }
+        bool posInGrid(const shared_ptr<FeatureKeypoint> &kp, int &posX, int &posY);
 
-        void setBounds(float minX, float maxX, float minY, float maxY) {
-            this->minX = minX;
-            this->maxX = maxX;
-            this->minY = minY;
-            this->maxY = maxY;
-            gridElementWidthInv= static_cast<float>(FRAME_GRID_COLS) / (maxX-minX);
-            gridElementHeightInv= static_cast<float>(FRAME_GRID_ROWS) / (maxY-minY);
-        }
+        void assignFeaturesToGrid();
 
-        bool posInGrid(const shared_ptr<FeatureKeypoint> &kp, int &posX, int &posY) {
-            posX = round((kp->x-camera->getMinX()) * gridElementWidthInv);
-            posY = round((kp->y-camera->getMinY()) * gridElementHeightInv);
+        void fuseFeaturePoints(FeatureKeypoints& fps, vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>>& descs);
 
-            //Keypoint's coordinates are undistorted, which could cause to go out of the image
-            if(posX<0 || posX>=FRAME_GRID_COLS || posY<0 || posY>=FRAME_GRID_ROWS)
-                return false;
+        vector<int> getFeaturesInArea(const float &x, const float  &y, const float  &r);
 
-            return true;
-        }
+        FeatureKeypoints& getKeyPoints();
 
-        void assignFeaturesToGrid() {
-            int nReserve = size()/(FRAME_GRID_COLS*FRAME_GRID_ROWS);
-            for(unsigned int i=0; i<FRAME_GRID_COLS;i++)
-                for (unsigned int j=0; j<FRAME_GRID_ROWS;j++)
-                    grid[i][j].reserve(nReserve);
+        FeatureDescriptors<uint8_t>& getDescriptors();
 
-            for(int i=0;i<size();i++) {
-                const shared_ptr<FeatureKeypoint> kp = getKeypoint(i);
+        DBoW2::BowVector &getMBowVec();
 
-                int nGridPosX, nGridPosY;
-                if(posInGrid(kp,nGridPosX,nGridPosY))
-                    grid[nGridPosX][nGridPosY].push_back(i);
-            }
-        }
+        DBoW2::FeatureVector &getMFeatVec();
 
-        vector<int> getFeaturesInArea(const float &x, const float  &y, const float  &r) {
-            vector<int> vIndices;
-            vIndices.reserve(size());
+        bool empty();
 
-            const int nMinCellX = max(0,(int)floor((x-camera->getMinX()-r)*gridElementWidthInv));
-            if(nMinCellX>=FRAME_GRID_COLS)
-                return vIndices;
+        int size();
 
-            const int nMaxCellX = min((int)FRAME_GRID_COLS-1,(int)ceil((x-camera->getMinX()+r)*gridElementWidthInv));
-            if(nMaxCellX<0)
-                return vIndices;
+        float getMinX() const;
 
-            const int nMinCellY = max(0,(int)floor((y-camera->getMinY()-r)*gridElementHeightInv));
-            if(nMinCellY>=FRAME_GRID_ROWS)
-                return vIndices;
+        float getMaxX() const;
 
-            const int nMaxCellY = min((int)FRAME_GRID_ROWS-1,(int)ceil((y-camera->getMinY()+r)*gridElementHeightInv));
-            if(nMaxCellY<0)
-                return vIndices;
+        float getMinY() const;
 
-            for(int ix = nMinCellX; ix<=nMaxCellX; ix++) {
-                for(int iy = nMinCellY; iy<=nMaxCellY; iy++) {
-                    const vector<int> vCell = grid[ix][iy];
-                    if(vCell.empty())
-                        continue;
+        float getMaxY() const;
 
-                    for(int j=0, jend=vCell.size(); j<jend; j++) {
-                        const shared_ptr<FeatureKeypoint> kp = getKeypoint(vCell[j]);
-
-                        const float distx = kp->x-x;
-                        const float disty = kp->y-y;
-
-                        if(fabs(distx)<r && fabs(disty)<r)
-                            vIndices.push_back(vCell[j]);
-                    }
-                }
-            }
-
-            return vIndices;
-        }
-
-        FeatureKeypoints& getKeyPoints() {
-            return this->keyPoints;
-        }
-
-        FeatureDescriptors<T>& getDescriptors() {
-            return this->descriptors;
-        }
-
-        DBoW2::BowVector &getMBowVec() {
-            return this->mBowVec;
-        }
-
-        DBoW2::FeatureVector &getMFeatVec() {
-            return this->mFeatVec;
-        }
-
-        bool empty() {
-            return this->keyPoints.empty();
-        }
-
-        int size() {
-            return this->keyPoints.size();
-        }
-
-        float getMinX() const {
-            return minX;
-        }
-
-        float getMaxX() const {
-            return maxX;
-        }
-
-        float getMinY() const {
-            return minY;
-        }
-
-        float getMaxY() const {
-            return maxY;
-        }
-
-        YAML::Node serialize() override {
-            YAML::Node node;
-            node["camera"] = camera->getSerNum();
-            node["keyPoints"] = YAMLUtil::vectorSerialize(keyPoints);
-            node["descriptors"] = descriptors.serialize();
-            //todo serialize the bow vector
-            return node;
-        }
+        YAML::Node serialize() override;
     };
 
     enum FeatureMatchStrategy {
@@ -260,13 +147,13 @@ namespace rtf {
 
     class FeatureMatches {
     protected:
-        FeaturePoints<uint8_t>* fp1;
-        FeaturePoints<uint8_t>* fp2;
+        FeaturePoints* fp1;
+        FeaturePoints* fp2;
         vector<FeatureMatch> matches;
     public:
         FeatureMatches();
 
-        FeatureMatches(FeaturePoints<uint8_t> &fp1, FeaturePoints<uint8_t> &fp2,
+        FeatureMatches(FeaturePoints &fp1, FeaturePoints &fp2,
                        const vector<FeatureMatch> &matches);
 
         int getFIndexX() const;
@@ -283,13 +170,13 @@ namespace rtf {
 
         void setMatches(vector<FeatureMatch>& matches);
 
-        void setFp1(FeaturePoints<uint8_t> &fp1);
+        void setFp1(FeaturePoints &fp1);
 
-        void setFp2(FeaturePoints<uint8_t> &fp2);
+        void setFp2(FeaturePoints &fp2);
 
-        FeaturePoints<uint8_t> &getFp1();
+        FeaturePoints &getFp1();
 
-        FeaturePoints<uint8_t> &getFp2();
+        FeaturePoints &getFp2();
 
         void addMatch(FeatureMatch match);
 
@@ -335,26 +222,7 @@ namespace rtf {
 
     typedef std::vector<SIFTFeatureKeypoint> SIFTFeatureKeypoints;
     typedef FeatureDescriptors<uint8_t>     SIFTFeatureDescriptors;
-    typedef FeaturePoints<uint8_t> SIFTFeaturePoints;
-
-
-    class ORBFeatureKeypoint: public FeatureKeypoint {
-    public:
-        float angle; //!< computed orientation of the keypoint (-1 if not applicable);
-        float response; //!< the response by which the most strong keypoints have been selected. Can be used for the further sorting or subsampling
-        float size;
-        int octave; //!< octave (pyramid layer) from which the keypoint has been extracted
-        int class_id; //!< object class (if the keypoints need to be clustered by an object they belong to)
-
-        ORBFeatureKeypoint();
-
-        ORBFeatureKeypoint(cv::KeyPoint& kp);
-    };
-
-    typedef std::vector<ORBFeatureKeypoint> ORBFeatureKeypoints;
-    typedef FeatureDescriptors<uint8_t> ORBFeatureDescriptors;
-    typedef FeaturePoints<uint8_t> ORBFeaturePoints;
-
+    typedef FeaturePoints SIFTFeaturePoints;
 
     void featureIndexesToPoints(const FeatureKeypoints& features, const vector<int>& featureIndexes, vector<FeatureKeypoint>& points);
 

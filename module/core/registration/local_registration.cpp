@@ -179,6 +179,7 @@ namespace rtf {
                         int iy = startIndexes[curNodeIndex] + py.getIndex();
 
                         if(correlations[ix].empty()&&correlations[iy].empty()) kpNum++;
+
                         correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[curNodeIndex].getGtTransform(), camera)));
                         correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[refNodeIndex].getGtTransform(), camera)));
                     }
@@ -301,15 +302,13 @@ namespace rtf {
 
             sf.setCamera(localViewGraph[0].getCamera());
             sf.setFIndex(localViewGraph[0].getIndex());
-            FeatureKeypoints& kps = sf.getKeyPoints();
-            FeatureDescriptors<uint8_t>& descriptors = sf.getDescriptors();
 
             // foreach edge
             shared_ptr<CameraModel> cameraModel = localViewGraph[0].getCamera()->getCameraModel();
-            vector<double> scores;
             vector<bool> visited(correlations.size(), false);
+            FeatureKeypoints kp;
             vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
-            float minX=numeric_limits<float>::infinity(), maxX=0, minY=numeric_limits<float>::infinity(), maxY=0;
+            double minX=numeric_limits<double>::infinity(), maxX=0, minY=numeric_limits<double>::infinity(), maxY=0;
             for(int i=0; i<m; i++) {
                 int nodeIndex = connectedComponents[0][i];
                 SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
@@ -323,27 +322,15 @@ namespace rtf {
                         collectCorrespondences(correlations, visited, curIndex, corrIndexes, corr);
                         if(!corr.empty()) {
                             Vector3 point = Vector3::Zero();
-                            Vector3 mean = Vector3::Zero();
-                            EigenVector(Vector3) points;
                             for(const Point3D& c: corr) {
                                 point += c.toVector3();
-                                points.emplace_back(cameraModel->unproject(c.x, c.y, c.z));
-                                mean += points.back();
                             }
                             point /= corr.size();
-                            mean /= corr.size();
-
-                            double rms = 0;
-                            for(const Vector3& p: points) {
-                                rms += (p-mean).squaredNorm();
-                            }
-
                             fp->x = point.x();
                             fp->y = point.y();
                             fp->z = point.z();
 
-                            scores.emplace_back(sqrt(rms/corr.size()));
-                            kps.emplace_back(fp);
+                            kp.emplace_back(fp);
                             desc.emplace_back(sift.getDescriptors().row(j));
 
                             minX = min(fp->x, minX);
@@ -355,51 +342,10 @@ namespace rtf {
                 }
             }
 
-            if(sf.size()>2400) {
-                cout << "before:" << sf.size() <<endl;
-                int gridSize = 20;
-                int num = sf.size();
-                int width = maxX-minX, height=maxY-minY;
-                int rows = floor(width/gridSize), cols = floor(height/gridSize);
-
-                map<int, vector<int>> gridGroup;
-                for(int i=0; i<num; i++) {
-                    auto kp = kps[i];
-                    int gridx = floor(kp->x-minX/gridSize);
-                    int gridy = floor(kp->y-minY/gridSize);
-                    int gridIndex = gridx*cols+gridy;
-                    if(!gridGroup.count(gridIndex)) {
-                        gridGroup.insert(map<int, vector<int>>::value_type(gridIndex, vector<int>()));
-                    }
-                    gridGroup[gridIndex].emplace_back(i);
-                }
-
-                FeatureKeypoints bKps(kps.begin(), kps.end());
-                vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> bDesc(desc.begin(), desc.end());
-
-                kps.clear();
-                desc.clear();
-                for(auto mit: gridGroup) {
-                    int selectedIndex = -1;
-                    double score = numeric_limits<double>::infinity();
-                    for(int ind: mit.second) {
-                        if(scores[ind]<score) {
-                            selectedIndex = ind;
-                            score = scores[ind];
-                        }
-                    }
-                    kps.emplace_back(bKps[selectedIndex]);
-                    desc.emplace_back(bDesc[selectedIndex]);
-                }
-            }
-
-            descriptors.resize(desc.size(), 128);
-            for(int i=0; i<desc.size(); i++) {
-                descriptors.row(i) = desc[i];
-            }
+            cout << "before feature num:" << kp.size() << endl;
 
             sf.setBounds(minX, maxX, minY, maxY);
-            sf.assignFeaturesToGrid();
+            sf.fuseFeaturePoints(kp, desc);
         }else if(m==1){
             sf = localViewGraph[connectedComponents[0][0]].getFrames()[0]->getKps();
         }

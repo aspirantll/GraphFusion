@@ -13,9 +13,6 @@
 namespace rtf {
     class SIFTExtractionConfig {
     public:
-        // Number of threads for feature extraction.
-        int num_threads = -1;
-
         // Whether to use the GPU for feature extraction.
         bool use_gpu = true;
 
@@ -31,9 +28,6 @@ namespace rtf {
 
         // First octave in the pyramid, i.e. -1 upsamples the image by one level.
         int first_octave = -1;
-
-        // Number of octaves.
-        int num_octaves = 4;
 
         // Number of levels per octave.
         int octave_resolution = 3;
@@ -65,10 +59,8 @@ namespace rtf {
         // outperform other SIFT variants and learned descriptors in "Comparative
         // Evaluation of Hand-Crafted and Learned Local Features", Schönberger,
         // Hardmeier, Sattler, Pollefeys, CVPR 2016.
-        bool domain_size_pooling = false;
         double dsp_min_scale = 1.0 / 6.0;
         double dsp_max_scale = 3.0;
-        int dsp_num_scales = 10;
 
         enum class Normalization {
             // L1-normalizes each descriptor followed by element-wise square rooting.
