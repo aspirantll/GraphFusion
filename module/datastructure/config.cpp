@@ -10,15 +10,18 @@ namespace rtf {
 
     shared_ptr<BaseConfig> BaseConfig::config = nullptr;
 
-    BaseConfig::BaseConfig(string workspace, CameraModelType cameraModelType) : workspace(workspace),
-                                                                                cameraModelType(cameraModelType) {
-
+    BaseConfig::BaseConfig(const GlobalConfig& globalConfig) {
+        workspace = globalConfig.workspace;
+        fuse = globalConfig.fuse;
+        kpFuseTh = globalConfig.kpFuseTh;
+        fuseScore = globalConfig.fuseScore;
+        downSample = globalConfig.downSample;
+        downSampleGridSize = globalConfig.downSampleGridSize;
     }
 
-
-    void BaseConfig::initInstance(string workspace, CameraModelType cameraModelType) {
+    void BaseConfig::initInstance(const GlobalConfig& globalConfig) {
         if (config == nullptr) {
-            config = make_shared<BaseConfig>(BaseConfig(workspace, cameraModelType));
+            config = make_shared<BaseConfig>(BaseConfig(globalConfig));
         }
     }
 
@@ -31,7 +34,6 @@ namespace rtf {
     }
 
     GlobalConfig::GlobalConfig(const string &workspace) : workspace(workspace) {
-        BaseConfig::initInstance(workspace);
         vocTxtPath = workspace + "/voc.txt";
     }
 
@@ -51,6 +53,12 @@ namespace rtf {
         vocTxtPath = node["vocTxtPath"].as<string>();
         upperBoundResidual = node["upperBoundResidual"].as<float>();
         chunkSize = node["chunkSize"].as<int>();
+
+        fuse = node["fuse"].as<bool>();
+        kpFuseTh = node["kpFuseTh"].as<int>();
+        fuseScore = node["fuseScore"].as<float>();
+        downSample = node["downSample"].as<bool>();
+        downSampleGridSize = node["downSampleGridSize"].as<int>();
     }
 
     void GlobalConfig::saveToFile(const string &file) {
@@ -68,6 +76,12 @@ namespace rtf {
         node["vocTxtPath"] = vocTxtPath;
         node["upperBoundResidual"] = upperBoundResidual;
         node["chunkSize"] = chunkSize;
+
+        node["fuse"] = fuse;
+        node["kpFuseTh"] = kpFuseTh;
+        node["fuseScore"] = fuseScore;
+        node["downSample"] = downSample;
+        node["downSampleGridSize"] = downSampleGridSize;
 
         YAMLUtil::saveYAML(file, node);
     }

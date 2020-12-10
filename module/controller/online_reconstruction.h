@@ -28,7 +28,6 @@ namespace rtf {
 
         SIFTVocabulary * siftVocabulary = nullptr;
 
-        int lastFrameIndex;
         int frameCounter;
 
         VoxelFusion* getVoxelFusion();

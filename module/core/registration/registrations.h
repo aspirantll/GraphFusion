@@ -197,7 +197,7 @@ namespace rtf {
 
         Transform velocity;
 
-        int kpNum;
+        int kpNum = 0;
         vector<int> startIndexes;
         vector<vector<pair<int, Point3D>>> correlations;
 
@@ -274,5 +274,6 @@ namespace rtf {
 
         ~GlobalRegistration();
     };
+
 }
 #endif //GraphFusion_REGISTRATIONS_H

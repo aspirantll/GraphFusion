@@ -125,32 +125,9 @@ namespace rtf {
             report.success = true;
         }
 
-        /*// remove out of residual
-        int num = kxs->size();
-        vector<double> residuals;
-        for(int i=0; i<num; i++) {
-            Vector2 pixel = pixels.row(i);
-            Vector3 point = points.row(i);
-            Vector3 transPoint = (report.T*point.homogeneous()).block<3,1>(0,0);
-            Vector2 rePixel = camera->getCameraModel()->project(transPoint);
-            residuals.emplace_back((pixel-rePixel).squaredNorm());
+        if(report.success&&BaseConfig::getInstance()->downSample) {
+            downSampleFeatureMatches(*kxs, *kys, camera, report.T, BaseConfig::getInstance()->downSampleGridSize);
         }
-
-        // find 90% position
-        int pos = (int)(0.9*(num-1));
-        vector<double> vResiduals(residuals.begin(), residuals.end());
-        nth_element(vResiduals.begin(), vResiduals.begin()+pos, vResiduals.end());
-        double th = vResiduals[pos];
-        vector<FeatureKeypoint> bKxs(kxs->begin(), kxs->end()), bKys(kys->begin(), kys->end());
-        kxs->clear();
-        kys->clear();
-        for (int i = 0; i < num; i++) {
-            if (residuals[i] <= th) {
-                kxs->emplace_back(bKxs[i]);
-                kys->emplace_back(bKys[i]);
-            }
-        }*/
-
         report.inlierNum = kxs->size();
         return report;
     }

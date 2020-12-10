@@ -239,15 +239,10 @@ namespace rtf {
             YAML::Node node;
             node["frameId"] = id++;
             node["camera"] = serNum;
-            if(serNum=="tum-camera-0") {
-                node["rgbImage"] = "/"+parts[3];
-                node["depthImage"] = "/"+parts[1];
-            }else {
-                node["rgbImage"] = "/"+parts[1];
-                node["depthImage"] = "/"+parts[3];
-            }
+            node["rgbImage"] = "/"+parts[1];
+            node["depthImage"] = "/"+parts[3];
             node["minDepth"] = 500;
-            node["maxDepth"] = 20000;
+            node["maxDepth"] = 25000;
 
             FileInputSource::frames[0].emplace_back(node);
 

@@ -172,7 +172,7 @@ namespace rtf {
             Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor> desc = descs[i];
 
             bool newFp = true;
-            if(num>2000) {
+            if(BaseConfig::getInstance()->fuse&&num>BaseConfig::getInstance()->kpFuseTh) {
                 vector<int> indices = getFeaturesInArea(fp->x, fp->y, 3);
                 float bestDist = 0;
 
@@ -187,7 +187,7 @@ namespace rtf {
                     }
                 }
                 float dist =  acos(min(bestDist * 0.000003814697265625f, 1.0f));
-                newFp = dist>0.4;
+                newFp = dist>BaseConfig::getInstance()->fuseScore;
             }
 
             if(newFp) {
@@ -200,9 +200,6 @@ namespace rtf {
                 int nGridPosX, nGridPosY;
                 if(posInGrid(fp,nGridPosX,nGridPosY))
                     grid[nGridPosX][nGridPosY].push_back(index);
-            }else {
-                keyPoints[bestInd] = fp;
-                descriptors.row(bestInd) = desc;
             }
 
         }

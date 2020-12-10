@@ -13,21 +13,6 @@
 using namespace std;
 
 namespace rtf {
-    class BaseConfig {
-    private:
-        static shared_ptr<BaseConfig> config;
-
-        BaseConfig(string workspace,CameraModelType cameraModelType);
-    public:
-        string workspace;
-        CameraModelType cameraModelType;
-
-        static void initInstance(string workspace, CameraModelType cameraModelType=CameraModelType::PINHOLE);
-
-        static shared_ptr<BaseConfig> getInstance();
-    };
-
-
     class GlobalConfig {
     public:
         /* base */
@@ -136,12 +121,38 @@ namespace rtf {
         float maxPointError = 0.01f;
         int frameNeighs = 1;
 
+        bool fuse = false;
+        int kpFuseTh = 2000;
+        float fuseScore = 0.7;
+        bool downSample = false;
+        int downSampleGridSize = 10;
+
+
         GlobalConfig(const string &workspace);
 
         void loadFromFile(const string &file);
 
         void saveToFile(const string &file);
 
+    };
+
+    class BaseConfig {
+    private:
+        static shared_ptr<BaseConfig> config;
+
+        BaseConfig(const GlobalConfig& globalConfig);
+    public:
+        string workspace;
+        CameraModelType cameraModelType = CameraModelType::PINHOLE;
+        bool fuse;
+        int kpFuseTh;
+        float fuseScore;
+        bool downSample;
+        bool downSampleGridSize;
+
+        static void initInstance(const GlobalConfig& globalConfig);
+
+        static shared_ptr<BaseConfig> getInstance();
     };
 
 }

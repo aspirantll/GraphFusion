@@ -17,7 +17,6 @@ namespace rtf {
         globalRegistration = new GlobalRegistration(globalConfig, siftVocabulary);
 
 //        viewer.run();
-        lastFrameIndex = 0;
         frameCounter = 0;
     }
 
@@ -49,7 +48,6 @@ namespace rtf {
             Timer insertKF = Timer::startTimer("insert frames");
             globalRegistration->insertKeyFrames(kf);
             insertKF.stopTimer();
-            lastFrameIndex = frameCounter;
         }else {
 //            kfTracker.join();
         }
@@ -60,7 +58,6 @@ namespace rtf {
         if(localRegistration->isRemain()) {
             shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
             globalRegistration->insertKeyFrames(kf);
-            lastFrameIndex = frameCounter;
         }
 
         globalRegistration->registration(opt);

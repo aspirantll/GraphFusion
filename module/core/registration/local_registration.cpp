@@ -294,6 +294,9 @@ namespace rtf {
             BARegistration baRegistration(globalConfig);
             baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();
 //            Optimizer::globalBundleAdjustmentCeres(localViewGraph, connectedComponents[0]);
+//            MultiViewICP multiViewIcp(globalConfig);
+//            multiViewIcp.multiViewICP(localViewGraph, connectedComponents[0]).printReport();
+
             // update transforms
             vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
             for(int i=0; i<connectedComponents[0].size(); i++) {
@@ -352,10 +355,10 @@ namespace rtf {
 
 
 
-        cout << "----------------------------------------" << endl;
-        cout << "frame index:" << keyframe->getIndex() << endl;
-        cout << "visible frame num:" << m << endl;
-        cout << "feature num:" << sf.size() << endl;
+        cerr << "----------------------------------------" << endl;
+        cerr << "frame index:" << keyframe->getIndex() << endl;
+        cerr << "visible frame num:" << m << endl;
+        cerr << "feature num:" << sf.size() << endl;
 
         // reset
         localViewGraph.reset(0);

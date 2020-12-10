@@ -3,6 +3,7 @@
 //
 
 #include "optimizer.h"
+#include "../../processor/downsample.h"
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
@@ -78,11 +79,47 @@ private:
     const Eigen::Matrix<double,6,6> sqrt_information_;
 };
 
+class NormErrorTerm {
+public:
+
+    NormErrorTerm(const double weight, const Eigen::Matrix<double,6,6>& sqrt_information): weight(weight), sqrt_information_(sqrt_information){}
+
+    template <typename T>
+    bool operator()(const T* const p_ptr, const T* const q_ptr,
+                    T* residuals_ptr) const
+    {
+        Eigen::Map<const Eigen::Matrix<T, 3, 1> > p(p_ptr);
+        Eigen::Map<const Eigen::Matrix<T, 3, 1> > q(q_ptr);
+
+        Eigen::Map<Eigen::Matrix<T, 6, 1> > residuals(residuals_ptr);
+        residuals.template block<3, 1>(0, 0) = weight * p;
+        residuals.template block<3, 1>(3, 0) = weight * 2 * q;
+
+        // Scale the residuals by the measurement uncertainty.
+        residuals.applyOnTheLeft(sqrt_information_.cast<T>());
+
+        return true;
+    }
+    static ceres::CostFunction* Create(const double weight, const Eigen::Matrix<double,6,6>& sqrt_information)
+    {
+        return new ceres::AutoDiffCostFunction<NormErrorTerm, 6, 3, 4>(new NormErrorTerm(weight, sqrt_information));
+    }
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+private:
+    double weight;
+    // The square root of the measurement information matrix.
+    const Eigen::Matrix<double,6,6> sqrt_information_;
+};
+
+
 constexpr Scalar kHuberWeight = 1.2;
 inline __device__ Scalar computeHuberWeight(Scalar residual_x, Scalar residual_y, Scalar huber_parameter) {
     Scalar squared_residual = residual_x * residual_x + residual_y * residual_y;
     return (squared_residual < huber_parameter * huber_parameter) ? 1 : (huber_parameter / sqrtf(squared_residual));
 }
+
 // global bundle adjustment
 struct BAObservation {
     rtf::Point3D point;
@@ -245,6 +282,7 @@ namespace rtf {
         baseObservation.cy = camera->getCy();
 
         int k = m;
+        int kpNum = 0;
         double err = 0;
         for(int i=0; i<m; i++) {
             CeresPose& Ti = ceresPoseVector[i];
@@ -256,10 +294,13 @@ namespace rtf {
                     CeresPose& Tk = ceresPoseVector[k];
 
                     SE3 se = edge.getSE();
-                    int pairNum = edge.getKxs().size();
+                    vector<FeatureKeypoint> kxs = edge.getKxs(), kys = edge.getKys();
+                    downSampleFeatureMatches(kxs, kys, camera, edge.getTransform(), 100, 100);
+                    int pairNum = kxs.size();
+                    kpNum += pairNum;
                     for(int l=0; l<pairNum; l++) {
-                        FeatureKeypoint px = edge.getKxs()[l];
-                        FeatureKeypoint py = edge.getKys()[l];
+                        FeatureKeypoint px = kxs[l];
+                        FeatureKeypoint py = kys[l];
 
                         BAObservation observation1 = baseObservation;
                         observation1.pixel = px;
@@ -292,6 +333,11 @@ namespace rtf {
                         problem.SetParameterization(Tj.q.coeffs().data(), quaternion_local_parameterization);
                         problem.SetParameterization(Tk.q.coeffs().data(), quaternion_local_parameterization);
                     }
+
+                    const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+                    ceres::CostFunction* cost_function = NormErrorTerm::Create(10, sqrt_information);
+                    problem.AddResidualBlock(cost_function, nullptr,
+                                             Tk.t.data(),Tk.q.coeffs().data());
                     k++;
                 }
             }
@@ -300,28 +346,18 @@ namespace rtf {
 
         ceres::Solver::Options options;
         options.max_num_iterations = 5;
-        options.minimizer_progress_to_stdout = true;
         options.num_threads = 1;
         options.eta = 1e-2;
         options.max_solver_time_in_seconds = 1e32;
         options.use_nonmonotonic_steps = false;
 
-        CHECK(StringToTrustRegionStrategyType("levenberg_marquardt",
-                                              &options.trust_region_strategy_type));
-        CHECK(StringToDoglegType("traditional_dogleg", &options.dogleg_type));
+        options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
+        options.dogleg_type = ceres::TRADITIONAL_DOGLEG;
+        options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.use_inner_iterations = false;
-        CHECK(StringToLinearSolverType("sparse_schur",
-                                       &options.linear_solver_type));
-        CHECK(StringToPreconditionerType("jacobi",
-                                         &options.preconditioner_type));
-        CHECK(StringToVisibilityClusteringType("canonical_views",
-                                               &options.visibility_clustering_type));
-        CHECK(StringToSparseLinearAlgebraLibraryType(
-                "suite_sparse",
-                &options.sparse_linear_algebra_library_type));
-        CHECK(StringToDenseLinearAlgebraLibraryType(
-                "eigen",
-                &options.dense_linear_algebra_library_type));
+        options.preconditioner_type = ceres::JACOBI;
+        options.sparse_linear_algebra_library_type = ceres::SUITE_SPARSE;
+        options.dense_linear_algebra_library_type = ceres::EIGEN;
         options.use_explicit_schur_complement = false;
         options.use_mixed_precision_solves = false;
         options.max_num_refinement_iterations = 0;

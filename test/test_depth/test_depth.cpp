@@ -26,7 +26,7 @@ int main() {
     globalConfig.width = 640;
     globalConfig.height = 480;
 
-    FileInputSource * fileInputSource = new FileInputSource();
+    FileInputSource * fileInputSource = new TUMInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
     cout << "frame_num: " << fileInputSource->getFrameNum() << endl;
     // visiualize
