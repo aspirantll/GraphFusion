@@ -135,21 +135,116 @@ namespace rtf {
 
         // merge nodes in the same connected component
         void mergeComponentNodes(ViewGraph& viewGraph, vector<int>& cc, Node& node) {
-            // pick the principal frame of first node as new node's the principal frame
+            // generate minimum spanning tree
+            int n = cc.size();
+            int u = 0;
+
+            vector<bool> fixed(n);
+            vector<double> lowCost(n);
+            vector<int> path(n);
+            // initialize vectors
+            for(int v=0; v<n; v++) {
+                Edge edge = viewGraph.getEdge(cc[u],cc[v]);
+                lowCost[v] = edge.isUnreachable()? numeric_limits<double>::infinity(): edge.getCost();
+                path[v] = edge.isUnreachable()? -1: u;
+                fixed[v] = false;
+            }
+            fixed[0] = true;
+
+            // begin to update lowCost and path
+            for(int k=1; k<n; k++) {
+                // find min cost index
+                double minCost = numeric_limits<double>::infinity();
+                int minIndex = -1;
+                for(int v=0; v<n; v++) {
+                    if(!fixed[v]&&lowCost[v]<minCost) {
+                        minCost = lowCost[v];
+                        minIndex = v;
+                    }
+                }
+                if(minIndex==-1) {
+                    break;
+                }
+                // fix min cost index path
+                u = minIndex;
+                fixed[u] = true;
+                for(int v=0; v<n; v++) {
+                    Edge edge = viewGraph.getEdge(cc[u],cc[v]);
+                    if(!edge.isUnreachable()) {
+                        double cost = edge.getCost();
+                        if(!fixed[v]&&lowCost[v]>cost) {
+                            lowCost[v] = cost;
+                            path[v] = u;
+                        }
+                    }
+                }
+            }
+
+            // select root for connected component
+            map<int, int> counter;
+            for(int i=0; i<n; i++) {
+                int p = path[i];
+                if(p==-1) continue;
+                if(!counter.count(p)) {
+                    counter.insert(map<int, int>::value_type(p, 0));
+                }
+                counter[p]++;
+            }
+
+            int root = -1;
+            int maxCount = 0;
+            for(auto mit: counter) {
+                if(mit.second>maxCount) {
+                    maxCount = mit.second;
+                    root = mit.first;
+                }
+            }
+
+            // reverse root tree
+            int v = root;
+            vector<int> pathForV;
+            do {
+              pathForV.emplace_back(v);
+            } while ((v=path[v])!=-1);
+
+            for(int i=pathForV.size()-1; i>0; i--) {
+                path[pathForV[i]] = pathForV[i-1];
+            }
+            path[root] = -1;
+
+            // add root first frame
+            shared_ptr<KeyFrame> frame = viewGraph[cc[root]].getFrames()[0];
+            frame->setTransform(Transform::Identity());
+            node.addFrame(frame);
+
+            // compute transformation for every node
             bool visible = true;
-            for(int i=0; i<cc.size(); i++) {
+            for(int i=0; i<n; i++) {
+                Transform baseTrans = Transform::Identity();
+                int k = i;
+                int j = -1;
+                while((j=path[k])!=-1) {
+                    Edge edge = viewGraph.getEdge(cc[j], cc[k]);
+                    LOG_ASSERT(!edge.isUnreachable()) << " error in compute transformation for connected components: the edge is unreachable!";
+                    baseTrans = edge.getTransform()*baseTrans;
+                    k = j;
+                }
+
                 Node& cur = viewGraph[cc[i]];
-                for(int j=0; j<cur.getFrames().size(); j++) {
-                    const auto& frame = cur.getFrames()[j];
-                    Transform trans = viewGraph[cc[i]].getGtTransform() * frame->getTransform();
-                    frame->setTransform(trans);
-                    node.addFrame(frame);
+                cur.setGtTransform(baseTrans);
+                for(int l=0; l<cur.getFrames().size(); l++) {
+                    if(i==root&&l==0) continue;
+
+                    const auto& f = cur.getFrames()[l];
+                    Transform trans =  baseTrans * f->getTransform();
+                    f->setTransform(trans);
+                    node.addFrame(f);
                 }
                 visible = visible&&cur.isVisible();
             }
 
             node.status = 0;
-            node.setGtTransform(viewGraph[cc[0]].getGtTransform());
+            node.setGtTransform(viewGraph[cc[root]].getGtTransform());
             node.setVisible(visible);
         }
 

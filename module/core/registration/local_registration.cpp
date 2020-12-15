@@ -5,7 +5,6 @@
 #include "registrations.h"
 #include "optimizer.h"
 #include "../../tool/view_graph_util.h"
-#include "../../processor/downsample.h"
 #include <glog/logging.h>
 
 #include <utility>
@@ -290,12 +289,9 @@ namespace rtf {
         SIFTFeaturePoints &sf = keyframe->getKps();
         int m = connectedComponents[0].size();
         if(m > 1) {
-            cout << "multiview" << endl;
-            BARegistration baRegistration(globalConfig);
-            baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();
-//            Optimizer::globalBundleAdjustmentCeres(localViewGraph, connectedComponents[0]);
-//            MultiViewICP multiViewIcp(globalConfig);
-//            multiViewIcp.multiViewICP(localViewGraph, connectedComponents[0]).printReport();
+//            BARegistration baRegistration(globalConfig);
+//            baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();
+//            Optimizer::poseGraphOptimizeCeres(localViewGraph);
 
             // update transforms
             vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
@@ -345,8 +341,6 @@ namespace rtf {
                 }
             }
 
-            cout << "before feature num:" << kp.size() << endl;
-
             sf.setBounds(minX, maxX, minY, maxY);
             sf.fuseFeaturePoints(kp, desc);
         }else if(m==1){
@@ -355,10 +349,10 @@ namespace rtf {
 
 
 
-        cerr << "----------------------------------------" << endl;
-        cerr << "frame index:" << keyframe->getIndex() << endl;
-        cerr << "visible frame num:" << m << endl;
-        cerr << "feature num:" << sf.size() << endl;
+        cout << "----------------------------------------" << endl;
+        cout << "frame index:" << keyframe->getIndex() << endl;
+        cout << "visible frame num:" << m << endl;
+        cout << "feature num:" << sf.size() << endl;
 
         // reset
         localViewGraph.reset(0);

@@ -267,6 +267,8 @@ namespace rtf {
     void ViewGraph::setNodesAndEdges(NodeVector &nodes, EigenUpperTriangularMatrix<rtf::Edge> &adjMatrix) {
         this->nodes = nodes;
         *(this->adjMatrix) = adjMatrix;
+
+        generateSpanningTree();
     }
 
 
@@ -581,6 +583,82 @@ namespace rtf {
         return lostCount;
     }
 
+    void ViewGraph::generateSpanningTree() {
+        // generate minimum spanning tree
+        int n = nodes.size();
+        parentIndexes.resize(n,-1);
+        rootIndexes.resize(n);
+        iota(rootIndexes.begin(), rootIndexes.end(), 0);
+
+        vector<bool> fixed(n, false);
+        vector<double> lowCost(n);
+        for(int u=0; u<n; u++) {
+            if(fixed[u]) continue;
+
+            // initialize vectors
+            for(int v=0; v<n; v++) {
+                Edge edge = getEdge(u, v);
+                if(!fixed[v]){
+                    lowCost[v] = edge.isUnreachable()? numeric_limits<double>::infinity(): edge.getCost();
+                    parentIndexes[v] = edge.isUnreachable()? -1: u;
+                }
+            }
+            fixed[u] = true;
+
+            // begin to update lowCost and path
+            for(int k=u+1; k<n; k++) {
+                // find min cost index
+                double minCost = numeric_limits<double>::infinity();
+                int minIndex = -1;
+                for(int v=0; v<n; v++) {
+                    if(!fixed[v]&&lowCost[v]<minCost) {
+                        minCost = lowCost[v];
+                        minIndex = v;
+                    }
+                }
+                if(minIndex==-1) {
+                    break;
+                }
+                // fix min cost index path
+                int s = minIndex;
+                fixed[s] = true;
+                for(int v=0; v<n; v++) {
+                    Edge edge = getEdge(s, v);
+                    if(!edge.isUnreachable()) {
+                        double cost = edge.getCost();
+                        if(!fixed[v]&&lowCost[v]>cost) {
+                            lowCost[v] = cost;
+                            parentIndexes[v] = s;
+                        }
+                    }
+                }
+            }
+        }
+
+        // update root nodes
+        map<int,int> rootCounter;
+        for(int i=0; i<n; i++) {
+            int u = i;
+            while (parentIndexes[u]!=-1) u = parentIndexes[u];
+            rootIndexes[i] = u;
+            if(!rootCounter.count(u)) {
+                rootCounter.insert(map<int, int>::value_type(u, 0));
+            }
+            rootCounter[u]++;
+        }
+
+        int maxRoot = 0;
+        int maxCount = rootCounter[0];
+        for(auto mit: rootCounter) {
+            if(mit.second>maxCount) {
+                maxCount = mit.second;
+                maxRoot = mit.first;
+            }
+        }
+
+        curMaxRoot = maxRoot;
+    }
+
     int ViewGraph::getParent(int nodeIndex) {
         return parentIndexes[nodeIndex];
     }
@@ -667,6 +745,20 @@ namespace rtf {
         cout << "frameNodeIndex:" << endl;
         for(int i=0; i<getFramesNum(); i++) {
             cout << i << "-" << frameNodeIndex[i] << ",";
+        }
+        cout << endl;
+
+        cout << "current root:" << curMaxRoot << endl;
+
+        cout << "parents:" << endl;
+        for(int i=0; i<n; i++) {
+            cout << i << "-" << parentIndexes[i] << ",";
+        }
+        cout << endl;
+
+        cout << "roots:" << endl;
+        for(int i=0; i<n; i++) {
+            cout << i << "-" << rootIndexes[i] << ",";
         }
         cout << endl;
         cout << "---------------------view graph end------------------------------" << endl;

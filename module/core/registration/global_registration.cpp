@@ -119,7 +119,7 @@ namespace rtf {
 
                 cout << "loop closure detected!!!" << endl;
                 loops.insert(loops.end(), loopCandidates.begin(), loopCandidates.end());
-                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
+                Optimizer::poseGraphOptimizeCeres1(viewGraph, loops);
                 loopCandidates.clear();
                 return true;
             }
@@ -214,12 +214,10 @@ namespace rtf {
         // merge nodes and transformation
         for (int i = 0; i < n; i++) {
             if (connectedComponents[i].size() > 1) {
-                cout << "multiview" << endl;
-                BARegistration bundleAdjustment(globalConfig);
-                bundleAdjustment.multiViewBundleAdjustment(viewGraph, connectedComponents[i]).printReport();
                 mergeComponentNodes(viewGraph, connectedComponents[i], nodes[i]);
             } else {
                 nodes[i] = viewGraph[connectedComponents[i][0]];
+                viewGraph[connectedComponents[i][0]].setGtTransform(Transform::Identity());
             }
 
         }
@@ -234,6 +232,7 @@ namespace rtf {
         // update view graph
         viewGraph.setNodesAndEdges(nodes, adjMatrix);
         viewGraph.updateNodeIndex(connectedComponents);
+        viewGraph.computeGtTransforms();
     }
 
     void GlobalRegistration::updateLostFrames() {
@@ -293,22 +292,18 @@ namespace rtf {
                     edge.setTransform(bestEdge.getTransform());
                     edge.setCost(bestEdge.getCost());
                 }
-
             }
 
-            loopClosureDetection();
-
-            /*if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
-                cout << "local optimization" << endl;
-                vector<int> cc(viewGraph.getFramesNum());
-                iota(cc.begin(), cc.end(), 0);
-                BARegistration baRegistration(globalConfig);
-                baRegistration.multiViewBundleAdjustment(viewGraph, cc).printReport();
-            }*/
             Timer grTimer = Timer::startTimer("gr");
             lostNum = viewGraph.updateSpanningTree();
             grTimer.stopTimer();
             updateLostFrames();
+
+            loopClosureDetection();
+
+            /*if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
+                mergeViewGraph();
+            }*/
 
             curNodeIndex = viewGraph.findNodeIndexByFrameIndex(keyframe->getIndex());
             if (viewGraph[curNodeIndex].isVisible()) {

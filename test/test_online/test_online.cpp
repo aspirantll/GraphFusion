@@ -19,7 +19,7 @@ using namespace rtf;
 using namespace pcl;
 
 string workspace;
-double minDepth = 0.0001;
+double minDepth = 0.1;
 double maxDepth = 10;
 
 void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new TUMInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
@@ -98,13 +98,12 @@ int main(int argc, char* argv[]) {
     OnlineReconstruction onlineRecon(globalConfig);
     for(int i=0; i<fileInputSource->getFrameNum(); i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
-        frame->setDepthBounds(minDepth, maxDepth);
         onlineRecon.appendFrame(frame);
         frame->releaseImages();
     }
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
-    onlineRecon.finalOptimize(true);
+    onlineRecon.finalOptimize(false);
 //    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();

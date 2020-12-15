@@ -11,6 +11,8 @@
 namespace rtf {
     class Optimizer {
     public:
+        static void poseGraphOptimizeCeres1(ViewGraph &viewGraph, const vector<pair<int, int> >& loops);
+
         static void poseGraphOptimizeCeres(ViewGraph &viewGraph, const vector<pair<int, int> >& loops);
 
         static void globalBundleAdjustmentCeres(ViewGraph &viewGraph, const vector<int>& cc);

@@ -274,6 +274,5 @@ namespace rtf {
 
         ~GlobalRegistration();
     };
-
 }
 #endif //GraphFusion_REGISTRATIONS_H

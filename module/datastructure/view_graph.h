@@ -239,6 +239,8 @@ namespace rtf {
 
         int updateSpanningTree();
 
+        void generateSpanningTree();
+
         vector<vector<int>> getConnectComponents();
 
         void computeGtTransforms();
