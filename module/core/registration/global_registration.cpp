@@ -33,7 +33,6 @@ namespace rtf {
             if (ba.success) {
                 double cost = ba.avgCost();
                 if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                    downSampleFeatureMatches(kxs, kys, featureMatches->getCx(), ba.T, 20);
                     edge->setKxs(kxs);
                     edge->setKys(kys);
                     edge->setTransform(ba.T);
@@ -119,7 +118,7 @@ namespace rtf {
 
                 cout << "loop closure detected!!!" << endl;
                 loops.insert(loops.end(), loopCandidates.begin(), loopCandidates.end());
-                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
+                Optimizer::poseGraphOptimizeCeres1(viewGraph, loops);
                 loopCandidates.clear();
                 return true;
             }

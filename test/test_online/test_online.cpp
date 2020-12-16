@@ -98,6 +98,7 @@ int main(int argc, char* argv[]) {
     OnlineReconstruction onlineRecon(globalConfig);
     for(int i=0; i<fileInputSource->getFrameNum(); i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
+        frame->setDepthBounds(minDepth, maxDepth);
         onlineRecon.appendFrame(frame);
         frame->releaseImages();
     }

@@ -197,7 +197,7 @@ namespace rtf {
 
         Transform velocity;
 
-        int kpNum = 0;
+        int kpNum;
         vector<int> startIndexes;
         vector<vector<pair<int, Point3D>>> correlations;
 

@@ -5,6 +5,7 @@
 #include "registrations.h"
 #include "optimizer.h"
 #include "../../tool/view_graph_util.h"
+#include "../../processor/downsample.h"
 #include <glog/logging.h>
 
 #include <utility>
@@ -307,7 +308,7 @@ namespace rtf {
             vector<bool> visited(correlations.size(), false);
             FeatureKeypoints kp;
             vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
-            double minX=numeric_limits<double>::infinity(), maxX=0, minY=numeric_limits<double>::infinity(), maxY=0;
+            Scalar minX=numeric_limits<Scalar>::infinity(), maxX=0, minY=numeric_limits<Scalar>::infinity(), maxY=0;
             for(int i=0; i<m; i++) {
                 int nodeIndex = connectedComponents[0][i];
                 SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
