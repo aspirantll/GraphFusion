@@ -119,7 +119,7 @@ namespace rtf {
 
                 cout << "loop closure detected!!!" << endl;
                 loops.insert(loops.end(), loopCandidates.begin(), loopCandidates.end());
-                Optimizer::poseGraphOptimizeCeres1(viewGraph, loops);
+                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
                 loopCandidates.clear();
                 return true;
             }
@@ -300,6 +300,7 @@ namespace rtf {
             updateLostFrames();
 
             loopClosureDetection();
+
 
             /*if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
                 mergeViewGraph();

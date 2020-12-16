@@ -313,10 +313,8 @@ namespace rtf {
         }
 
         ceres::Solver::Options options;
-        options.gradient_tolerance = 1e-16;
-        options.function_tolerance = 1e-16;
         options.max_num_iterations = 200;
-        options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+        options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = 1;
         ceres::Solver::Summary summary;
         ceres::Solve(options, &problem, &summary);
@@ -381,8 +379,6 @@ namespace rtf {
         }
 
         ceres::Solver::Options options;
-        options.gradient_tolerance = 1e-16;
-        options.function_tolerance = 1e-10;
         options.max_num_iterations = 200;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = 1;
