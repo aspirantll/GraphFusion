@@ -258,8 +258,6 @@ namespace rtf {
 
         bool loopClosureDetection();
 
-        bool mergeViewGraph();
-
         void updateLostFrames();
 
     public:

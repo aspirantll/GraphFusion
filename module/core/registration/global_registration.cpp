@@ -18,17 +18,10 @@ namespace rtf {
         if (pnp.success) {
             BARegistration baRegistration(globalConfig);
             vector<FeatureKeypoint> kxs, kys;
-            if(pnp.inliers.size()<100) {
-                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
-                featureMatchesToPoints(matches, kxs, kys);
+            FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
+            featureMatchesToPoints(matches, kxs, kys);
 
-                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
-            }else {
-                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
-
-                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
-            }
+            ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
 
             if (ba.success) {
                 double cost = ba.avgCost();
@@ -51,39 +44,6 @@ namespace rtf {
     void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream) {
         stream = curStream;
         registrationPnPBA(&featureMatches, edge);
-
-        if(featureMatches.getFIndexY()-featureMatches.getFIndexX()==globalConfig.chunkSize) { // registration
-            shared_ptr<KeyFrame> ref = viewGraph.indexFrame(featureMatches.getFIndexX());
-            shared_ptr<KeyFrame> cur = viewGraph.indexFrame(featureMatches.getFIndexY());
-            vector<shared_ptr<Frame>> refFrames = ref->getFrames();
-            int lastVisPos = refFrames.size()-1;
-            for(; lastVisPos>0&&!refFrames[lastVisPos]->isVisible(); lastVisPos--);
-            shared_ptr<Frame> lastRefFrame = refFrames[lastVisPos];
-            shared_ptr<Frame> curFrame = cur->getFirstFrame();
-            FeatureMatches frameMatches = matcher->matchKeyPointsPair(lastRefFrame->getKps(), curFrame->getKps());
-            Edge frameEdge = Edge::UNREACHABLE;
-            registrationPnPBA(&frameMatches, &frameEdge);
-
-            if(!frameEdge.isUnreachable()&&(edge->isUnreachable()||(edge->getKxs().size()<frameEdge.getKxs().size()&&edge->getCost()>frameEdge.getCost()))) {
-                Transform transX = lastRefFrame->getTransform();
-
-                Intrinsic kX = viewGraph[0].getK();
-
-                // transform and k: p' = K(R*K^-1*p+t)
-                Rotation rX = kX*transX.block<3,3>(0,0)*kX.inverse();
-                Translation tX = kX*transX.block<3,1>(0,3);
-
-                // transform key points
-                transformFeatureKeypoints(frameEdge.getKxs(), rX, tX);
-
-                // trans12 = trans1*relative_trans*trans2^-1
-                Transform relativeTrans = transX * frameEdge.getTransform();
-                edge->setTransform(relativeTrans);
-                edge->setKxs(frameEdge.getKxs());
-                edge->setKys(frameEdge.getKys());
-                edge->setCost(frameEdge.getCost());
-            }
-        }
     }
 
     bool detectLoop(set<pair<int, int> >& candidates) {
@@ -118,7 +78,7 @@ namespace rtf {
 
                 cout << "loop closure detected!!!" << endl;
                 loops.insert(loops.end(), loopCandidates.begin(), loopCandidates.end());
-                Optimizer::poseGraphOptimizeCeres1(viewGraph, loops);
+                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
                 loopCandidates.clear();
                 return true;
             }
@@ -198,42 +158,6 @@ namespace rtf {
         pnpRegistration = new PnPRegistration(globalConfig);
     }
 
-    bool GlobalRegistration::mergeViewGraph() {
-        viewGraph.check();
-        cout << "merge view graph..." << endl;
-        // find connected component from view graph
-        vector<vector<int>> connectedComponents = findConnectedComponents(viewGraph, globalConfig.costThreshold);
-        // it is unnecessary to update again if the size of connected components is equals to the nodes of graph
-        int n = connectedComponents.size();
-
-        if (n == viewGraph.getNodesNum()) return false;
-        // initialize new view graph
-        NodeVector nodes(n);
-        EigenUpperTriangularMatrix<Edge> adjMatrix(n, Edge::UNREACHABLE);
-        // merge nodes and transformation
-        for (int i = 0; i < n; i++) {
-            if (connectedComponents[i].size() > 1) {
-                mergeComponentNodes(viewGraph, connectedComponents[i], nodes[i]);
-            } else {
-                nodes[i] = viewGraph[connectedComponents[i][0]];
-                viewGraph[connectedComponents[i][0]].setGtTransform(Transform::Identity());
-            }
-
-        }
-        for (int i = 0; i < n; i++) {
-            vector<int> cc1 = connectedComponents[i];
-            for (int j = i + 1; j < n; j++) {
-                vector<int> cc2 = connectedComponents[j];
-                adjMatrix(i, j) = selectEdgeBetweenComponents(viewGraph, cc1, cc2);
-            }
-        }
-
-        // update view graph
-        viewGraph.setNodesAndEdges(nodes, adjMatrix);
-        viewGraph.updateNodeIndex(connectedComponents);
-        viewGraph.computeGtTransforms();
-    }
-
     void GlobalRegistration::updateLostFrames() {
         vector<int> lostImageIds = dBoWHashing->lostImageIds();
         vector<int> updateIds;
@@ -300,11 +224,6 @@ namespace rtf {
 
             loopClosureDetection();
 
-
-            /*if(viewGraph.getFramesNum()%globalConfig.chunkSize==0) {
-                mergeViewGraph();
-            }*/
-
             curNodeIndex = viewGraph.findNodeIndexByFrameIndex(keyframe->getIndex());
             if (viewGraph[curNodeIndex].isVisible()) {
                 Transform trans = viewGraph.getFrameTransform(keyframe->getIndex());
@@ -327,14 +246,12 @@ namespace rtf {
 
         cout << "------------------------compute global transform for view graph------------------------" << endl;
         vector<vector<int>> ccs = viewGraph.getConnectComponents();
-//        viewGraph.computeGtTransforms();
 
         for(int i=0; i<ccs.size(); i++) {
             vector<int>& cc = ccs[i];
             if(cc.size()>1) {
                 if(opt) {
-                    BARegistration baRegistration(globalConfig);
-                    baRegistration.multiViewBundleAdjustment(viewGraph, cc).printReport();
+                    Optimizer::poseGraphOptimizeCeres(viewGraph);
                 }
             }
         }

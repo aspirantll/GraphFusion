@@ -238,11 +238,13 @@ public:
 
 namespace rtf {
 
-    void meanFeatures(vector<FeatureKeypoint>& kxs, vector<FeatureKeypoint>& kys, shared_ptr<Camera> camera, Vector3& px, Vector3& py) {
+    void
+    meanFeatures(vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, shared_ptr<Camera> camera, Vector3 &px,
+                 Vector3 &py) {
         px.setZero();
         py.setZero();
 
-        for(int i=0; i<kxs.size(); i++) {
+        for (int i = 0; i < kxs.size(); i++) {
             px += camera->getCameraModel()->unproject(kxs[i].x, kxs[i].y, kxs[i].z);
             py += camera->getCameraModel()->unproject(kys[i].x, kys[i].y, kys[i].z);
         }
@@ -254,58 +256,56 @@ namespace rtf {
         py.normalize();
     }
 
-    void Optimizer::poseGraphOptimizeCeres1(ViewGraph &viewGraph, const vector<pair<int, int> >& loops) {
+    void Optimizer::poseGraphOptimizeCeres(ViewGraph &viewGraph, const vector<pair<int, int> > &loops) {
         int m = viewGraph.getNodesNum();
-        if(m<=2) return;
+        if (m <= 2) return;
 
         CeresPoseVector ceresPoseVector;
-        for(int c=0; c<m; c++) {
+        for (int c = 0; c < m; c++) {
             ceresPoseVector.emplace_back(viewGraph[c].getGtSE());
         }
         ceresPoseVector[0].setPoseFixed();
 
         shared_ptr<Camera> camera = viewGraph[0].getCamera();
         ceres::Problem problem;
-//        ceres::LossFunction* loss_function = new ceres::CauchyLoss(1.0);
-//         ceres::LossFunction* loss_function = new ceres::HuberLoss(0.02);
-        ceres::LossFunction* loss_function = nullptr;
-        ceres::LocalParameterization* quaternion_local_parameterization = new ceres::EigenQuaternionParameterization;
+        ceres::LossFunction *loss_function = nullptr;
+        ceres::LocalParameterization *quaternion_local_parameterization = new ceres::EigenQuaternionParameterization;
         // 2. add edges in connected components
-        for(int i=0; i<viewGraph.getNodesNum(); i++) {
+        for (int i = 0; i < viewGraph.getNodesNum(); i++) {
             int p = viewGraph.getParent(i);
-            if(p!=-1) {
-                CeresPose& Ti = ceresPoseVector[p];
+            if (p != -1) {
+                CeresPose &Ti = ceresPoseVector[p];
                 CeresPose &Tj = ceresPoseVector[i];
                 Edge edge = viewGraph.getEdge(p, i);
                 Vector3 px, py;
                 meanFeatures(edge.getKxs(), edge.getKys(), camera, px, py);
-                ceres::CostFunction* cost_function = Averaging3dErrorTerm::Create(py, edge.getSE());
+                ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(py, edge.getSE());
 
                 problem.AddResidualBlock(cost_function, loss_function,
-                                         Ti.t.data(),Ti.q.coeffs().data(),
-                                         Tj.t.data(),Tj.q.coeffs().data());
+                                         Ti.t.data(), Ti.q.coeffs().data(),
+                                         Tj.t.data(), Tj.q.coeffs().data());
                 problem.SetParameterization(Ti.q.coeffs().data(), quaternion_local_parameterization);
                 problem.SetParameterization(Tj.q.coeffs().data(), quaternion_local_parameterization);
             }
         }
 
         // loops
-        for(int i=0; i<loops.size(); i++) {
+        for (int i = 0; i < loops.size(); i++) {
             int refIndex = loops[i].first;
             int curIndex = loops[i].second;
             Edge connection = viewGraph.getEdge(refIndex, curIndex);
             if (!connection.isUnreachable()) {
-                for(int j=0; j<3; j++) {
-                    CeresPose& Ti = ceresPoseVector[refIndex];
+                for (int j = 0; j < 3; j++) {
+                    CeresPose &Ti = ceresPoseVector[refIndex];
                     CeresPose &Tj = ceresPoseVector[curIndex];
                     Edge edge = viewGraph.getEdge(refIndex, curIndex);
                     Vector3 px, py;
                     meanFeatures(edge.getKxs(), edge.getKys(), camera, px, py);
-                    ceres::CostFunction* cost_function = Averaging3dErrorTerm::Create(py, edge.getSE());
+                    ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(py, edge.getSE());
 
                     problem.AddResidualBlock(cost_function, loss_function,
-                                             Ti.t.data(),Ti.q.coeffs().data(),
-                                             Tj.t.data(),Tj.q.coeffs().data());
+                                             Ti.t.data(), Ti.q.coeffs().data(),
+                                             Tj.t.data(), Tj.q.coeffs().data());
                     problem.SetParameterization(Ti.q.coeffs().data(), quaternion_local_parameterization);
                     problem.SetParameterization(Tj.q.coeffs().data(), quaternion_local_parameterization);
                 }
@@ -320,18 +320,16 @@ namespace rtf {
         ceres::Solve(options, &problem, &summary);
         std::cout << summary.FullReport() << '\n';
 
-        for(int i=0; i<viewGraph.getNodesNum(); i++) {
+        for (int i = 0; i < viewGraph.getNodesNum(); i++) {
             viewGraph[i].setGtTransform(ceresPoseVector[i].returnPose().matrix());
         }
     }
 
-    void Optimizer::poseGraphOptimizeCeres(ViewGraph &viewGraph, const vector<pair<int, int> >& loops) {
+    void Optimizer::poseGraphOptimizeCeres(ViewGraph &viewGraph) {
         //Loss Function can be changed!
-        // ceres::LossFunction* loss_function = new ceres::CauchyLoss(1.0);
-        // ceres::LossFunction* loss_function = new ceres::HuberLoss(0.2);
         ceres::Problem problem;
-        ceres::LossFunction* loss_function = nullptr;
-        ceres::LocalParameterization* quaternion_local_parameterization = new ceres::EigenQuaternionParameterization;
+        ceres::LossFunction *loss_function = nullptr;
+        ceres::LocalParameterization *quaternion_local_parameterization = new ceres::EigenQuaternionParameterization;
         // collect cere poses
         CeresPoseVector ceresVectorPoses;
         for (int i = 0; i < viewGraph.getNodesNum(); i++) {
@@ -339,39 +337,20 @@ namespace rtf {
         }
         ceresVectorPoses[0].setPoseFixed();
         // 2. add edges in connected components
-        for(int i=0; i<viewGraph.getNodesNum(); i++) {
-            int p = viewGraph.getParent(i);
-            if(p!=-1) {
-                const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
-                ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create((viewGraph[p].getGtSE().inverse()*viewGraph[i].getGtSE()), sqrt_information);
-
-                CeresPose& T_W_i = ceresVectorPoses[p];
-                CeresPose& T_W_j = ceresVectorPoses[i];
-
-                problem.AddResidualBlock(cost_function, loss_function,
-                                         T_W_i.t.data(),T_W_i.q.coeffs().data(),
-                                         T_W_j.t.data(),T_W_j.q.coeffs().data());
-                problem.SetParameterization(T_W_i.q.coeffs().data(), quaternion_local_parameterization);
-                problem.SetParameterization(T_W_j.q.coeffs().data(), quaternion_local_parameterization);
-            }
-        }
-
-        // loops
-        for(int i=0; i<loops.size(); i++) {
-            int refIndex = loops[i].first;
-            int curIndex = loops[i].second;
-            Edge connection = viewGraph.getEdge(refIndex, curIndex);
-            if (!connection.isUnreachable()) {
-                for(int j=0; j<3; j++) {
+        for (int i = 0; i < viewGraph.getNodesNum(); i++) {
+            for (int j = i + 1; j < viewGraph.getNodesNum(); j++) {
+                Edge connection = viewGraph.getEdge(i, j);
+                if (!connection.isUnreachable()) {
                     const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
-                    ceres::CostFunction* cost_function = PoseGraph3dErrorTerm::Create(connection.getSE(), sqrt_information);
+                    ceres::CostFunction *cost_function = PoseGraph3dErrorTerm::Create(connection.getSE(),
+                                                                                      sqrt_information);
 
-                    CeresPose& T_W_i = ceresVectorPoses[refIndex];
-                    CeresPose& T_W_j = ceresVectorPoses[curIndex];
+                    CeresPose &T_W_i = ceresVectorPoses[i];
+                    CeresPose &T_W_j = ceresVectorPoses[j];
 
                     problem.AddResidualBlock(cost_function, loss_function,
-                                             T_W_i.t.data(),T_W_i.q.coeffs().data(),
-                                             T_W_j.t.data(),T_W_j.q.coeffs().data());
+                                             T_W_i.t.data(), T_W_i.q.coeffs().data(),
+                                             T_W_j.t.data(), T_W_j.q.coeffs().data());
                     problem.SetParameterization(T_W_i.q.coeffs().data(), quaternion_local_parameterization);
                     problem.SetParameterization(T_W_j.q.coeffs().data(), quaternion_local_parameterization);
                 }
@@ -386,32 +365,34 @@ namespace rtf {
         ceres::Solve(options, &problem, &summary);
         std::cout << summary.FullReport() << '\n';
 
-        for(int i=0; i<viewGraph.getNodesNum(); i++) {
+        for (int i = 0; i < viewGraph.getNodesNum(); i++) {
             viewGraph[i].setGtTransform(ceresVectorPoses[i].returnPose().matrix());
         }
     }
 
-    void Optimizer::globalBundleAdjustmentCeres(ViewGraph &viewGraph, const vector<int>& cc) {
+    void Optimizer::globalBundleAdjustmentCeres(ViewGraph &viewGraph, const vector<int> &cc) {
         int m = cc.size();
-        if(m<=1) return;
+        if (m <= 1) return;
 
         CeresPoseVector ceresPoseVector;
-        for(int c: cc) {
+        for (int c: cc) {
             ceresPoseVector.emplace_back(viewGraph[c].getGtSE());
         }
 
-        for(int i=0; i<m; i++) {
-            for(int j=i+1; j<m; j++) {
-                if(viewGraph.existEdge(cc[i], cc[j])) {
-                    ceresPoseVector.emplace_back(ceresPoseVector[j].returnPose().inverse() * ceresPoseVector[i].returnPose() * viewGraph.getEdgeSE(cc[i], cc[j]));
+        for (int i = 0; i < m; i++) {
+            for (int j = i + 1; j < m; j++) {
+                if (viewGraph.existEdge(cc[i], cc[j])) {
+                    ceresPoseVector.emplace_back(
+                            ceresPoseVector[j].returnPose().inverse() * ceresPoseVector[i].returnPose() *
+                            viewGraph.getEdgeSE(cc[i], cc[j]));
                 }
             }
         }
         ceresPoseVector[0].setPoseFixed();
 
         ceres::Problem problem;
-        ceres::LossFunction* loss_function = new ceres::HuberLoss(kHuberWeight);
-        ceres::LocalParameterization* quaternion_local_parameterization = new ceres::EigenQuaternionParameterization;
+        ceres::LossFunction *loss_function = new ceres::HuberLoss(kHuberWeight);
+        ceres::LocalParameterization *quaternion_local_parameterization = new ceres::EigenQuaternionParameterization;
 
         shared_ptr<Camera> camera = viewGraph[0].getCamera();
         shared_ptr<CameraModel> cameraModel = camera->getCameraModel();
@@ -425,21 +406,21 @@ namespace rtf {
         int k = m;
         int kpNum = 0;
         double err = 0;
-        for(int i=0; i<m; i++) {
-            CeresPose& Ti = ceresPoseVector[i];
-            for(int j=i+1; j<m; j++) {
-                CeresPose& Tj = ceresPoseVector[j];
+        for (int i = 0; i < m; i++) {
+            CeresPose &Ti = ceresPoseVector[i];
+            for (int j = i + 1; j < m; j++) {
+                CeresPose &Tj = ceresPoseVector[j];
 
                 Edge edge = viewGraph.getEdge(cc[i], cc[j]);
-                if(!edge.isUnreachable()) {
-                    CeresPose& Tk = ceresPoseVector[k];
+                if (!edge.isUnreachable()) {
+                    CeresPose &Tk = ceresPoseVector[k];
 
                     SE3 se = edge.getSE();
                     vector<FeatureKeypoint> kxs = edge.getKxs(), kys = edge.getKys();
                     downSampleFeatureMatches(kxs, kys, camera, edge.getTransform(), 100, 100);
                     int pairNum = kxs.size();
                     kpNum += pairNum;
-                    for(int l=0; l<pairNum; l++) {
+                    for (int l = 0; l < pairNum; l++) {
                         FeatureKeypoint px = kxs[l];
                         FeatureKeypoint py = kys[l];
 
@@ -448,12 +429,12 @@ namespace rtf {
                         observation1.point = cameraModel->unproject(py.x, py.y, py.z);
                         observation1.order = 0;
 
-                        ceres::CostFunction* cost_function1 = ReprojectionErrorWithQuaternions::Create(observation1);
+                        ceres::CostFunction *cost_function1 = ReprojectionErrorWithQuaternions::Create(observation1);
 
                         problem.AddResidualBlock(cost_function1, loss_function,
-                                                 Ti.t.data(),Ti.q.coeffs().data(),
-                                                 Tj.t.data(),Tj.q.coeffs().data(),
-                                                 Tk.t.data(),Tk.q.coeffs().data());
+                                                 Ti.t.data(), Ti.q.coeffs().data(),
+                                                 Tj.t.data(), Tj.q.coeffs().data(),
+                                                 Tk.t.data(), Tk.q.coeffs().data());
 
                         err += observation1.computeErr(se);
                         BAObservation observation2 = baseObservation;
@@ -461,12 +442,12 @@ namespace rtf {
                         observation1.point = cameraModel->unproject(px.x, px.y, px.z);
                         observation1.order = 1;
 
-                        ceres::CostFunction* cost_function2 = ReprojectionErrorWithQuaternions::Create(observation2);
+                        ceres::CostFunction *cost_function2 = ReprojectionErrorWithQuaternions::Create(observation2);
 
                         problem.AddResidualBlock(cost_function2, loss_function,
-                                                 Ti.t.data(),Ti.q.coeffs().data(),
-                                                 Tj.t.data(),Tj.q.coeffs().data(),
-                                                 Tk.t.data(),Tk.q.coeffs().data());
+                                                 Ti.t.data(), Ti.q.coeffs().data(),
+                                                 Tj.t.data(), Tj.q.coeffs().data(),
+                                                 Tk.t.data(), Tk.q.coeffs().data());
 
                         err += observation2.computeErr(se.inverse());
 
@@ -476,14 +457,14 @@ namespace rtf {
                     }
 
                     const Eigen::Matrix<double, 6, 6> sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
-                    ceres::CostFunction* cost_function = NormErrorTerm::Create(10, sqrt_information);
+                    ceres::CostFunction *cost_function = NormErrorTerm::Create(10, sqrt_information);
                     problem.AddResidualBlock(cost_function, nullptr,
-                                             Tk.t.data(),Tk.q.coeffs().data());
+                                             Tk.t.data(), Tk.q.coeffs().data());
                     k++;
                 }
             }
         }
-        cout << "err:" << err <<endl;
+        cout << "err:" << err << endl;
 
         ceres::Solver::Options options;
         options.max_num_iterations = 5;
@@ -510,7 +491,7 @@ namespace rtf {
         std::cout << summary.FullReport() << "\n";
 
         // update transformation
-        for(int i=0; i<m; i++) {
+        for (int i = 0; i < m; i++) {
             viewGraph[cc[i]].setGtTransform(ceresPoseVector[i].returnPose().matrix());
         }
     }

@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
     onlineRecon.finalOptimize(false);
-//    onlineRecon.saveMesh(savePath);
+    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();

@@ -10,7 +10,12 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         image_cuda.cu
         image_cuda.cuh
         pointcloud_generator.cu
-        pointcloud_generator.h downsample.cpp downsample.h image_cuda.cuh)
+        pointcloud_generator.h
+        downsample.cpp
+        downsample.h
+        image_cuda.cuh
+        dense_match.cu
+        dense_match.cuh)
 
 
 target_link_libraries(${SUBSYS_NAME}

@@ -15,7 +15,7 @@ using namespace std;
 using namespace rtf;
 using namespace pcl;
 
-string workspace = "/media/liulei/Data/dataset/TUM/rgbd_dataset_freiburg1_room";
+string workspace = "/media/liulei/Data/dataset/TUM/rgbd_dataset_freiburg2_desk";
 double minDepth = 0.1;
 double maxDepth = 4;
 
@@ -67,6 +67,7 @@ void registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_
 
 int main() {
     globalConfig.loadFromFile("test/test_online/online_pnp.yaml");
+    BaseConfig::initInstance(globalConfig);
 
     FileInputSource * fileInputSource = new FileInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
@@ -77,7 +78,7 @@ int main() {
     ref->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(ref, ref->getKps());
 
-    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 1));
+    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 50));
     cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
 
