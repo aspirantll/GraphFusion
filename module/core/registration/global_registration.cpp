@@ -18,10 +18,17 @@ namespace rtf {
         if (pnp.success) {
             BARegistration baRegistration(globalConfig);
             vector<FeatureKeypoint> kxs, kys;
-            FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
-            featureMatchesToPoints(matches, kxs, kys);
+            if(pnp.inliers.size()<100) {
+                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
+                featureMatchesToPoints(matches, kxs, kys);
 
-            ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
+                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
+            }else {
+                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
+
+                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+            }
 
             if (ba.success) {
                 double cost = ba.avgCost();

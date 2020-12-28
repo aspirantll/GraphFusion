@@ -21,7 +21,6 @@ int main() {
     globalConfig.kMinInliers = 15;
     globalConfig.rmsThreshold = 30;
     globalConfig.irThreshold = 0.7;
-    globalConfig.maxEGResidual = 0.0001;
     globalConfig.maxAvgCost = 100;
     globalConfig.width = 640;
     globalConfig.height = 480;

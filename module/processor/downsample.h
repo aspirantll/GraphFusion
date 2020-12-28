@@ -9,7 +9,7 @@
 
 using namespace std;
 namespace rtf {
-    vector<int> downSampleFeatureMatches(FeatureMatches& fm, float gridSize);
+    void downSampleFeatureMatches(FeatureMatches& fm, float gridSize);
 
     vector<int> downSampleFeatureMatches(FeatureMatches& fm, vector<int> inlier, Transform trans, float gridSize);
 

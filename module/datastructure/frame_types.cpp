@@ -56,22 +56,26 @@ namespace rtf {
         // load image
         string baseDir = BaseConfig::getInstance()->workspace;
         string relativePath = serNode["rgbImage"].as<string>();
-        string rgbFilePath = FileUtil::joinPath({baseDir, relativePath});
-        this->rgbImage = make_shared<cv::Mat>(imread(rgbFilePath, cv::IMREAD_COLOR));
+        rgbPath = FileUtil::joinPath({baseDir, relativePath});
+        this->rgbImage = make_shared<cv::Mat>(imread(rgbPath, cv::IMREAD_COLOR));
     }
 
 
-    FrameRGB::FrameRGB(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> rgbImage) : FrameBase(frameId, camera) {
+    FrameRGB::FrameRGB(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> rgbImage, string rgbPath) : FrameBase(frameId, camera) {
         this->rgbImage = rgbImage;
+        this->rgbPath = rgbPath;
     }
 
     void FrameRGB::reloadRGBImage() {
-        string baseDir = BaseConfig::getInstance()->workspace;
-        string serNum = this->camera->getSerNum();
-        string relativePath = FileUtil::joinPath(
-                {this->subdir, serNum + "_" + to_string(this->frameId) + this->suffix});
-        string rgbFilePath = FileUtil::joinPath({baseDir, relativePath});
-        this->rgbImage = make_shared<cv::Mat>(imread(rgbFilePath, cv::IMREAD_COLOR));
+        if(rgbPath.empty()) {
+            string baseDir = BaseConfig::getInstance()->workspace;
+            string serNum = this->camera->getSerNum();
+            string relativePath = FileUtil::joinPath(
+                    {this->subdir, serNum + "_" + to_string(this->frameId) + this->suffix});
+            rgbPath = FileUtil::joinPath({baseDir, relativePath});
+        }
+
+        this->rgbImage = make_shared<cv::Mat>(imread(rgbPath, cv::IMREAD_COLOR));
     }
 
     void FrameRGB::releaseRGBImage() {
@@ -118,7 +122,7 @@ namespace rtf {
         // load depth
         string baseDir = BaseConfig::getInstance()->workspace;
         string relativePath = serNode["depthImage"].as<string>();
-        string depthPath = FileUtil::joinPath({baseDir, relativePath});
+        depthPath = FileUtil::joinPath({baseDir, relativePath});
         this->depthImage = make_shared<cv::Mat>(imread(depthPath, cv::IMREAD_ANYDEPTH));
 
         this->minDepth = serNode["minDepth"].as<double>();
@@ -126,9 +130,10 @@ namespace rtf {
         normalImage = make_shared<cv::Mat>();
     }
 
-    FrameDepth::FrameDepth(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> depthImage)
+    FrameDepth::FrameDepth(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> depthImage, string depthPath)
             : FrameBase(frameId, camera) {
         this->depthImage = depthImage;
+        this->depthPath = depthPath;
         normalImage = make_shared<cv::Mat>();
     }
 
@@ -137,11 +142,14 @@ namespace rtf {
     }
 
     void FrameDepth::reloadDepthImage() {
-        string baseDir = BaseConfig::getInstance()->workspace;
-        string serNum = this->camera->getSerNum();
-        string relativePath = FileUtil::joinPath(
-                {this->subdir, serNum + "_" + to_string(this->frameId) + this->suffix});
-        string depthPath = FileUtil::joinPath({baseDir, relativePath});
+        if(depthPath.empty()) {
+            string baseDir = BaseConfig::getInstance()->workspace;
+            string serNum = this->camera->getSerNum();
+            string relativePath = FileUtil::joinPath(
+                    {this->subdir, serNum + "_" + to_string(this->frameId) + this->suffix});
+            depthPath = FileUtil::joinPath({baseDir, relativePath});
+        }
+
         this->depthImage = make_shared<cv::Mat>(imread(depthPath, cv::IMREAD_ANYDEPTH));
         this->minDepth /= camera->getDepthScale();
         this->maxDepth /= camera->getDepthScale();

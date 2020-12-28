@@ -27,10 +27,8 @@ namespace rtf {
 
         /* ransac */
         // max iterations
-        int numOfTrials = 250;
+        int numOfTrials = 100;
         // start residuals
-        float maxEGResidual = 0.0001;
-        float maxHomoResidual = 0.0001;
         float maxPnPResidual = 5.991;
         // residual upper limit
         float upperBoundResidual = 0.001;

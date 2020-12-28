@@ -5,7 +5,6 @@
 #include "registrations.h"
 #include "optimizer.h"
 #include "../../tool/view_graph_util.h"
-#include "../../processor/downsample.h"
 #include <glog/logging.h>
 
 #include <utility>
@@ -58,49 +57,10 @@ namespace rtf {
         printMutex.unlock();
     }
 
-    void LocalRegistration::registrationWithMotion(SIFTFeaturePoints& f1, SIFTFeaturePoints& f2, Edge* edge) {
-        if(velocity(3, 3)!=1) return;
-
-        FeatureMatches featureMatches = matcher->matchKeyPointsWithProjection(f1, f2, velocity);
-
-        vector<FeatureKeypoint> kxs, kys;
-        featureMatchesToPoints(featureMatches, kxs, kys);
-
-        BARegistration baRegistration(globalConfig);
-        RegReport ba = baRegistration.bundleAdjustment(velocity, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, true);
-        if (ba.success) {
-            double cost = ba.avgCost();
-            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                edge->setKxs(kxs);
-                edge->setKys(kys);
-                edge->setTransform(ba.T);
-                edge->setCost(cost);
-            }
-        }
-
-        printMutex.lock();
-        if (ba.success) {
-            cout << "-------------------" << f1.getFIndex() << "-" << f2.getFIndex()  << "-motion+ba---------------------------------" << endl;
-            ba.printReport();
-        }
-        printMutex.unlock();
-    }
-
     void LocalRegistration::registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge *edge, cudaStream_t curStream) {
         stream = curStream;
         FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
         registrationPnPBA(&featureMatches, edge);
-        bool near = f2->getFIndex()-f1->getFIndex() <=1;
-        if(near&&edge->isUnreachable()) {
-            registrationWithMotion(*f1, *f2, edge);
-        }
-
-        if(near&&!edge->isUnreachable()) {
-            velocity = edge->getTransform();
-        }else if(near){
-            velocity.setZero();
-        }
-
     }
 
     void LocalRegistration::registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges) {
@@ -290,10 +250,7 @@ namespace rtf {
         SIFTFeaturePoints &sf = keyframe->getKps();
         int m = connectedComponents[0].size();
         if(m > 1) {
-            cout << "multiview" << endl;
-            BARegistration baRegistration(globalConfig);
-            baRegistration.multiViewBundleAdjustment(localViewGraph, connectedComponents[0]).printReport();
-//            Optimizer::globalBundleAdjustmentCeres(localViewGraph, connectedComponents[0]);
+            Optimizer::poseGraphOptimizeCeres(localViewGraph);
             // update transforms
             vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
             for(int i=0; i<connectedComponents[0].size(); i++) {
@@ -358,7 +315,6 @@ namespace rtf {
         // reset
         localViewGraph.reset(0);
         localDBoWHashing->clear();
-        velocity.setZero();
 
         kpNum = 0;
         startIndexes.clear();

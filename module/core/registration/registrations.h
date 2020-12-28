@@ -195,8 +195,6 @@ namespace rtf {
         SIFTVocabulary* siftVocabulary;
         mutex printMutex;
 
-        Transform velocity;
-
         int kpNum;
         vector<int> startIndexes;
         vector<vector<pair<int, Point3D>>> correlations;
@@ -206,8 +204,6 @@ namespace rtf {
         void updateLocalEdges();
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
-
-        void registrationWithMotion(SIFTFeaturePoints& f1, SIFTFeaturePoints& f2, Edge* edge);
 
         void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge* edge, cudaStream_t curStream);
 

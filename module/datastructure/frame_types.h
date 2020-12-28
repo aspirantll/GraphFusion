@@ -62,13 +62,14 @@ namespace rtf {
         const string suffix = ".png";
 
     protected:
+        string rgbPath;
         shared_ptr<cv::Mat> rgbImage;
 
         FrameRGB() {}
     public:
         FrameRGB(YAML::Node serNode);
 
-        FrameRGB(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> rgbImage);
+        FrameRGB(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> rgbImage, string rgbPath="");
 
         void reloadRGBImage();
 
@@ -89,6 +90,7 @@ namespace rtf {
         const string suffix = ".png";
 
     protected:
+        string depthPath;
         shared_ptr<cv::Mat> depthImage;
         shared_ptr<cv::Mat> normalImage;
         double minDepth = 0.1;
@@ -102,7 +104,7 @@ namespace rtf {
     public:
         FrameDepth(YAML::Node serNode);
 
-        FrameDepth(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> depthImage);
+        FrameDepth(int frameId, shared_ptr<Camera> camera, shared_ptr<cv::Mat> depthImage, string depthPath="");
 
         void reloadDepthImage();
 

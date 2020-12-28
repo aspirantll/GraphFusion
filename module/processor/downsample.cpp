@@ -7,7 +7,7 @@
 namespace rtf {
 
 
-    vector<int> downSampleFeatureMatches(FeatureMatches& fm, float gridSize) {
+    void downSampleFeatureMatches(FeatureMatches& fm, float gridSize) {
         int num = fm.size();
         FeatureKeypoints kxs = fm.getKx();
         FeatureKeypoints kys = fm.getKy();
@@ -45,7 +45,12 @@ namespace rtf {
             }
             filteredIndexes.emplace_back(selectedIndex);
         }
-        return filteredIndexes;
+
+        vector<FeatureMatch> featureMatches;
+        for(int index: filteredIndexes) {
+            featureMatches.emplace_back(fm.getMatch(index));
+        }
+        fm.setMatches(featureMatches);
     }
 
     vector<int> downSampleFeatureMatches(FeatureMatches& fm, vector<int> inlier, Transform trans, float gridSize) {
