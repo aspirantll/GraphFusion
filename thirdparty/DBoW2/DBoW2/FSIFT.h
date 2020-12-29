@@ -2,13 +2,13 @@
  * File: FSIFT.h
  * Date: June 2012
  * Author: Dorian Galvez-Lopez
- * Description: functions for ORB descriptors
+ * Description: functions for SIFT descriptors
  * License: see the LICENSE.txt file
  *
  */
 
-#ifndef __D_T_F_ORB__
-#define __D_T_F_ORB__
+#ifndef __D_T_F_SIFT__
+#define __D_T_F_SIFT__
 
 #include <opencv2/core/core.hpp>
 #include <vector>
@@ -18,7 +18,7 @@
 
 namespace DBoW2 {
 
-/// Functions to manipulate ORB descriptors
+/// Functions to manipulate SIFT descriptors
     class FSIFT: protected FClass
     {
     public:

@@ -12,3 +12,9 @@ minInlierRatio: 0.2
 vocTxtPath: /home/liulei/workspace/voc.txt
 useHashIndex: true
 chunkSize: 10
+fuse: true
+kpFuseTh: 2000
+fuseScore: 0.7
+downSample: true
+downSampleTh: 300
+downSampleGridSize: 20

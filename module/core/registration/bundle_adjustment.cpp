@@ -126,7 +126,11 @@ namespace rtf {
         }
 
         if(report.success&&BaseConfig::getInstance()->downSample) {
-            downSampleFeatureMatches(*kxs, *kys, camera, report.T, BaseConfig::getInstance()->downSampleGridSize);
+            int dsTh = BaseConfig::getInstance()->downSampleTh;
+            int gridSize = kxs->size()/dsTh * BaseConfig::getInstance()->downSampleGridSize;
+            if(gridSize>1) {
+                downSampleFeatureMatches(*kxs, *kys, camera, report.T, gridSize);
+            }
         }
         report.inlierNum = kxs->size();
         return report;

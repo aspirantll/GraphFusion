@@ -108,16 +108,6 @@ namespace rtf {
         featureCata->clear();
     }
 
-    void DBoWHashing::computeBow(SIFTFeaturePoints& sf) {
-        auto & bowVec = sf.getMBowVec();
-        auto & featVec = sf.getMFeatVec();
-        if(bowVec.empty()) {
-            vector<vector<float>> vCurrentDesc;
-            toDescriptorVector(sf.getDescriptors(), vCurrentDesc);
-            siftVocabulary->transform(vCurrentDesc,bowVec,featVec,4);
-        }
-    }
-
     uint DBoWHashing::hashFunction(int3 pos) {
         const int p0 = 73856093;
         const int p1 = 19349669;

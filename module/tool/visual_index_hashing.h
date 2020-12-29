@@ -75,8 +75,6 @@ namespace rtf {
 
         ~DBoWHashing();
 
-        void computeBow(SIFTFeaturePoints& sf);
-
         uint hashFunction(int3 pos);
 
         int3 worldToPos(float3 wPos);

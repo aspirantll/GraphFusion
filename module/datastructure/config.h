@@ -123,6 +123,7 @@ namespace rtf {
         int kpFuseTh = 2000;
         float fuseScore = 0.7;
         bool downSample = false;
+        int downSampleTh = 300;
         int downSampleGridSize = 10;
 
 
@@ -146,6 +147,7 @@ namespace rtf {
         int kpFuseTh;
         float fuseScore;
         bool downSample;
+        int downSampleTh;
         bool downSampleGridSize;
 
         static void initInstance(const GlobalConfig& globalConfig);

@@ -16,6 +16,7 @@ namespace rtf {
         kpFuseTh = globalConfig.kpFuseTh;
         fuseScore = globalConfig.fuseScore;
         downSample = globalConfig.downSample;
+        downSampleTh = globalConfig.downSampleTh;
         downSampleGridSize = globalConfig.downSampleGridSize;
     }
 
