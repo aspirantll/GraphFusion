@@ -29,5 +29,4 @@ namespace rtf {
         report.iterations = 1;
         return report;
     }
-
 }
