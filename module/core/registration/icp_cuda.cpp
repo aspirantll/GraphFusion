@@ -82,14 +82,17 @@ namespace rtf {
     }
 
     RegReport PairwiseICP::icp(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
-                  vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys) {
+                               vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, int iterations, vector<bool> mask) {
         int n = kxs.size();
+
         ceres::Problem problem;
         ceres::LossFunction *loss_function = nullptr;
         ceres::LocalParameterization *quaternion_local_parameterization = new ceres::EigenQuaternionParameterization;
 
         CeresPose pose((SE3(initT)));
+        int count = 0;
         for (int i = 0; i < n; i++) {
+            if(!mask[i]) continue;
             Vector3 px = cx->getCameraModel()->unproject(kxs[i].x, kxs[i].y, kxs[i].z);
             Vector3 py = cy->getCameraModel()->unproject(kys[i].x, kys[i].y, kys[i].z);
 
@@ -98,36 +101,71 @@ namespace rtf {
             problem.AddResidualBlock(cost_function, loss_function,
                                      pose.t.data(), pose.q.coeffs().data());
             problem.SetParameterization(pose.q.coeffs().data(), quaternion_local_parameterization);
+            count++;
         }
 
         ceres::Solver::Options options;
-        options.max_num_iterations = 200;
+        options.max_num_iterations = iterations;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-        options.num_threads = 1;
+        options.num_threads = 6;
         ceres::Solver::Summary summary;
         ceres::Solve(options, &problem, &summary);
         std::cout << summary.FullReport() << '\n';
+
         RegReport report;
         report.success = summary.IsSolutionUsable();
         report.cost = summary.final_cost;
         report.T = pose.returnPose().matrix();
         report.iterations = summary.iterations.size();
+        report.inlierNum = count;
+        report.pointsNum = n;
 
-        if(report.success) {
+        return report;
+    }
+
+    RegReport PairwiseICP::icp(Transform trans, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
+                  vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, bool robust) {
+        if (kxs.empty() || kys.empty()) {
+            RegReport report;
+            report.success = false;
+            return report;
+        }
+        int n = kxs.size();
+
+        vector<bool> mask(n, true);
+        RegReport report;
+        if (robust) {
+            const int its = 4;
+            for (int it = 0; it < its; it++) {
+                report = icp(trans, cx, cy, kxs, kys, 10, mask);
+                // exchange the pointer
+                for(int i=0; i<n; i++) {
+                    Vector3 px = cx->getCameraModel()->unproject(kxs[i].x, kxs[i].y, kxs[i].z);
+                    Vector3 py = cy->getCameraModel()->unproject(kys[i].x, kys[i].y, kys[i].z);
+
+                    Vector3 qy = PointUtil::transformPoint(py, report.T);
+                    if((px-qy).norm()<0.01) {
+                        mask[i] = false;
+                    }
+                }
+            }
+
+            // update keypoints
             vector<FeatureKeypoint> bKxs(kxs.begin(), kxs.end()), bKys(kys.begin(), kys.end());
             kxs.clear();
             kys.clear();
-            for (int i = 0; i < n; i++) {
-                Vector3 px = cx->getCameraModel()->unproject(bKxs[i].x, bKxs[i].y, bKxs[i].z);
-                Vector3 py = cy->getCameraModel()->unproject(bKys[i].x, bKys[i].y, bKys[i].z);
-
-                Vector3 qy = PointUtil::transformPoint(py, report.T);
-                if((px-qy).norm()<0.01) {
+            for (int i = 0; i < mask.size(); i++) {
+                if (mask[i]) {
                     kxs.emplace_back(bKxs[i]);
                     kys.emplace_back(bKys[i]);
                 }
             }
+            report.success = kxs.size() >= minInliers;
+        } else {
+            report = icp(trans, cx, cy, kxs, kys, 100, mask);
+            report.success = true;
         }
+        report.inlierNum = kxs.size();
         return report;
     }
 }

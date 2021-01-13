@@ -38,7 +38,7 @@ namespace rtf {
         Transform T;
 
         double avgCost() {
-            return cost / pointsNum;
+            return cost / inlierNum;
         }
 
 
@@ -49,7 +49,7 @@ namespace rtf {
             cout << "pointsNum: " << pointsNum << endl;
             cout << "iterations: " << iterations << endl;
             cout << "cost: " << cost << endl;
-            cout << "avg cost: " << cost / pointsNum << endl;
+            cout << "avg cost: " << avgCost() << endl;
             cout << "-------------------------------------------------------------------------" << endl;
         }
 
@@ -274,6 +274,8 @@ namespace rtf {
         float distTh;
         float minInliers;
 
+        RegReport icp(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
+                      vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, int iterations, vector<bool> mask);
 
     public:
         PairwiseICP(const GlobalConfig& config);
@@ -281,7 +283,7 @@ namespace rtf {
         RegReport icp(Transform initT, shared_ptr<Frame> fx, shared_ptr<Frame> fy);
 
         RegReport icp(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
-                      vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys);
+                      vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, bool robust=false);
     };
 }
 #endif //GraphFusion_REGISTRATIONS_H

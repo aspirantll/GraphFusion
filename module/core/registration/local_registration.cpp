@@ -24,74 +24,75 @@ namespace rtf {
         stream = curStream;
         FeatureMatches featureMatches = matcher->matchKeyPointsPair(fx->getKps(), fy->getKps());
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(featureMatches);
-        RegReport ba;
+        RegReport rep;
         if (pnp.success) {
+            bool needNewMatches = pnp.inliers.size()<100;
+            vector<FeatureKeypoint> kxs, kys;
+            if(needNewMatches) {
+                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches.getFp1(), featureMatches.getFp2(), pnp.T);
+                featureMatchesToPoints(matches, kxs, kys);
+            }else {
+                featureIndexesToPoints(featureMatches.getKx(), pnp.kps1, kxs);
+                featureIndexesToPoints(featureMatches.getKy(), pnp.kps2, kys);
+            }
+
+            BARegistration baRegistration(globalConfig);
+            RegReport baRep = baRegistration.bundleAdjustment(pnp.T, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, needNewMatches);
+
             PairwiseICP icp(globalConfig);
-            ba = icp.icp(pnp.T,  fx, fy);
+            RegReport icpRep = icp.icp(pnp.T,  fx, fy);
 
-            if (ba.success) {
-                double cost = 0;
-                vector<FeatureKeypoint> kxs, kys;
-                for(int i: pnp.inliers) {
-                    shared_ptr<FeatureKeypoint> kx = featureMatches.getKx()[featureMatches.getMatch(i).getPX()];
-                    shared_ptr<FeatureKeypoint> ky = featureMatches.getKy()[featureMatches.getMatch(i).getPY()];
-                    kxs.emplace_back(*kx);
-                    kys.emplace_back(*ky);
-
-//                    Point3D rePixel = PointUtil::transformPixel(*ky, ba.T, fy->getCamera());
-//                    Scalar squared_residual = (rePixel.toVector2()-kx->toVector2()).squaredNorm();
-//                    if (squared_residual < 1) {
-//                         cost += 0.5 * squared_residual;
-//                    } else {
-//                        cost += 1 * (sqrtf(squared_residual) - 0.5 * 1);
-//                    }
-                }
-
-//                ba.pointsNum = pnp.inliers.size();
-//                ba.cost = cost;
-                cost = ba.avgCost();
-                if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                    edge->setKxs(kxs);
-                    edge->setKys(kys);
-                    edge->setTransform(ba.T);
-                    edge->setCost(cost);
+            // compute 3D residuals
+            const double k = 0.001;
+            double baCost = 0, icpCost = 0;
+            for(int i=0; i<kxs.size(); i++) {
+                Vector3 qx = fx->getCamera()->getCameraModel()->unproject(kxs[i].x, kys[i].y, kys[i].z);
+                Vector3 qy = PointUtil::transformPixelToPoint(kys[i], baRep.T, fy->getCamera());
+                double norm = (qy-qx).squaredNorm();
+                if(norm < k*k) {
+                    baCost += 0.5*norm;
                 }else {
-                    BARegistration baRegistration(globalConfig);
-                    if(pnp.inliers.size()<100) {
-                        FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches.getFp1(), featureMatches.getFp2(), pnp.T);
-                        featureMatchesToPoints(matches, kxs, kys);
-
-                        ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
-                    }else {
-                        featureIndexesToPoints(featureMatches.getKx(), pnp.kps1, kxs);
-                        featureIndexesToPoints(featureMatches.getKy(), pnp.kps2, kys);
-
-                        ba = baRegistration.bundleAdjustment(pnp.T, featureMatches.getCx(), featureMatches.getCy(), kxs, kys);
-                    }
-
-                    if (ba.success) {
-                        double cost = ba.avgCost();
-                        if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                            edge->setKxs(kxs);
-                            edge->setKys(kys);
-                            edge->setTransform(ba.T);
-                            edge->setCost(cost);
-                        }
-                    }
+                    baCost += k * (sqrtf(norm) - 0.5 * k);
                 }
+
+                qy = PointUtil::transformPixelToPoint(kys[i], icpRep.T, fy->getCamera());
+                norm = norm = (qy-qx).squaredNorm();
+                if(norm < k*k) {
+                    icpCost += 0.5*norm;
+                }else {
+                    icpCost += k * (sqrtf(norm) - 0.5 * k);
+                }
+            }
+
+            if(icpCost < baCost) {
+                rep = icpRep;
+                rep.cost = icpCost;
+            }else {
+                rep = baRep;
+                rep.cost = baCost;
+            }
+            rep.inlierNum = kxs.size();
+
+            double cost = rep.avgCost();
+            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+//                        downSampleFeatureMatches(kxs, kys, fx->getCamera(), ba.T, globalConfig.downSampleGridSize);
+                edge->setKxs(kxs);
+                edge->setKys(kys);
+                edge->setTransform(rep.T);
+                edge->setCost(cost);
             }
         }
 
         printMutex.lock();
         cout << "-------------------" << fx->getFrameIndex() << "-" << fy->getFrameIndex()  << "-local-pnp+ba---------------------------------" << endl;
         pnp.printReport();
-        ba.printReport();
+        rep.printReport();
         printMutex.unlock();
     }
 
     void LocalRegistration::registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges) {
         const int k = globalConfig.overlapNum;
-        const int lastNum = 1;
+        const int lastNum = 2;
         const int curIndex = localViewGraph.getFramesNum()-1;
         auto frames = localViewGraph.getSourceFrames();
 
@@ -115,7 +116,7 @@ namespace rtf {
             index++;
         }
 
-        /*if (overlapFrames.size() < k) {
+        if (overlapFrames.size() < k) {
             auto cur = localViewGraph.indexFrame(curIndex);
             std::vector<MatchScore> imageScores = localDBoWHashing->queryImages(make_float3(0,0,0), cur->getKps());
             // Return all those keyframes with a score higher than 0.75*bestScore
@@ -139,7 +140,7 @@ namespace rtf {
                     if (overlapFrames.size() >= k) break;
                 }
             }
-        }*/
+        }
 
         /*for (int i = 0; i < index; i++) {
             threads[i]->join();

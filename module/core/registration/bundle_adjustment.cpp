@@ -5,41 +5,8 @@
 #include <utility>
 #include "registrations.h"
 #include "bundle_adjustment.cuh"
-#include "../../processor/downsample.h"
 
 namespace rtf {
-
-    void removeOutlier(vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, shared_ptr<Camera> camera, Transform trans) {
-        int num = kxs.size();
-        double maxDist = 0;
-        double minDist = numeric_limits<float>::infinity();
-        vector<double> dists;
-        for(int i=0; i<num; i++) {
-            const FeatureKeypoint& kx = kxs[i];
-            const FeatureKeypoint& ky = kys[i];
-
-            Vector3 py = camera->getCameraModel()->unproject(ky.x, ky.y, ky.z);
-            Vector3 qy = (trans*py.homogeneous()).block<3,1>(0,0);
-            Vector3 qx = camera->getCameraModel()->unproject(kx.x, kx.y, kx.z);
-            double curDist = (qx-qy).norm();
-            dists.emplace_back(curDist);
-            maxDist = max(curDist, maxDist);
-            minDist = min(minDist, curDist);
-        }
-        cout << "min distance:" << minDist << endl;
-        cout << "max distance:" << maxDist << endl;
-
-        double limitDist = maxDist*0.5;
-        vector<FeatureKeypoint> nKxs(kxs.begin(), kxs.end()), nKys(kys.begin(), kys.end());
-        kxs.clear();
-        kys.clear();
-        for(int i=0; i<num; i++) {
-            if(dists[i]<=limitDist) {
-                kxs.emplace_back(nKxs[i]);
-                kys.emplace_back(nKys[i]);
-            }
-        }
-    }
 
     void computeP(Vector6 r, Vector6 M, double lambda, Vector6 &p) {
         for (int i = 0; i < 6; i++) {
@@ -157,9 +124,6 @@ namespace rtf {
             report.success = true;
         }
 
-        if(report.success&&BaseConfig::getInstance()->downSample) {
-            removeOutlier(*kxs, *kys, camera, report.T);
-        }
         report.inlierNum = kxs->size();
         return report;
     }

@@ -5,8 +5,8 @@ irThreshold: 0.70
 maxEGResidual: 0.0001
 maxPnPResidual: 5.991
 upperBoundResidual: 59
-maxAvgCost: 2
-costThreshold: 0.5
+maxAvgCost: 0.0001
+costThreshold: 0.0
 overlapNum: 3
 minInlierRatio: 0.2
 vocTxtPath: /home/liulei/workspace/voc.txt

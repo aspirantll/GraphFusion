@@ -70,7 +70,7 @@ namespace rtf {
             return Point3D(p.x()/p.z(), p.y()/p.z(), p.z());
         }
 
-        Point3D transformPixelToPoint(Point3D pixel, Transform trans, shared_ptr<Camera> camera) {
+        Vector3 transformPixelToPoint(Point3D pixel, Transform trans, shared_ptr<Camera> camera) {
             return transformPoint(camera->getCameraModel()->unproject(pixel.x, pixel.y, pixel.z), trans);
         }
 
