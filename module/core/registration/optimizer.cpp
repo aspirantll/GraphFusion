@@ -82,7 +82,7 @@ private:
 class Averaging3dErrorTerm {
 public:
 
-    Averaging3dErrorTerm(Vector3 py, CeresPose T):py(py), gt(T){}
+    Averaging3dErrorTerm(Vector3 py, float weight, CeresPose T):py(py), gt(T), weight(weight){}
 
     template <typename T>
     bool operator()(const T* const p_a_ptr, const T* const q_a_ptr,
@@ -111,18 +111,20 @@ public:
 
         Eigen::Map<Eigen::Matrix<T, 6, 1> > residuals(residuals_ptr);
         residuals.template block<3, 1>(0, 0) = p_ab_estimated - gt.t.template cast<T>();
-        residuals.template block<3, 1>(3, 0) = w*ceres::sqrt(T(2.0)*(T(1.00000001) - cost));
+        residuals.template block<3, 1>(3, 0) = T(weight)*w*ceres::sqrt(T(2.0)*(T(1.00000001) - cost));
 
         return true;
     }
-    static ceres::CostFunction* Create(Vector3 py, CeresPose Tij)
+    static ceres::CostFunction* Create(Vector3 py, float weight, CeresPose Tij)
     {
-        return new ceres::AutoDiffCostFunction<Averaging3dErrorTerm, 6, 3, 4, 3, 4>(new Averaging3dErrorTerm(py, Tij));
+        return new ceres::AutoDiffCostFunction<Averaging3dErrorTerm, 6, 3, 4, 3, 4>(new Averaging3dErrorTerm(py, weight, Tij));
     }
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 private:
+    // the weight
+    float weight;
     // point set
     Vector3 py;
     // relative pose
@@ -239,21 +241,20 @@ public:
 namespace rtf {
 
     void
-    meanFeatures(vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys, shared_ptr<Camera> camera, Vector3 &px,
-                 Vector3 &py) {
-        px.setZero();
-        py.setZero();
+    meanFeatures(vector<FeatureKeypoint> &kys, shared_ptr<Camera> camera, Vector3 &p, float& weight) {
+        p.setZero();
+        weight = 0;
 
-        for (int i = 0; i < kxs.size(); i++) {
-            px += camera->getCameraModel()->unproject(kxs[i].x, kxs[i].y, kxs[i].z);
-            py += camera->getCameraModel()->unproject(kys[i].x, kys[i].y, kys[i].z);
+        for (int i = 0; i < kys.size(); i++) {
+            Vector3 py = camera->getCameraModel()->unproject(kys[i].x, kys[i].y, kys[i].z);
+            p += py;
+            weight += py.norm();
         }
 
-        px /= kxs.size();
-        py /= kys.size();
+        p /= kys.size();
+        weight /= kys.size();
 
-        px.normalize();
-        py.normalize();
+        p.normalize();
     }
 
     void Optimizer::poseGraphOptimizeCeres(ViewGraph &viewGraph, const vector<pair<int, int> > &loops) {
@@ -277,9 +278,10 @@ namespace rtf {
                 CeresPose &Ti = ceresPoseVector[p];
                 CeresPose &Tj = ceresPoseVector[i];
                 Edge edge = viewGraph.getEdge(p, i);
-                Vector3 px, py;
-                meanFeatures(edge.getKxs(), edge.getKys(), camera, px, py);
-                ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(py, edge.getSE());
+                Vector3 p;
+                float weight;
+                meanFeatures(edge.getKys(), camera, p, weight);
+                ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(p, weight, edge.getSE());
 
                 problem.AddResidualBlock(cost_function, loss_function,
                                          Ti.t.data(), Ti.q.coeffs().data(),
@@ -299,9 +301,10 @@ namespace rtf {
                     CeresPose &Ti = ceresPoseVector[refIndex];
                     CeresPose &Tj = ceresPoseVector[curIndex];
                     Edge edge = viewGraph.getEdge(refIndex, curIndex);
-                    Vector3 px, py;
-                    meanFeatures(edge.getKxs(), edge.getKys(), camera, px, py);
-                    ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(py, edge.getSE());
+                    Vector3 p;
+                    float weight;
+                    meanFeatures(edge.getKys(), camera, p, weight);
+                    ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(p, weight, edge.getSE());
 
                     problem.AddResidualBlock(cost_function, loss_function,
                                              Ti.t.data(), Ti.q.coeffs().data(),

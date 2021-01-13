@@ -33,7 +33,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     string line;
     for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
         Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
-//        ofstream keyf(workspace+"/keyframe_" + to_string(kf->getIndex()) + ".txt", ios::out | ios::binary);
+        ofstream keyf(workspace+"/keyframe_" + to_string(kf->getIndex()) + ".txt", ios::out | ios::binary);
         for(shared_ptr<Frame> frame: kf->getFrames()) {
             getline(gt, line);
             while (line.empty()) {
@@ -48,7 +48,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
             GeoUtil::T2Rt(trans, R, t);
             Eigen::Quaternion<Scalar> q(R);
             estimate << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
-//            keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
             mapping << gtParts[0] << " " << frame->getFrameIndex() << endl;
         }
     }
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new TUMInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
@@ -96,21 +96,22 @@ int main(int argc, char* argv[]) {
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     OnlineReconstruction onlineRecon(globalConfig);
-    for(int i=0; i<fileInputSource->getFrameNum(); i++) {
+    for(int i=0; i<30; i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
         frame->setDepthBounds(minDepth, maxDepth);
         onlineRecon.appendFrame(frame);
-        frame->releaseImages();
     }
 //    onlineRecon.getViewGraph().print();
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
-    onlineRecon.finalOptimize(false);
-    onlineRecon.saveMesh(savePath);
 //    saveResult(onlineRecon.getViewGraph());
+
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
     cout << "mean tracked time: " << ttrack/fileInputSource->getFrameNum() << endl;
     cout << "finish to online reconstruction: " << ttrack << endl;
+
+    onlineRecon.finalOptimize(false);
+    onlineRecon.saveMesh(savePath);
     saveATP(onlineRecon.getViewGraph(), globalConfig);
 
 //    while(!onlineRecon.closed());

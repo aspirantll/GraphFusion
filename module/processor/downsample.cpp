@@ -124,8 +124,9 @@ namespace rtf {
                     const FeatureKeypoint& ky = kys[ind];
 
                     Vector3 py = camera->getCameraModel()->unproject(ky.x, ky.y, ky.z);
-                    Vector2 qy = camera->getCameraModel()->project((trans*py.homogeneous()).block<3,1>(0,0));
-                    double curDist = (qy-kx.toVector2()).norm();
+                    Vector3 qy = (trans*py.homogeneous()).block<3,1>(0,0);
+                    Vector3 qx = camera->getCameraModel()->unproject(kx.x, kx.y, kx.z);
+                    double curDist = (qy-qx).norm();
                     if(curDist < dist) {
                         selectedIndex = ind;
                         dist = curDist;

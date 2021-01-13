@@ -10,7 +10,8 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         registrations.h
         pnp_registration.cpp
         optimizer.cpp
-        optimizer.h)
+        optimizer.h
+        icp_cuda.cpp)
 find_package(Ceres REQUIRED)
 include_directories(${Ceres_INCLUDE_DIRS})
 link_libraries(${Ceres_LIBRARIES})
@@ -22,6 +23,7 @@ target_link_libraries(${SUBSYS_NAME}
         ${CERES_LIBRARIES}
         datastructure
         tool
+        ICP
         )
 
 set_target_properties(${SUBSYS_NAME} PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

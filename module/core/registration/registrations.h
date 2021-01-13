@@ -203,9 +203,7 @@ namespace rtf {
 
         void updateLocalEdges();
 
-        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
-
-        void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge* edge, cudaStream_t curStream);
+        void registrationPairEdge(shared_ptr<Frame> fx, shared_ptr<Frame> fy, Edge* edge, cudaStream_t curStream);
 
         void registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges);
     public:
@@ -267,6 +265,19 @@ namespace rtf {
         ViewGraph &getViewGraph();
 
         ~GlobalRegistration();
+    };
+
+    class PairwiseICP {
+    private:
+        float rmsThreshold;
+        float relaxtion;
+        float distTh;
+        float minInliers;
+
+    public:
+        PairwiseICP(const GlobalConfig& config);
+
+        RegReport icp(Transform initT, shared_ptr<Frame> fx, shared_ptr<Frame> fy);
     };
 }
 #endif //GraphFusion_REGISTRATIONS_H

@@ -81,6 +81,7 @@ int main() {
     auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 50));
     cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
+    ImageUtil::drawKeypoints(cur->getKps(), cur, workspace+"/kp1.png");
 
     SIFTFeatureMatcher matcher;
     FeatureMatches featureMatches = matcher.matchKeyPointsPair(ref->getKps(), cur->getKps());

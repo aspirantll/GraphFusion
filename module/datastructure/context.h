@@ -36,18 +36,5 @@ namespace rtf {
             return frames.size();
         }
     };
-
-    /** the context for registration */
-    class ICPRegistrationContext: public Context<FrameRGBDT> {
-    public:
-        ICPRegistrationContext(){}
-    };
-
-    class BARegistrationContext: public Context<FrameRGBDT> {
-    public:
-        BARegistrationContext(){}
-    };
-
-
 }
 #endif //GraphFusion_CONTEXT_H
