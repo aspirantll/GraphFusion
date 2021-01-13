@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     OnlineReconstruction onlineRecon(globalConfig);
-    for(int i=0; i<30; i++) {
+    for(int i=0; i<fileInputSource->getFrameNum(); i++) {
         shared_ptr<FrameRGBD> frame = fileInputSource->waitFrame(0, i);
         frame->setDepthBounds(minDepth, maxDepth);
         onlineRecon.appendFrame(frame);
@@ -105,13 +105,14 @@ int main(int argc, char* argv[]) {
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
 //    saveResult(onlineRecon.getViewGraph());
 
+    onlineRecon.finalOptimize(false);
+    onlineRecon.saveMesh(savePath);
+
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
     cout << "mean tracked time: " << ttrack/fileInputSource->getFrameNum() << endl;
     cout << "finish to online reconstruction: " << ttrack << endl;
 
-    onlineRecon.finalOptimize(false);
-    onlineRecon.saveMesh(savePath);
     saveATP(onlineRecon.getViewGraph(), globalConfig);
 
 //    while(!onlineRecon.closed());

@@ -274,10 +274,14 @@ namespace rtf {
         float distTh;
         float minInliers;
 
+
     public:
         PairwiseICP(const GlobalConfig& config);
 
         RegReport icp(Transform initT, shared_ptr<Frame> fx, shared_ptr<Frame> fy);
+
+        RegReport icp(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
+                      vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys);
     };
 }
 #endif //GraphFusion_REGISTRATIONS_H

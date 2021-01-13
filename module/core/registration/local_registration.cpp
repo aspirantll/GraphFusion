@@ -5,6 +5,7 @@
 #include "registrations.h"
 #include "optimizer.h"
 #include "../../tool/view_graph_util.h"
+#include "../../processor/downsample.h"
 #include <glog/logging.h>
 
 #include <utility>
@@ -29,23 +30,54 @@ namespace rtf {
             ba = icp.icp(pnp.T,  fx, fy);
 
             if (ba.success) {
-                double cost = ba.avgCost();
-                if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                    for(int i: pnp.inliers) {
-                        shared_ptr<FeatureKeypoint> kx = featureMatches.getKx()[featureMatches.getMatch(i).getPX()];
-                        shared_ptr<FeatureKeypoint> ky = featureMatches.getKy()[featureMatches.getMatch(i).getPY()];
-                        Vector3 px = featureMatches.getCx()->getCameraModel()->unproject(kx->x, kx->y, kx->z);
-                        Vector3 py = featureMatches.getCy()->getCameraModel()->unproject(ky->x, ky->y, ky->z);
-                        Vector3 qy = PointUtil::transformPoint(py, ba.T);
-                        if((px-qy).norm()<0.01) {
-                            edge->getKxs().emplace_back(*kx);
-                            edge->getKys().emplace_back(*ky);
-                        }
-                    }
-                    ba.pointsNum = edge->getKxs().size();
+                double cost = 0;
+                vector<FeatureKeypoint> kxs, kys;
+                for(int i: pnp.inliers) {
+                    shared_ptr<FeatureKeypoint> kx = featureMatches.getKx()[featureMatches.getMatch(i).getPX()];
+                    shared_ptr<FeatureKeypoint> ky = featureMatches.getKy()[featureMatches.getMatch(i).getPY()];
+                    kxs.emplace_back(*kx);
+                    kys.emplace_back(*ky);
 
+//                    Point3D rePixel = PointUtil::transformPixel(*ky, ba.T, fy->getCamera());
+//                    Scalar squared_residual = (rePixel.toVector2()-kx->toVector2()).squaredNorm();
+//                    if (squared_residual < 1) {
+//                         cost += 0.5 * squared_residual;
+//                    } else {
+//                        cost += 1 * (sqrtf(squared_residual) - 0.5 * 1);
+//                    }
+                }
+
+//                ba.pointsNum = pnp.inliers.size();
+//                ba.cost = cost;
+                cost = ba.avgCost();
+                if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                    edge->setKxs(kxs);
+                    edge->setKys(kys);
                     edge->setTransform(ba.T);
                     edge->setCost(cost);
+                }else {
+                    BARegistration baRegistration(globalConfig);
+                    if(pnp.inliers.size()<100) {
+                        FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches.getFp1(), featureMatches.getFp2(), pnp.T);
+                        featureMatchesToPoints(matches, kxs, kys);
+
+                        ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
+                    }else {
+                        featureIndexesToPoints(featureMatches.getKx(), pnp.kps1, kxs);
+                        featureIndexesToPoints(featureMatches.getKy(), pnp.kps2, kys);
+
+                        ba = baRegistration.bundleAdjustment(pnp.T, featureMatches.getCx(), featureMatches.getCy(), kxs, kys);
+                    }
+
+                    if (ba.success) {
+                        double cost = ba.avgCost();
+                        if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                            edge->setKxs(kxs);
+                            edge->setKys(kys);
+                            edge->setTransform(ba.T);
+                            edge->setCost(cost);
+                        }
+                    }
                 }
             }
         }
@@ -59,7 +91,7 @@ namespace rtf {
 
     void LocalRegistration::registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges) {
         const int k = globalConfig.overlapNum;
-        const int lastNum = 2;
+        const int lastNum = 1;
         const int curIndex = localViewGraph.getFramesNum()-1;
         auto frames = localViewGraph.getSourceFrames();
 
@@ -83,7 +115,7 @@ namespace rtf {
             index++;
         }
 
-        if (overlapFrames.size() < k) {
+        /*if (overlapFrames.size() < k) {
             auto cur = localViewGraph.indexFrame(curIndex);
             std::vector<MatchScore> imageScores = localDBoWHashing->queryImages(make_float3(0,0,0), cur->getKps());
             // Return all those keyframes with a score higher than 0.75*bestScore
@@ -107,7 +139,7 @@ namespace rtf {
                     if (overlapFrames.size() >= k) break;
                 }
             }
-        }
+        }*/
 
         /*for (int i = 0; i < index; i++) {
             threads[i]->join();

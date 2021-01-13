@@ -78,6 +78,9 @@ void ICPOdometry::initICPModel(float *depth, const float depthCutoff) {
 
 void ICPOdometry::getIncrementalTransformation(Eigen::Matrix4d &T_prev_curr,
                                                int threads, int blocks) {
+  double relaxtion = 1;
+  const Eigen::Matrix<double, 6, 1> initSeVec = Sophus::SE3d(T_prev_curr).log();
+
   iterations[0] = 10;
   iterations[1] = 5;
   iterations[2] = 4;
@@ -99,8 +102,17 @@ void ICPOdometry::getIncrementalTransformation(Eigen::Matrix4d &T_prev_curr,
 
       const Eigen::Matrix<double, 6, 1> update =
           A_icp.cast<double>().ldlt().solve(b_icp.cast<double>());
-
-      T_prev_curr = Sophus::SE3d::exp(update).matrix() * T_prev_curr;
+      T_prev_curr = Sophus::SE3d::exp(update).matrix()*T_prev_curr;
+      Eigen::Matrix<double, 6, 1> testSeVec = Sophus::SE3d(T_prev_curr).log();
+      for (int k = 3; k < 6; k++) {
+        if (testSeVec(k) < initSeVec(k) - relaxtion) {
+          testSeVec(k) = initSeVec(k) - relaxtion;
+        }
+        if (testSeVec(k) > initSeVec(k) + relaxtion) {
+          testSeVec(k) = initSeVec(k) + relaxtion;
+        }
+      }
+      T_prev_curr = Sophus::SE3d::exp(testSeVec).matrix();
     }
   }
 }
