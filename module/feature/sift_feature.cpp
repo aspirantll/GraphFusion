@@ -238,8 +238,11 @@ namespace rtf {
 
     const int SIFTFeatureMatcher::HISTO_LENGTH = 30;
 
-    SIFTFeatureMatcher::SIFTFeatureMatcher(float max_ratio) {
-        config.max_ratio = max_ratio;
+    SIFTFeatureMatcher::SIFTFeatureMatcher(): config(SIFTMatchingConfig()) {
+        initializeSiftMatchGPU();
+    }
+
+    SIFTFeatureMatcher::SIFTFeatureMatcher(SIFTMatchingConfig config): config(config) {
         initializeSiftMatchGPU();
     }
 

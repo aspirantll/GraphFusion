@@ -50,8 +50,10 @@ namespace rtf {
         shared_ptr<SiftMatchGPU> siftMatchGPU;
         static const int HISTO_LENGTH;
     public:
-        SIFTFeatureMatcher(float max_ratio=0.8);
-        
+        SIFTFeatureMatcher();
+
+        SIFTFeatureMatcher(SIFTMatchingConfig config);
+
         void initializeSiftMatchGPU();
 
         FeatureMatches matchKeyPointsPair(SIFTFeaturePoints& k1, SIFTFeaturePoints& k2);

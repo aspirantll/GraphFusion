@@ -203,7 +203,9 @@ namespace rtf {
 
         void updateLocalEdges();
 
-        void registrationPairEdge(shared_ptr<Frame> fx, shared_ptr<Frame> fy, Edge* edge, cudaStream_t curStream);
+        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
+
+        void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge* edge, cudaStream_t curStream);
 
         void registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges);
     public:

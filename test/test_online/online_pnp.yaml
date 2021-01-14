@@ -16,4 +16,4 @@ fuse: false
 kpFuseTh: 2000
 fuseScore: 0.7
 downSample: true
-downSampleGridSize: 5
+downSampleGridSize: 200

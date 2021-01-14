@@ -33,7 +33,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     string line;
     for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
         Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
-        ofstream keyf(workspace+"/keyframe_" + to_string(kf->getIndex()) + ".txt", ios::out | ios::binary);
+//        ofstream keyf(workspace+"/keyframe_" + to_string(kf->getIndex()) + ".txt", ios::out | ios::binary);
         for(shared_ptr<Frame> frame: kf->getFrames()) {
             getline(gt, line);
             while (line.empty()) {
@@ -48,7 +48,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
             GeoUtil::T2Rt(trans, R, t);
             Eigen::Quaternion<Scalar> q(R);
             estimate << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
-            keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+//            keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
             mapping << gtParts[0] << " " << frame->getFrameIndex() << endl;
         }
     }
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new TUMInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;

@@ -123,8 +123,10 @@ namespace rtf {
             report = bundleAdjustment(R, t, iterations);
             report.success = true;
         }
-
         report.inlierNum = kxs->size();
+        if(report.success&&BaseConfig::getInstance()->downSample) {
+            downSampleFeatureMatches(*kxs, *kys, camera, report.T, BaseConfig::getInstance()->downSampleGridSize);
+        }
         return report;
     }
 

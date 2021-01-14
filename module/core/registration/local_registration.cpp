@@ -5,7 +5,6 @@
 #include "registrations.h"
 #include "optimizer.h"
 #include "../../tool/view_graph_util.h"
-#include "../../processor/downsample.h"
 #include <glog/logging.h>
 
 #include <utility>
@@ -20,74 +19,48 @@ namespace rtf {
         pnpRegistration = new PnPRegistration(globalConfig);
     }
 
-    void LocalRegistration::registrationPairEdge(shared_ptr<Frame> fx, shared_ptr<Frame> fy, Edge* edge, cudaStream_t curStream) {
-        stream = curStream;
-        FeatureMatches featureMatches = matcher->matchKeyPointsPair(fx->getKps(), fy->getKps());
-        RANSAC2DReport pnp = pnpRegistration->registrationFunction(featureMatches);
-        RegReport rep;
+    void LocalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge) {
+        RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
+        RegReport ba;
         if (pnp.success) {
-            bool needNewMatches = pnp.inliers.size()<100;
-            vector<FeatureKeypoint> kxs, kys;
-            if(needNewMatches) {
-                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches.getFp1(), featureMatches.getFp2(), pnp.T);
-                featureMatchesToPoints(matches, kxs, kys);
-            }else {
-                featureIndexesToPoints(featureMatches.getKx(), pnp.kps1, kxs);
-                featureIndexesToPoints(featureMatches.getKy(), pnp.kps2, kys);
-            }
-
             BARegistration baRegistration(globalConfig);
-            RegReport baRep = baRegistration.bundleAdjustment(pnp.T, featureMatches.getCx(), featureMatches.getCy(), kxs, kys, needNewMatches);
+            vector<FeatureKeypoint> kxs, kys;
+            if(pnp.inliers.size()<100) {
+                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
+                featureMatchesToPoints(matches, kxs, kys);
 
-            PairwiseICP icp(globalConfig);
-            RegReport icpRep = icp.icp(pnp.T,  fx, fy);
-
-            // compute 3D residuals
-            const double k = 0.001;
-            double baCost = 0, icpCost = 0;
-            for(int i=0; i<kxs.size(); i++) {
-                Vector3 qx = fx->getCamera()->getCameraModel()->unproject(kxs[i].x, kys[i].y, kys[i].z);
-                Vector3 qy = PointUtil::transformPixelToPoint(kys[i], baRep.T, fy->getCamera());
-                double norm = (qy-qx).squaredNorm();
-                if(norm < k*k) {
-                    baCost += 0.5*norm;
-                }else {
-                    baCost += k * (sqrtf(norm) - 0.5 * k);
-                }
-
-                qy = PointUtil::transformPixelToPoint(kys[i], icpRep.T, fy->getCamera());
-                norm = norm = (qy-qx).squaredNorm();
-                if(norm < k*k) {
-                    icpCost += 0.5*norm;
-                }else {
-                    icpCost += k * (sqrtf(norm) - 0.5 * k);
-                }
-            }
-
-            if(icpCost < baCost) {
-                rep = icpRep;
-                rep.cost = icpCost;
+                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
             }else {
-                rep = baRep;
-                rep.cost = baCost;
-            }
-            rep.inlierNum = kxs.size();
+                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
 
-            double cost = rep.avgCost();
-            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-//                        downSampleFeatureMatches(kxs, kys, fx->getCamera(), ba.T, globalConfig.downSampleGridSize);
-                edge->setKxs(kxs);
-                edge->setKys(kys);
-                edge->setTransform(rep.T);
-                edge->setCost(cost);
+                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+            }
+
+            if (ba.success) {
+                double cost = ba.avgCost();
+                if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                    edge->setKxs(kxs);
+                    edge->setKys(kys);
+                    edge->setTransform(ba.T);
+                    edge->setCost(cost);
+                }
             }
         }
 
         printMutex.lock();
-        cout << "-------------------" << fx->getFrameIndex() << "-" << fy->getFrameIndex()  << "-local-pnp+ba---------------------------------" << endl;
+        cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-pnp+ba---------------------------------" << endl;
         pnp.printReport();
-        rep.printReport();
+        if (ba.success) {
+            ba.printReport();
+        }
         printMutex.unlock();
+    }
+
+    void LocalRegistration::registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge *edge, cudaStream_t curStream) {
+        stream = curStream;
+        FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
+        registrationPnPBA(&featureMatches, edge);
     }
 
     void LocalRegistration::registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges) {
@@ -112,7 +85,7 @@ namespace rtf {
 //            threads[index] = new thread(
 //                    bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
 //                         placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
-            registrationPairEdge(frames[refIndex]->getFirstFrame(), frames[curIndex]->getFirstFrame(), &edges[index], stream);
+            registrationPairEdge(&frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], stream);
             index++;
         }
 
@@ -133,7 +106,7 @@ namespace rtf {
 //                        threads[index] = new thread(
 //                                bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
 //                                     placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
-                        registrationPairEdge(frames[refIndex]->getFirstFrame(), frames[curIndex]->getFirstFrame(), &edges[index], stream);
+                        registrationPairEdge(&frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], stream);
 
                         index++;
                     }
@@ -277,7 +250,7 @@ namespace rtf {
         SIFTFeaturePoints &sf = keyframe->getKps();
         int m = connectedComponents[0].size();
         if(m > 1) {
-//            Optimizer::poseGraphOptimizeCeres(localViewGraph);
+            Optimizer::poseGraphOptimizeCeres(localViewGraph);
             // update transforms
             vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
             for(int i=0; i<connectedComponents[0].size(); i++) {
@@ -340,9 +313,6 @@ namespace rtf {
         cout << "feature num:" << sf.size() << endl;
 
         // reset
-        for(shared_ptr<KeyFrame> kf: localViewGraph.getSourceFrames()) {
-            kf->getFirstFrame()->releaseImages();
-        }
         localViewGraph.reset(0);
         localDBoWHashing->clear();
 
