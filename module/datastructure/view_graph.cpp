@@ -65,9 +65,15 @@ namespace rtf {
         return getCamera()->getK();
     }
 
-    void KeyFrame::addFrame(shared_ptr<Frame> frame) {
+    void KeyFrame::addFrame(shared_ptr<Frame> frame, int pathLength) {
         indexToInnerMap.insert(map<int, int>::value_type(frame->getFrameIndex(), frames.size()));
         frames.emplace_back(frame);
+        pathLengths.emplace_back(pathLength);
+    }
+
+    int KeyFrame::getPathLength(int frameIndex) {
+        int innerIndex = indexToInnerMap[frameIndex];
+        return pathLengths[innerIndex];
     }
 
     vector<shared_ptr<Frame>> &KeyFrame::getFrames() {

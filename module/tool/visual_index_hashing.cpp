@@ -355,4 +355,53 @@ namespace rtf {
             }
         }
     }
+
+    void selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, SIFTVocabulary* siftVocabulary, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes) {
+        vector<int> refInners;
+        DBoWVocabulary refVoc;
+        for(int i=0; i<ref->getFrames().size(); i++) {
+            shared_ptr<Frame> refFrame = ref->getFrames()[i];
+            if(!refFrame->isVisible()) continue;
+            refInners.emplace_back(refFrame->getFrameIndex());
+            refVoc.add(refFrame->getFrameIndex(), &refFrame->getKps());
+        }
+
+        vector<int> curInners;
+        DBoWVocabulary curVoc;
+        for(int i=0; i<cur->getFrames().size(); i++) {
+            shared_ptr<Frame> curFrame = cur->getFrames()[i];
+            if(!curFrame->isVisible()) continue;
+            curInners.emplace_back(curFrame->getFrameIndex());
+            curVoc.add(curFrame->getFrameIndex(), &curFrame->getKps());
+        }
+
+        Eigen::MatrixXi wordCounts(refInners.size(), curInners.size());
+        {
+            CUDAMatrixi cudaWordCounts(refInners.size(), curInners.size());
+            CUDAPtrArray<CUDABoW> refGpuVoc = refVoc.gpuVoc.uploadToCUDA();
+            CUDAPtrArray<CUDABoW> curGpuVoc = curVoc.gpuVoc.uploadToCUDA();
+            multiWordsCount(refGpuVoc, curGpuVoc, cudaWordCounts);
+            cudaWordCounts.download(wordCounts);
+        }
+
+        int maxCommonWords = wordCounts.maxCoeff();
+        // filter by maxWordCount and minWordCount
+        int minCommonWords = maxCommonWords * 0.6f;
+        pair<int, int> maxPair;
+        float maxScore = 0;
+        for(int i=0; i<refInners.size(); i++) {
+            for(int j=0; j<curInners.size(); j++) {
+                if(wordCounts(i,j)>=minCommonWords) {
+                    float score = siftVocabulary->score(refVoc.cpuVoc[i].second->getMBowVec(), curVoc.cpuVoc[j].second->getMBowVec());
+                    if(score > maxScore) {
+                        maxPair = make_pair(refInners[i], curInners[j]);
+                        maxScore = score;
+                    }
+                }
+            }
+        }
+
+        refInnerIndexes.emplace_back(maxPair.first);
+        curInnerIndexes.emplace_back(maxPair.second);
+    }
 }

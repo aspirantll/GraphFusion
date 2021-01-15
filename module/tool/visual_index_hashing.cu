@@ -49,4 +49,46 @@ namespace rtf {
         wordsCountKernel<<<grid, block, sizeof(unsigned int)*cur.getSizes(), stream>>>(voc, cur, wordCounts);
         CUDA_CHECKED_NO_ERROR();
     }
+
+
+    __global__ void multiWordsCountKernel(CUDAPtrArray<CUDABoW> voc1, CUDAPtrArray<CUDABoW> voc2, CUDAPtri counts) {
+        const int x = blockIdx.x;
+        const int y = threadIdx.x;
+        if(x>=voc1.getNum()||y>=voc2.getNum()) return;
+
+        CUDAPtru words1 = voc1[x].words;
+        CUDAPtru words2 = voc2[y].words;
+
+        const int len1 = words1.size();
+        const int len2 = words2.size();
+
+        unsigned int count = 0;
+        int i=0, j=0;
+        while(i<len1&&j<len2) {
+            unsigned int curWordId = words1[i];
+            unsigned int refWordId = words2[j];
+            if(curWordId==refWordId) {
+                i++;
+                j++;
+                count++;
+            }else if(curWordId>refWordId) {
+                j++;
+            }else {
+                i++;
+            }
+        }
+
+        counts.set(x, y, count);
+    }
+
+
+    void multiWordsCount(CUDAPtrArray<CUDABoW>& voc1, CUDAPtrArray<CUDABoW>& voc2, CUDAMatrixi& wordCounts) {
+        int len1 = voc1.getNum();
+        int len2 = voc2.getNum();
+
+        dim3 grid(len1);
+        dim3 block(len2);
+        multiWordsCountKernel<<<grid, block, 0, stream>>>(voc1, voc2, wordCounts);
+        CUDA_CHECKED_NO_ERROR();
+    }
 }

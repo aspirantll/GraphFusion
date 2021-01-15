@@ -309,6 +309,8 @@ namespace rtf {
     typedef CUDAMatrix<float> CUDAMatrixf;
     typedef CUDAMatrix<long> CUDAMatrixl;
     typedef CUDAMatrix<uchar> CUDAMatrixc;
+    typedef CUDAMatrix<unsigned int> CUDAMatrixu;
+    typedef CUDAMatrix<int> CUDAMatrixi;
 
 
     template <class DataT> class CUDAPtr {
@@ -405,6 +407,7 @@ namespace rtf {
     typedef CUDAPtr<long> CUDAPtrl;
     typedef CUDAPtr<unsigned int> CUDAPtru;
     typedef CUDAPtr<uchar> CUDAPtrc;
+    typedef CUDAPtr<int> CUDAPtri;
 
 
     template <class DataT> class CUDARow {

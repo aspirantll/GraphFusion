@@ -17,6 +17,8 @@ namespace rtf {
 
 
     void wordsCount(CUDAPtrArray<CUDABoW>& voc, CUDAArrayu& cur, CUDAArrayu& wordCounts);
+
+    void multiWordsCount(CUDAPtrArray<CUDABoW>& voc1, CUDAPtrArray<CUDABoW>& voc2, CUDAMatrixi& wordCounts);
 }
 
 #endif //GraphFusion_VISUAL_INDEX_HASHING_CUH

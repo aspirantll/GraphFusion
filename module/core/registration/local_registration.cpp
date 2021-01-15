@@ -200,7 +200,7 @@ namespace rtf {
         if (localViewGraph.getFramesNum() > 1) {
             updateLocalEdges();
             localViewGraph.updateSpanningTree();
-            updateCorrelations();
+//            updateCorrelations();
         }
         localDBoWHashing->addVisualIndex(make_float3(0,0,0), keyframe->getKps(), localViewGraph.getFramesNum()-1);
     }
@@ -234,29 +234,37 @@ namespace rtf {
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
         vector<vector<int>> connectedComponents = findConnectedComponents(localViewGraph, globalConfig.maxAvgCost);
+        Optimizer::poseGraphOptimizeCeres(localViewGraph);
 
         // 2. initialize key frame
         set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());
         shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
         keyframe->setTransform(Transform::Identity());
         for(int i=0; i<n; i++) {
-            shared_ptr<Frame> frame = localViewGraph[i].getFrames()[0]->getFirstFrame();
+            shared_ptr<KeyFrame> kf = localViewGraph[i].getFrames()[0];
+            shared_ptr<Frame> frame = kf->getFirstFrame();
+            frame->setTransform(localViewGraph[connectedComponents[0][i]].getGtTransform());
             frame->setVisible(visibleSet.count(i));
-            keyframe->addFrame(frame);
-        }
 
+            // compute path length in MST
+            int pathLength = 0;
+            for(int p=i; (p=localViewGraph.getParent(p))!=-1; pathLength++);
+            keyframe->addFrame(frame, pathLength);
+        }
 
         //3. collect keypoints
         SIFTFeaturePoints &sf = keyframe->getKps();
+//        SIFTFeatureDescriptors& descriptors = sf.getDescriptors();
         int m = connectedComponents[0].size();
+//        int index = 0;
+//        for(int i=0; i<m; i++) {
+//            SIFTFeatureDescriptors& curDesc = localViewGraph[connectedComponents[0][i]].getFrames()[0]->getKps().getDescriptors();
+//            int curLen = curDesc.rows();
+//            descriptors.conservativeResize(index+curLen, 128);
+//            descriptors.block(index, 0, curLen, 128) = curDesc;
+//            index += curLen;
+//        }
         if(m > 1) {
-            Optimizer::poseGraphOptimizeCeres(localViewGraph);
-            // update transforms
-            vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
-            for(int i=0; i<connectedComponents[0].size(); i++) {
-                frames[connectedComponents[0][i]]->setTransform(localViewGraph[connectedComponents[0][i]].getGtTransform());
-            }
-
             sf.setCamera(localViewGraph[0].getCamera());
             sf.setFIndex(localViewGraph[0].getIndex());
 
@@ -304,8 +312,6 @@ namespace rtf {
         }else if(m==1){
             sf = localViewGraph[connectedComponents[0][0]].getFrames()[0]->getKps();
         }
-
-
 
         cout << "----------------------------------------" << endl;
         cout << "frame index:" << keyframe->getIndex() << endl;

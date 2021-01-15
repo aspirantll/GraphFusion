@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new TUMInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
@@ -105,8 +105,8 @@ int main(int argc, char* argv[]) {
 //    YAMLUtil::saveYAML(workspace+"/online.yaml", onlineRecon.getViewGraph().serialize());
 //    saveResult(onlineRecon.getViewGraph());
 
-    onlineRecon.finalOptimize(false);
-    onlineRecon.saveMesh(savePath);
+    onlineRecon.finalOptimize(true);
+//    onlineRecon.saveMesh(savePath);
 
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     double ttrack= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();

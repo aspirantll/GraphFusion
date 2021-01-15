@@ -94,7 +94,44 @@ namespace rtf {
         return false;
     }
 
-    void GlobalRegistration::registrationEdges(shared_ptr<KeyFrame> cur, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges) {
+    void GlobalRegistration::registrationEdges(shared_ptr<KeyFrame> curKeyFrame, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(Edge)& pairEdges) {
+        int k = refKFIndexes.size();
+        pairEdges.resize(k, Edge::UNREACHABLE);
+        thread *threads[k];
+        cudaStream_t streams[k];
+
+        for(int i=0; i<k; i++) {
+            shared_ptr<KeyFrame> refKeyFrame = viewGraph.indexFrame(refKFIndexes[i]);
+            shared_ptr<Frame> refFrame = refKeyFrame->getFrame(refInnerIndexes[i]);
+            shared_ptr<Frame> curFrame = curKeyFrame->getFrame(curInnerIndexes[i]);
+            FeatureMatches featureMatches = matcher->matchKeyPointsPair(refFrame->getKps(),
+                                                                        curFrame->getKps());
+//            cudaStreamCreate(&streams[index]);
+//            threads[index] = new thread(
+//                    bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
+//                         placeholders::_3), featureMatches, &edges[index], streams[index]);
+            registrationPairEdge(featureMatches, &pairEdges[i], stream);
+        }
+
+        /*for (int i = 0; i < index; i++) {
+            threads[i]->join();
+            CUDA_CHECKED_CALL(cudaStreamSynchronize(streams[i]));
+            CUDA_CHECKED_CALL(cudaStreamDestroy(streams[i]));
+        }*/
+
+        for(int i=0; i<k; i++) {
+            if(!pairEdges[i].isUnreachable()) {
+                shared_ptr<KeyFrame> refKeyFrame = viewGraph.indexFrame(refKFIndexes[i]);
+                Transform refTrans = refKeyFrame->getTransform(refInnerIndexes[i]);
+                Transform curTrans = curKeyFrame->getTransform(curInnerIndexes[i]);
+                Transform trans = refTrans*pairEdges[i].getTransform()*curTrans.inverse();
+                pairEdges[i].setTransform(trans);
+            }
+
+        }
+    }
+
+    void GlobalRegistration::findOverlapping(shared_ptr<KeyFrame> cur, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes) {
         const int k = globalConfig.overlapNum;
         const int lastNum = 1;
         const int n = viewGraph.getFramesNum()-1;
@@ -102,29 +139,21 @@ namespace rtf {
         DBoW2::BowVector& bow = cur->getKps().getMBowVec();
 
         set<int> spAlreadyAddedKF;
-        overlapFrames.reserve(k);
-        edges.resize(k, Edge::UNREACHABLE);
-        thread *threads[k];
-        cudaStream_t streams[k];
+        refKFIndexes.reserve(k);
+        refInnerIndexes.reserve(k);
+        curInnerIndexes.reserve(k);
         // last frame
         int index = 0;
         for (int i = 1; i <= lastNum && i <= k && i < n; i++) {
             shared_ptr<KeyFrame> refKeyFrame = frames[n - i];
             int refIndex = refKeyFrame->getIndex();
             spAlreadyAddedKF.insert(refIndex);
-            overlapFrames.emplace_back(refIndex);
-
-            FeatureMatches featureMatches = matcher->matchKeyPointsPair(refKeyFrame->getKps(),
-                                                                        cur->getKps());
-//            cudaStreamCreate(&streams[index]);
-//            threads[index] = new thread(
-//                    bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-//                         placeholders::_3), featureMatches, &edges[index], streams[index]);
-            registrationPairEdge(featureMatches, &edges[index], stream);
+            refKFIndexes.emplace_back(refIndex);
+            selectBestOverlappingFrame(refKeyFrame, cur, siftVocabulary,refInnerIndexes, curInnerIndexes);
             index++;
         }
 
-        if (overlapFrames.size() < k) {
+        if (refKFIndexes.size() < k) {
             Timer queryTimer = Timer::startTimer("query index");
             std::vector<MatchScore> imageScores = dBoWHashing->queryImages(lastPos, cur->getKps(), notLost,  lostNum > 0);
             queryTimer.stopTimer();
@@ -135,28 +164,13 @@ namespace rtf {
                 if (!spAlreadyAddedKF.count(refIndex)) {
                     shared_ptr<KeyFrame> refKeyFrame = viewGraph.indexFrame(refIndex);
                     spAlreadyAddedKF.insert(refIndex);
-                    overlapFrames.emplace_back(refIndex);
-
-                    FeatureMatches featureMatches = matcher->matchKeyPointsPair(refKeyFrame->getKps(),
-                                                                                cur->getKps());
-                    overlapFrames.emplace_back(refIndex);
-                    spAlreadyAddedKF.insert(refIndex);
-//                    cudaStreamCreate(&streams[index]);
-//                    threads[index] = new thread(
-//                            bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-//                                 placeholders::_3), featureMatches, &edges[index], streams[index]);
-                    registrationPairEdge(featureMatches, &edges[index], stream);
+                    refKFIndexes.emplace_back(refIndex);
+                    selectBestOverlappingFrame(refKeyFrame, cur, siftVocabulary, refInnerIndexes, curInnerIndexes);
                     index++;
                 }
-                if (overlapFrames.size() >= k) break;
+                if (refKFIndexes.size() >= k) break;
             }
         }
-
-        /*for (int i = 0; i < index; i++) {
-            threads[i]->join();
-            CUDA_CHECKED_CALL(cudaStreamSynchronize(streams[i]));
-            CUDA_CHECKED_CALL(cudaStreamDestroy(streams[i]));
-        }*/
     }
 
     GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
@@ -189,15 +203,15 @@ namespace rtf {
         viewGraph.extendNode(keyframe);
 
         if(viewGraph.getFramesNum()>1) {
-            vector<int> overlapFrames;
-            vector<int> innerIndexes;
+            vector<int> refKFIndexes, refInnerIndexes, curInnerIndexes;
+            findOverlapping(keyframe, refKFIndexes, refInnerIndexes, curInnerIndexes);
             vector<Edge, Eigen::aligned_allocator<Edge>> pairEdges;
-            registrationEdges(keyframe, overlapFrames, innerIndexes, pairEdges);
+            registrationEdges(keyframe, refKFIndexes, refInnerIndexes, curInnerIndexes, pairEdges);
 
             map<int, int> bestEdgeMap;
-            for(int i=0; i<overlapFrames.size(); i++) {
+            for(int i=0; i<refKFIndexes.size(); i++) {
                 if (!pairEdges[i].isUnreachable()) {
-                    int refNodeIndex = viewGraph.findNodeIndexByFrameIndex(overlapFrames[i]);
+                    int refNodeIndex = viewGraph.findNodeIndexByFrameIndex(refKFIndexes[i]);
                     if (bestEdgeMap.count(refNodeIndex)) {
                         double bestCost = pairEdges[bestEdgeMap[refNodeIndex]].getCost();
                         if (pairEdges[i].getCost() < bestCost) {

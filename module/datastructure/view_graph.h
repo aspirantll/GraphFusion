@@ -39,6 +39,7 @@ namespace rtf {
     class KeyFrame {
     protected:
         vector<shared_ptr<Frame>> frames;
+        vector<int> pathLengths;
         map<int, int> indexToInnerMap;
         SE3 transform;
         SIFTFeaturePoints kps;
@@ -59,7 +60,9 @@ namespace rtf {
 
         void setTransform(Transform trans);
 
-        void addFrame(shared_ptr<Frame> frame);
+        void addFrame(shared_ptr<Frame> frame, int pathLength=0);
+
+        int getPathLength(int frameIndex);
 
         vector<shared_ptr<Frame>> &getFrames();
 

@@ -237,8 +237,6 @@ namespace rtf {
         SIFTVocabulary * siftVocabulary;
         mutex printMutex;
 
-        EigenVector(Edge) edges;
-
         float3 lastPos;
         bool notLost;// the status for tracking
         int lostNum;
@@ -250,7 +248,9 @@ namespace rtf {
 
         void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream);
 
-        void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& overlapFrames, vector<int>& innerIndexes, EigenVector(Edge)& edges);
+        void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(Edge)& pairEdges);
+
+        void findOverlapping(shared_ptr<KeyFrame> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes);
 
         bool loopClosureDetection();
 

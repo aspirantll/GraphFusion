@@ -368,8 +368,9 @@ namespace rtf {
         ceres::Solve(options, &problem, &summary);
         std::cout << summary.FullReport() << '\n';
 
+        SE3 baseTransInv = ceresVectorPoses[0].returnPose().inverse();
         for (int i = 0; i < viewGraph.getNodesNum(); i++) {
-            viewGraph[i].setGtTransform(ceresVectorPoses[i].returnPose().matrix());
+            viewGraph[i].setGtTransform((baseTransInv*ceresVectorPoses[i].returnPose()).matrix());
         }
     }
 
