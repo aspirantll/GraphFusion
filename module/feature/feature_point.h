@@ -193,40 +193,19 @@ namespace rtf {
                 }
 
             int num = fps.size();
-            for(int i=0; i<num; i++) {
+            for (int i = 0; i < num; i++) {
                 shared_ptr<FeatureKeypoint> fp = fps[i];
                 Eigen::Matrix<T, 1, -1, Eigen::RowMajor> desc = descs[i];
 
-                bool newFp = true;
-                if(BaseConfig::getInstance()->fuse&&num>BaseConfig::getInstance()->kpFuseTh) {
-                    vector<int> indices = getFeaturesInArea(fp->x, fp->y, 3);
-                    float bestDist = 0;
+                int index = keyPoints.size();
+                fp->setIndex(index);
+                keyPoints.emplace_back(fp);
+                descriptors.conservativeResize(descriptors.rows() + 1, 128);
+                descriptors.row(index) = desc;
 
-                    Eigen::Matrix<int, 1, -1, Eigen::RowMajor> d2 = desc.template cast<int>();
-                    for(int ind: indices)  {
-                        Eigen::Matrix<int, 1, -1, Eigen::RowMajor> d1 = getDescriptors().row(ind).template cast<int>();
-
-                        const float dist = d1.dot(d2); // dot product for distance
-
-                        if(dist>bestDist) {
-                            bestDist=dist;
-                        }
-                    }
-                    float dist =  acos(min(bestDist * 0.000003814697265625f, 1.0f));
-                    newFp = dist>BaseConfig::getInstance()->fuseScore;
-                }
-
-                if(newFp) {
-                    int index = keyPoints.size();
-                    fp->setIndex(index);
-                    keyPoints.emplace_back(fp);
-                    descriptors.conservativeResize(descriptors.rows()+1, 128);
-                    descriptors.row(index) = desc;
-
-                    int nGridPosX, nGridPosY;
-                    if(posInGrid(fp,nGridPosX,nGridPosY))
-                        grid[nGridPosX][nGridPosY].push_back(index);
-                }
+                int nGridPosX, nGridPosY;
+                if (posInGrid(fp, nGridPosX, nGridPosY))
+                    grid[nGridPosX][nGridPosY].push_back(index);
 
             }
         }

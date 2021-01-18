@@ -12,12 +12,6 @@ namespace rtf {
 
     BaseConfig::BaseConfig(const GlobalConfig& globalConfig) {
         workspace = globalConfig.workspace;
-        fuse = globalConfig.fuse;
-        kpFuseTh = globalConfig.kpFuseTh;
-        fuseScore = globalConfig.fuseScore;
-        downSample = globalConfig.downSample;
-        downSampleTh = globalConfig.downSampleTh;
-        downSampleGridSize = globalConfig.downSampleGridSize;
     }
 
     void BaseConfig::initInstance(const GlobalConfig& globalConfig) {
@@ -55,11 +49,7 @@ namespace rtf {
         upperBoundResidual = node["upperBoundResidual"].as<float>();
         chunkSize = node["chunkSize"].as<int>();
 
-        fuse = node["fuse"].as<bool>();
-        kpFuseTh = node["kpFuseTh"].as<int>();
-        fuseScore = node["fuseScore"].as<float>();
-        downSample = node["downSample"].as<bool>();
-        downSampleGridSize = node["downSampleGridSize"].as<int>();
+        matchFactorTh = node["matchFactorTh"].as<float>();
     }
 
     void GlobalConfig::saveToFile(const string &file) {
@@ -78,12 +68,7 @@ namespace rtf {
         node["upperBoundResidual"] = upperBoundResidual;
         node["chunkSize"] = chunkSize;
 
-        node["fuse"] = fuse;
-        node["kpFuseTh"] = kpFuseTh;
-        node["fuseScore"] = fuseScore;
-        node["downSample"] = downSample;
-        node["downSampleGridSize"] = downSampleGridSize;
-
+        node["matchFactorTh"] = matchFactorTh;
         YAMLUtil::saveYAML(file, node);
     }
 }

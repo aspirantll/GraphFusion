@@ -118,13 +118,7 @@ namespace rtf {
         int chunkSize = 30;
         float maxPointError = 0.01f;
         int frameNeighs = 1;
-
-        bool fuse = false;
-        int kpFuseTh = 2000;
-        float fuseScore = 0.7;
-        bool downSample = false;
-        int downSampleTh = 300;
-        int downSampleGridSize = 10;
+        float matchFactorTh = 0.8;
 
 
         GlobalConfig(const string &workspace);

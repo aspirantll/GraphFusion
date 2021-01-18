@@ -270,14 +270,6 @@ namespace rtf {
         reset(nodesNum);
     }
 
-    void ViewGraph::setNodesAndEdges(NodeVector &nodes, EigenUpperTriangularMatrix<rtf::Edge> &adjMatrix) {
-        this->nodes = nodes;
-        *(this->adjMatrix) = adjMatrix;
-
-        generateSpanningTree();
-    }
-
-
     void ViewGraph::reset(int nodesNum, Edge defaultValue) {
         if(nodesNum <= 0) {
             nodes.clear();
@@ -320,8 +312,13 @@ namespace rtf {
         }
         visited[u] = true;
         return nodes[nodeIndex].getGtSE();
+    }
 
-
+    int ViewGraph::computePathLens(int index) {
+        if(index < 0) return -1;
+        if(nodePathLens[index]>=0) return nodePathLens[index];
+        nodePathLens[index] = computePathLens(parentIndexes[index])+1;
+        return nodePathLens[index];
     }
 
     Edge &ViewGraph::operator()(int i, int j) {
@@ -346,6 +343,7 @@ namespace rtf {
         frameToInnerIndex.insert(map<int, int>::value_type(frame->getIndex(), sourceFrames.size()-1));
         parentIndexes.emplace_back(-1);
         rootIndexes.emplace_back(nodes.size()-1);
+        nodePathLens.emplace_back(0);
         return nodes[nodes.size()-1];
     }
 
@@ -525,11 +523,13 @@ namespace rtf {
             bool endFlag = false;
             set<int> needUpdateRoot;
             needUpdateRoot.insert(lastIndex);
+            nodePathLens[lastIndex] = -1;
             while(!endFlag) {
                 endFlag = true;
                 for(int i=0; i<parentIndexes.size(); i++) {
                     if(needUpdateRoot.count(parentIndexes[i])&&!needUpdateRoot.count(i)) {
                         needUpdateRoot.insert(i);
+                        nodePathLens[i] = -1; // reset node path length
                         endFlag = false;
                     }
                 }
@@ -537,6 +537,7 @@ namespace rtf {
 
             for(int index: needUpdateRoot) {
                 rootIndexes[index] = lastRoot;
+                computePathLens(index);
             }
 
             // update visible root
@@ -667,6 +668,11 @@ namespace rtf {
 
     int ViewGraph::getParent(int nodeIndex) {
         return parentIndexes[nodeIndex];
+    }
+
+    int ViewGraph::getPathLen(int frameIndex) {
+        int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
+        return nodePathLens[nodeIndex];
     }
 
 

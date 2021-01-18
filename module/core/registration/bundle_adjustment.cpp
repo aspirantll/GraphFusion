@@ -5,6 +5,7 @@
 #include <utility>
 #include "registrations.h"
 #include "bundle_adjustment.cuh"
+#include "../../processor/downsample.h"
 
 namespace rtf {
 
@@ -124,9 +125,6 @@ namespace rtf {
             report.success = true;
         }
         report.inlierNum = kxs->size();
-        if(report.success&&BaseConfig::getInstance()->downSample) {
-            downSampleFeatureMatches(*kxs, *kys, camera, report.T, BaseConfig::getInstance()->downSampleGridSize);
-        }
         return report;
     }
 

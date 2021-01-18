@@ -12,7 +12,9 @@
 using namespace rtf::ViewGraphUtil;
 
 namespace rtf {
-    void GlobalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge) {
+
+    void GlobalRegistration::registrationPairEdge(FeatureMatches *featureMatches, Edge *edge, cudaStream_t curStream, float weight) {
+        stream = curStream;
         RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
         RegReport ba;
         if (pnp.success) {
@@ -36,7 +38,7 @@ namespace rtf {
                     edge->setKxs(kxs);
                     edge->setKys(kys);
                     edge->setTransform(ba.T);
-                    edge->setCost(cost);
+                    edge->setCost(cost*weight);
                 }
             }
         }
@@ -46,11 +48,6 @@ namespace rtf {
         pnp.printReport();
         ba.printReport();
         printMutex.unlock();
-    }
-
-    void GlobalRegistration::registrationPairEdge(FeatureMatches featureMatches, Edge *edge, cudaStream_t curStream) {
-        stream = curStream;
-        registrationPnPBA(&featureMatches, edge);
     }
 
     bool detectLoop(set<pair<int, int> >& candidates) {
@@ -106,11 +103,13 @@ namespace rtf {
             shared_ptr<Frame> curFrame = curKeyFrame->getFrame(curInnerIndexes[i]);
             FeatureMatches featureMatches = matcher->matchKeyPointsPair(refFrame->getKps(),
                                                                         curFrame->getKps());
+
+            float weight = viewGraph.getPathLen(refKFIndexes[i])+refKeyFrame->getPathLength(refInnerIndexes[i])+curKeyFrame->getPathLength(curInnerIndexes[i])+1;
 //            cudaStreamCreate(&streams[index]);
 //            threads[index] = new thread(
 //                    bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
 //                         placeholders::_3), featureMatches, &edges[index], streams[index]);
-            registrationPairEdge(featureMatches, &pairEdges[i], stream);
+            registrationPairEdge(&featureMatches, &pairEdges[i], stream, weight);
         }
 
         /*for (int i = 0; i < index; i++) {
@@ -127,7 +126,6 @@ namespace rtf {
                 Transform trans = refTrans*pairEdges[i].getTransform()*curTrans.inverse();
                 pairEdges[i].setTransform(trans);
             }
-
         }
     }
 
@@ -156,7 +154,16 @@ namespace rtf {
         if (refKFIndexes.size() < k) {
             Timer queryTimer = Timer::startTimer("query index");
             std::vector<MatchScore> imageScores = dBoWHashing->queryImages(lastPos, cur->getKps(), notLost,  lostNum > 0);
+
             queryTimer.stopTimer();
+            float minScore = imageScores[0].score*globalConfig.matchFactorTh;
+            std::sort(imageScores.begin(), imageScores.end(), [=](MatchScore& ind1, MatchScore& ind2) {
+                if(ind1.score>minScore&&ind2.score>minScore) {
+                    return viewGraph.getPathLen(ind1.imageId)<viewGraph.getPathLen(ind2.imageId);
+                }else {
+                    return ind1.score > ind2.score;
+                }
+            });
             // Return all those keyframes with a score higher than 0.75*bestScore
             for (auto it: imageScores) {
                 const float &si = it.score;

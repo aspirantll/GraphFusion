@@ -191,16 +191,17 @@ namespace rtf {
         int curMaxRoot = 0;
         vector<int> parentIndexes;
         vector<int> rootIndexes;
+        vector<int> nodePathLens;
 
         SE3 computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited);
+
+        int computePathLens(int index);
     public:
         ViewGraph();
 
         ~ViewGraph();
 
         ViewGraph(int nodesNum);
-
-        void setNodesAndEdges(NodeVector &nodes, EigenUpperTriangularMatrix <Edge> &adjMatrix);
 
         void reset(int nodesNum = 0, Edge defaultValue = Edge::UNREACHABLE);
 
@@ -231,6 +232,8 @@ namespace rtf {
         bool existEdge(int i, int j);
 
         int getParent(int child);
+
+        int getPathLen(int frameIndex);
 
         int getFramesNum();
 

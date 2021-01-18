@@ -244,9 +244,7 @@ namespace rtf {
         vector<pair<int, int> > loops;
         set<pair<int, int> > loopCandidates;
 
-        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
-
-        void registrationPairEdge(FeatureMatches featureMatches, Edge* edge, cudaStream_t curStream);
+        void registrationPairEdge(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream, float weight=1);
 
         void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(Edge)& pairEdges);
 
