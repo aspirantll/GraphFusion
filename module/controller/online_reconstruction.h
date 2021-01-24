@@ -19,14 +19,14 @@ namespace rtf {
     class OnlineReconstruction {
     private:
         GlobalConfig globalConfig;
-        SIFTFeatureExtractor* extractor = nullptr;
+        ORBFeatureExtractor* extractor = nullptr;
         DenseFeatureMatcher* denseMatcher = nullptr;
 
         LocalRegistration* localRegistration = nullptr;
         GlobalRegistration* globalRegistration = nullptr;
         VoxelFusion * voxelFusion = nullptr;
 
-        SIFTVocabulary * siftVocabulary = nullptr;
+        ORBVocabulary * orbVocabulary = nullptr;
 
         int frameCounter;
 

@@ -20,17 +20,10 @@ namespace rtf {
         if (pnp.success) {
             BARegistration baRegistration(globalConfig);
             vector<FeatureKeypoint> kxs, kys;
-            if(pnp.inliers.size()<100) {
-                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
-                featureMatchesToPoints(matches, kxs, kys);
+            featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+            featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
 
-                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
-            }else {
-                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
-
-                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
-            }
+            ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
 
             if (ba.success) {
                 double cost = ba.avgCost();
@@ -88,6 +81,9 @@ namespace rtf {
             }
             loopCandidates.clear();
         }
+        if(viewGraph.isChange()) {
+            Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
+        }
         return false;
     }
 
@@ -104,7 +100,7 @@ namespace rtf {
             FeatureMatches featureMatches = matcher->matchKeyPointsPair(refFrame->getKps(),
                                                                         curFrame->getKps());
 
-            float weight = viewGraph.getPathLen(refKFIndexes[i])+refKeyFrame->getPathLength(refInnerIndexes[i])+curKeyFrame->getPathLength(curInnerIndexes[i])+1;
+            float weight = refKeyFrame->getPathLength(refInnerIndexes[i])+curKeyFrame->getPathLength(curInnerIndexes[i])+1;
 //            cudaStreamCreate(&streams[index]);
 //            threads[index] = new thread(
 //                    bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
@@ -180,9 +176,9 @@ namespace rtf {
         }
     }
 
-    GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
+    GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, ORBVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
         dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, true);
-        matcher = new SIFTFeatureMatcher();
+        matcher = new ORBFeatureMatcher();
         pnpRegistration = new PnPRegistration(globalConfig);
     }
 
@@ -251,6 +247,8 @@ namespace rtf {
             updateLostFrames();
 
             loopClosureDetection();
+//            Optimizer::poseGraphOptimizeCeres(viewGraph);
+
 
             curNodeIndex = viewGraph.findNodeIndexByFrameIndex(keyframe->getIndex());
             if (viewGraph[curNodeIndex].isVisible()) {

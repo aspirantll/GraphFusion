@@ -445,6 +445,10 @@ namespace rtf {
                ||rePixel.y<k1.getMinY()||rePixel.y>=k1.getMaxY()) continue;
 
             vector<int> indices = k1.getFeaturesInArea(rePixel.x, rePixel.y, config.search_radius);
+
+            if(indices.empty())
+                continue;
+
             float bestDist = 0;
             float nxtDist = 0;
             int bestIdx = -1;

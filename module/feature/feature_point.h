@@ -200,7 +200,7 @@ namespace rtf {
                 int index = keyPoints.size();
                 fp->setIndex(index);
                 keyPoints.emplace_back(fp);
-                descriptors.conservativeResize(descriptors.rows() + 1, 128);
+                descriptors.conservativeResize(descriptors.rows() + 1, 32);
                 descriptors.row(index) = desc;
 
                 int nGridPosX, nGridPosY;
@@ -407,6 +407,23 @@ namespace rtf {
 
         int size() const;
     };
+
+    class ORBFeatureKeypoint: public FeatureKeypoint {
+    public:
+        float angle; //!< computed orientation of the keypoint (-1 if not applicable);
+        float response; //!< the response by which the most strong keypoints have been selected. Can be used for the further sorting or subsampling
+        float size;
+        int octave; //!< octave (pyramid layer) from which the keypoint has been extracted
+        int class_id; //!< object class (if the keypoints need to be clustered by an object they belong to)
+
+        ORBFeatureKeypoint();
+
+        ORBFeatureKeypoint(cv::KeyPoint& kp);
+    };
+
+    typedef std::vector<ORBFeatureKeypoint> ORBFeatureKeypoints;
+    typedef FeatureDescriptors<uint8_t> ORBFeatureDescriptors;
+    typedef FeaturePoints<uint8_t> ORBFeaturePoints;
 }
 
 #endif //GraphFusion_FEATURE_POINT_H

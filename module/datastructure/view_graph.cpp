@@ -16,11 +16,11 @@ namespace rtf {
         visible = true;
     }
 
-    SIFTFeaturePoints &Frame::getKps() {
+    ORBFeaturePoints &Frame::getKps() {
         return kps;
     }
 
-    void Frame::setKps(const SIFTFeaturePoints &kps) {
+    void Frame::setKps(const ORBFeaturePoints &kps) {
         Frame::kps = kps;
     }
 
@@ -89,11 +89,11 @@ namespace rtf {
         return frames[innerIndex];
     }
 
-    SIFTFeaturePoints &KeyFrame::getKps() {
+    ORBFeaturePoints &KeyFrame::getKps() {
         return kps;
     }
 
-    void KeyFrame::setKps(const SIFTFeaturePoints &kps) {
+    void KeyFrame::setKps(const ORBFeaturePoints &kps) {
         KeyFrame::kps = kps;
     }
 
@@ -424,6 +424,7 @@ namespace rtf {
     }
 
     int ViewGraph::updateSpanningTree() { // for last node
+        changeStatus = false;
         // collect all edges for last node
         map<int, vector<pair<int, double>>> costsMap;
         int lastIndex = nodes.size()-1;
@@ -573,7 +574,7 @@ namespace rtf {
                     visited.emplace_back(!needUpdateRoot.count(j));
                 }
             }
-
+            changeStatus = !cc.empty();
             for(int j=0; j<cc.size(); j++) {
                 computeTransform(j, ccIndex, cc, visited);
             }
@@ -679,6 +680,10 @@ namespace rtf {
     bool ViewGraph::isVisible(int frameIndex) {
         int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
         return nodes[nodeIndex].isVisible();
+    }
+
+    bool ViewGraph::isChange() {
+        return changeStatus;
     }
 
     vector<vector<int>> ViewGraph::getConnectComponents() {

@@ -231,4 +231,17 @@ namespace rtf {
         return this->kx.size();
     }
 
+    ORBFeatureKeypoint::ORBFeatureKeypoint(){
+
+    }
+
+    ORBFeatureKeypoint::ORBFeatureKeypoint(cv::KeyPoint& kp) {
+        x = kp.pt.x;
+        y = kp.pt.y;
+        angle = kp.angle;
+        octave = kp.octave;
+        response = kp.response;
+        class_id = kp.class_id;
+        size = kp.size;
+    }
 }

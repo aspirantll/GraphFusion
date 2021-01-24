@@ -12,9 +12,9 @@
 using namespace rtf::ViewGraphUtil;
 
 namespace rtf {
-    LocalRegistration::LocalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): globalConfig(globalConfig), siftVocabulary(siftVocabulary) {
+    LocalRegistration::LocalRegistration(const GlobalConfig &globalConfig, ORBVocabulary* siftVocabulary): globalConfig(globalConfig), siftVocabulary(siftVocabulary) {
         localViewGraph.reset(0);
-        matcher = new SIFTFeatureMatcher();
+        matcher = new ORBFeatureMatcher();
         localDBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, false);
         pnpRegistration = new PnPRegistration(globalConfig);
     }
@@ -25,17 +25,10 @@ namespace rtf {
         if (pnp.success) {
             BARegistration baRegistration(globalConfig);
             vector<FeatureKeypoint> kxs, kys;
-            if(pnp.inliers.size()<100) {
-                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
-                featureMatchesToPoints(matches, kxs, kys);
+            featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+            featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
 
-                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
-            }else {
-                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
-
-                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
-            }
+            ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
 
             if (ba.success) {
                 double cost = ba.avgCost();
@@ -57,7 +50,7 @@ namespace rtf {
         printMutex.unlock();
     }
 
-    void LocalRegistration::registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge *edge, cudaStream_t curStream) {
+    void LocalRegistration::registrationPairEdge(ORBFeaturePoints* f1, ORBFeaturePoints* f2, Edge *edge, cudaStream_t curStream) {
         stream = curStream;
         FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
         registrationPnPBA(&featureMatches, edge);
@@ -251,7 +244,7 @@ namespace rtf {
         }
 
         //3. collect keypoints
-        SIFTFeaturePoints &sf = keyframe->getKps();
+        ORBFeaturePoints &sf = keyframe->getKps();
         int m = connectedComponents[0].size();
         if(m > 1) {
             Optimizer::poseGraphOptimizeCeres(localViewGraph);
@@ -272,11 +265,11 @@ namespace rtf {
             Scalar minX=numeric_limits<Scalar>::infinity(), maxX=0, minY=numeric_limits<Scalar>::infinity(), maxY=0;
             for(int i=0; i<m; i++) {
                 int nodeIndex = connectedComponents[0][i];
-                SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
+                ORBFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
                 for(int j=0; j<sift.getKeyPoints().size(); j++) {
                     int curIndex = startIndexes[nodeIndex]+j;
                     if(!visited[curIndex]) {
-                        shared_ptr<SIFTFeatureKeypoint> fp = make_shared<SIFTFeatureKeypoint>(*dynamic_pointer_cast<SIFTFeatureKeypoint>(sift.getKeyPoints()[j]));
+                        shared_ptr<ORBFeatureKeypoint> fp = make_shared<ORBFeatureKeypoint>(*dynamic_pointer_cast<ORBFeatureKeypoint>(sift.getKeyPoints()[j]));
                         vector<Point3D> corr;
                         vector<int> corrIndexes;
 

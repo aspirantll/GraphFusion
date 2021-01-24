@@ -5,11 +5,11 @@ irThreshold: 0.70
 maxEGResidual: 0.0001
 maxPnPResidual: 5.991
 upperBoundResidual: 59
-maxAvgCost: 3
+maxAvgCost: 2
 costThreshold: 1
 overlapNum: 3
 minInlierRatio: 0.2
-vocTxtPath: /home/liulei/workspace/voc.txt
+vocTxtPath: /home/liulei/codes/ORB_SLAM2-master/Vocabulary/ORBvoc.txt
 useHashIndex: true
 chunkSize: 10
 matchFactorTh: 0.6

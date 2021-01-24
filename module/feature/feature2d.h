@@ -8,6 +8,7 @@
 #include "base_feature.h"
 #include "../datastructure/frame_types.h"
 #include "../datastructure/point_types.h"
+#include "orb_extractor.h"
 #include <SiftGPU/SiftGPU.h>
 
 namespace rtf {
@@ -87,6 +88,32 @@ namespace rtf {
         void initializeSiftGPU();
 
         void extractFeatures(shared_ptr<FrameRGBD> frameRGBD, SIFTFeaturePoints& siftFeaturePoints) override;
+    };
+
+    class ORBExtractionConfig {
+    public:
+        int nFeatures = 4000;
+        float scaleFactor = 1.2;
+        int nLevels = 8;
+        int iniThFAST = 20;
+        int minThFAST = 7;
+    };
+
+    class ORBFeatureExtractor: public FeatureExtractor<FrameRGBD, ORBFeaturePoints> {
+    protected:
+        ORBExtractionConfig config;
+        ORBextractor * extractor;
+
+        void initialize();
+    public:
+        ORBFeatureExtractor();
+
+        ~ORBFeatureExtractor();
+
+        ORBFeatureExtractor(ORBExtractionConfig config);
+
+
+        void extractFeatures(shared_ptr<FrameRGBD> s, ORBFeaturePoints &t) override;
     };
 }
 

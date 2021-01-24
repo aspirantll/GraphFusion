@@ -11,6 +11,7 @@
 #include "feature2d.h"
 #include "../datastructure/frame_types.h"
 #include "../datastructure/point_types.h"
+#include "orb_matcher.h"
 
 using namespace std;
 
@@ -86,6 +87,30 @@ namespace rtf {
         DenseFeatureMatcher(const GlobalConfig &config);
 
         DenseFeatureMatches matchKeyPointsPair(shared_ptr<FrameRGBD> f1, shared_ptr<FrameRGBD> f2, Transform trans);
+    };
+
+    class ORBMatchingConfig {
+    public:
+        string vocTxtPath = "/home/liulei/codes/ORB_SLAM2-master/Vocabulary/ORBvoc.txt";
+        float nnratio = 0.6;
+        bool checkOri = true;
+        int search_radius = 3;
+    };
+
+    class ORBFeatureMatcher{
+    protected:
+        ORBMatchingConfig config;
+        shared_ptr<ORBVocabularyHelper> bowHelper;
+        shared_ptr<ORBMatcher> matcher;
+    public:
+        ORBFeatureMatcher();
+
+        ORBFeatureMatcher(ORBMatchingConfig config);
+
+        FeatureMatches matchKeyPointsPair(ORBFeaturePoints& k1, ORBFeaturePoints& k2);
+
+        FeatureMatches matchKeyPointsWithProjection(ORBFeaturePoints& k1, ORBFeaturePoints& k2, Transform T);
+
     };
 
 }

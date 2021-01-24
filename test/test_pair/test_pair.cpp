@@ -27,21 +27,11 @@ void registrationPnPBA(FeatureMatches *featureMatches, Edge *edge, cudaStream_t 
     RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
     RegReport ba;
     if (pnp.success) {
-        {
-            vector<FeatureKeypoint> kxs, kys;
-            featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-            featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
-            BARegistration baRegistration(globalConfig);
-            ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
-            ba.printReport();
-        }
-        SIFTFeatureMatcher matcher;
-        FeatureMatches matches = matcher.matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
         vector<FeatureKeypoint> kxs, kys;
-        featureMatchesToPoints(matches, kxs, kys);
-
+        featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+        featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
         BARegistration baRegistration(globalConfig);
-        ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
+        ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
         if (ba.success) {
             double cost = ba.avgCost();
             if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
@@ -73,17 +63,17 @@ int main() {
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;
     cout << "frame_num: " << fileInputSource->getFrameNum() << endl;
 
-    SIFTFeatureExtractor extractor;
+    ORBFeatureExtractor extractor;
     auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 0));
     ref->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(ref, ref->getKps());
 
-    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 50));
+    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 5));
     cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
     ImageUtil::drawKeypoints(cur->getKps(), cur, workspace+"/kp1.png");
 
-    SIFTFeatureMatcher matcher;
+    ORBFeatureMatcher matcher;
     FeatureMatches featureMatches = matcher.matchKeyPointsPair(ref->getKps(), cur->getKps());
     ImageUtil::drawMatches(featureMatches, ref, cur, workspace+"/matches.png");
 

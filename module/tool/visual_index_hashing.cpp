@@ -10,22 +10,22 @@
 
 
 namespace rtf {
-    void toDescriptorVector(SIFTFeatureDescriptors & desc, vector<vector<float>>&converted) {
+    void toDescriptorVector(ORBFeatureDescriptors & desc, vector<cv::Mat>&converted) {
         converted.reserve(desc.rows());
         for(int i=0; i<desc.rows(); i++) {
-            vector<float> row(desc.cols());
+            cv::Mat row(desc.cols(), 1, CV_8U);
             for(int j=0; j<desc.cols(); j++) {
-                row[j] = desc(i, j);
+                row.at<uchar>(j) = desc(i, j);
             }
             converted.emplace_back(row);
         }
     }
 
-    void SIFTVocabulary::computeBow(SIFTFeaturePoints& sf) {
+    void ORBVocabulary::computeBow(ORBFeaturePoints& sf) {
         auto & bowVec = sf.getMBowVec();
         auto & featVec = sf.getMFeatVec();
         if(bowVec.empty()) {
-            vector<vector<float>> vCurrentDesc;
+            vector<cv::Mat> vCurrentDesc;
             toDescriptorVector(sf.getDescriptors(), vCurrentDesc);
             transform(vCurrentDesc, bowVec, featVec, 4);
         }
@@ -33,7 +33,7 @@ namespace rtf {
     MatchScore::MatchScore() {}
     MatchScore::MatchScore(int imageId, float score) : imageId(imageId), score(score) {}
 
-    void DBoWVocabulary::add(int imageId, SIFTFeaturePoints* sf) {
+    void DBoWVocabulary::add(int imageId, ORBFeaturePoints* sf) {
         imageIds.emplace_back(imageId);
         cpuVoc.emplace_back(make_pair(imageId, sf));
         // upload gpu
@@ -74,7 +74,7 @@ namespace rtf {
 
     }
 
-    DBoWHashing::DBoWHashing(const GlobalConfig &globalConfig, SIFTVocabulary * siftVocabulary, bool hashing): siftVocabulary(siftVocabulary) {
+    DBoWHashing::DBoWHashing(const GlobalConfig &globalConfig, ORBVocabulary * siftVocabulary, bool hashing): siftVocabulary(siftVocabulary) {
         config.vocTxtPath = globalConfig.vocTxtPath;
         config.numNeighs = globalConfig.numNeighs;
         config.numThreads = globalConfig.numThreads;
@@ -124,7 +124,7 @@ namespace rtf {
         return make_int3(p + make_float3(sign(p)) * 0.5f);
     }
 
-    void DBoWHashing::addVisualIndex(float3 wPos, SIFTFeaturePoints &sf, int imageId, bool notLost) {
+    void DBoWHashing::addVisualIndex(float3 wPos, ORBFeaturePoints &sf, int imageId, bool notLost) {
         auto* lVisualIndex = featureCata;
         if(config.hashing&&notLost) {
             // locate virtual index
@@ -163,7 +163,7 @@ namespace rtf {
     }
 
 
-    void DBoWHashing::queryVisualIndex(vector<DBoWVocabulary*> vocs, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores) {
+    void DBoWHashing::queryVisualIndex(vector<DBoWVocabulary*> vocs, ORBFeaturePoints* sf, vector<MatchScore>* imageScores) {
         DBoW2::BowVector &bow = sf->getMBowVec();
         map<int, int> indexMap;
         map<int, int> sharedWordFrames;
@@ -218,7 +218,7 @@ namespace rtf {
         std::sort(imageScores->begin(), imageScores->end(), [=](MatchScore& ind1, MatchScore& ind2) {return ind1.score > ind2.score;});
     }
 
-    vector<MatchScore> DBoWHashing::queryImages(float3 wPos, SIFTFeaturePoints& sf, bool notLost, bool hasLost) {
+    vector<MatchScore> DBoWHashing::queryImages(float3 wPos, ORBFeaturePoints& sf, bool notLost, bool hasLost) {
         set<int> viInds;
         if(config.hashing&&notLost) {
             viInds.clear();
@@ -356,7 +356,7 @@ namespace rtf {
         }
     }
 
-    void selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, SIFTVocabulary* siftVocabulary, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes) {
+    void selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, ORBVocabulary* siftVocabulary, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes) {
         vector<int> refInners;
         DBoWVocabulary refVoc;
         for(int i=0; i<ref->getFrames().size(); i++) {
