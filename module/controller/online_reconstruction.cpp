@@ -7,14 +7,14 @@
 
 namespace rtf {
     OnlineReconstruction::OnlineReconstruction(const GlobalConfig &globalConfig) : globalConfig(globalConfig) {
-        extractor = new ORBFeatureExtractor();
+        extractor = new SIFTFeatureExtractor();
         denseMatcher = new DenseFeatureMatcher(globalConfig);
 
-        orbVocabulary = new ORBVocabulary();
-        orbVocabulary->loadFromTextFile(globalConfig.vocTxtPath);
+        siftVocabulary = new SIFTVocabulary();
+        siftVocabulary->loadFromTextFile(globalConfig.vocTxtPath);
 
-        localRegistration = new LocalRegistration(globalConfig, orbVocabulary);
-        globalRegistration = new GlobalRegistration(globalConfig, orbVocabulary);
+        localRegistration = new LocalRegistration(globalConfig, siftVocabulary);
+        globalRegistration = new GlobalRegistration(globalConfig, siftVocabulary);
 
 //        viewer.run();
         frameCounter = 0;
@@ -31,7 +31,7 @@ namespace rtf {
         // initialize frame
         frameRGBD->setFrameIndex(frameCounter++);
         shared_ptr<Frame> frame = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), frameRGBD);
-        // extract orb feature points
+        // extract sift feature points
         extractor->extractFeatures(frameRGBD, frame->getKps());
         if(frame->getKps().empty()) return;
 

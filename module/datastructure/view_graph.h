@@ -15,7 +15,7 @@ using namespace std;
 namespace rtf {
     class Frame: public FrameRGBDT {
     protected:
-        ORBFeaturePoints kps;
+        SIFTFeaturePoints kps;
 
         bool visible;
 
@@ -25,9 +25,9 @@ namespace rtf {
 
         Frame(shared_ptr<FrameRGBD> frameRGBD);
 
-        ORBFeaturePoints &getKps();
+        SIFTFeaturePoints &getKps();
 
-        void setKps(const ORBFeaturePoints &kps);
+        void setKps(const SIFTFeaturePoints &kps);
 
         void setFrameIndex(uint32_t frameIndex);
 
@@ -42,7 +42,7 @@ namespace rtf {
         vector<int> pathLengths;
         map<int, int> indexToInnerMap;
         SE3 transform;
-        ORBFeaturePoints kps;
+        SIFTFeaturePoints kps;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -70,9 +70,9 @@ namespace rtf {
 
         shared_ptr<Frame> getFrame(int frameIndex);
 
-        ORBFeaturePoints &getKps();
+        SIFTFeaturePoints &getKps();
 
-        void setKps(const ORBFeaturePoints &kps);
+        void setKps(const SIFTFeaturePoints &kps);
     };
 
     class Edge {
@@ -198,8 +198,6 @@ namespace rtf {
         vector<int> rootIndexes;
         vector<int> nodePathLens;
 
-        bool changeStatus = false;
-
         SE3 computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited);
 
         int computePathLens(int index);
@@ -261,8 +259,6 @@ namespace rtf {
         vector<int> getBestCovisibilityNodes(int index, int k);
 
         bool isVisible(int frameIndex);
-
-        bool isChange();
 
         void check();
 

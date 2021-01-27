@@ -188,11 +188,11 @@ namespace rtf {
     protected:
         GlobalConfig globalConfig;
 
-        ORBFeatureMatcher* matcher;
+        SIFTFeatureMatcher* matcher;
         ViewGraph localViewGraph;
         DBoWHashing* localDBoWHashing;
         PnPRegistration* pnpRegistration;
-        ORBVocabulary* siftVocabulary;
+        SIFTVocabulary* siftVocabulary;
         mutex printMutex;
 
         int kpNum;
@@ -205,12 +205,12 @@ namespace rtf {
 
         void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
 
-        void registrationPairEdge(ORBFeaturePoints* f1, ORBFeaturePoints* f2, Edge* edge, cudaStream_t curStream);
+        void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge* edge, cudaStream_t curStream);
 
         void registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges);
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        LocalRegistration(const GlobalConfig &config, ORBVocabulary* siftVocabulary);
+        LocalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
         ViewGraph& getViewGraph();
 
@@ -230,11 +230,11 @@ namespace rtf {
     protected:
         GlobalConfig globalConfig;
 
-        ORBFeatureMatcher* matcher;
+        SIFTFeatureMatcher* matcher;
         ViewGraph viewGraph;
         DBoWHashing* dBoWHashing;
         PnPRegistration* pnpRegistration;
-        ORBVocabulary * siftVocabulary;
+        SIFTVocabulary * siftVocabulary;
         mutex printMutex;
 
         float3 lastPos;
@@ -265,7 +265,7 @@ namespace rtf {
 
     public:
 
-        GlobalRegistration(const GlobalConfig &config, ORBVocabulary* siftVocabulary);
+        GlobalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
         void insertKeyFrames(shared_ptr<KeyFrame> frame);
 
