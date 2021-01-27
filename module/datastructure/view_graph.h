@@ -135,6 +135,7 @@ namespace rtf {
         vector<shared_ptr<KeyFrame>> frames;
         vector<int> frameIndexes;
         map<int, int> frameIndexesToInnerIndexes;
+        vector<int> connections;
         // flag for vis
         bool visible = true;
         SE3 gtTrans;
@@ -171,6 +172,10 @@ namespace rtf {
         void setGtSE(SE3 gt);
 
         SE3 getGtSE();
+
+        void addConnections(int v);
+
+        vector<int> getConnections();
 
         void setVisible(bool visible);
 
@@ -252,6 +257,8 @@ namespace rtf {
         vector<vector<int>> getConnectComponents();
 
         void computeGtTransforms();
+
+        vector<int> getBestCovisibilityNodes(int index, int k);
 
         bool isVisible(int frameIndex);
 

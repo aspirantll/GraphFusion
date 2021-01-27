@@ -244,13 +244,22 @@ namespace rtf {
         vector<pair<int, int> > loops;
         set<pair<int, int> > loopCandidates;
 
+        typedef std::pair<std::set<int>, int> ConsistentGroup;
+        std::vector<ConsistentGroup> prevConsistentGroups;
+
+
         void registrationPairEdge(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream, float weight=1);
 
         void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(Edge)& pairEdges);
 
         void findOverlapping(shared_ptr<KeyFrame> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes);
 
-        bool loopClosureDetection();
+        bool checkLoopConsistency(const std::vector<int> &candidates,
+                                  std::vector<int> &consistentCandidates,
+                                  std::vector<ConsistentGroup> &consistentGroups,
+                                  const int covisibilityConsistencyTh=7);
+
+        bool loopClosureCorrection();
 
         void updateLostFrames();
 

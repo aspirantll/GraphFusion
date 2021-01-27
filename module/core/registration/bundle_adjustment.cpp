@@ -107,18 +107,24 @@ namespace rtf {
             // update keypoints
             vector<unsigned char> mask;
             cudaMask->download(mask);
-            vector<FeatureKeypoint> bKxs(kxs->begin(), kxs->end()), bKys(kys->begin(), kys->end());
-            kxs->clear();
-            kys->clear();
+            vector<int> selected_indexes;
             for (int i = 0; i < mask.size(); i++) {
                 if (mask[i]) {
-                    kxs->emplace_back(bKxs[i]);
-                    kys->emplace_back(bKys[i]);
+                    selected_indexes.emplace_back(i);
                 }
             }
-            report.success = kxs->size() >= minInliers;
+
+            report.success = selected_indexes.size() >= minInliers;
             if (report.success) {
                 report = bundleAdjustment(R, t, iterations);
+
+                vector<FeatureKeypoint> bKxs(kxs->begin(), kxs->end()), bKys(kys->begin(), kys->end());
+                kxs->clear();
+                kys->clear();
+                for (int ind: selected_indexes) {
+                    kxs->emplace_back(bKxs[ind]);
+                    kys->emplace_back(bKys[ind]);
+                }
             }
         } else {
             report = bundleAdjustment(R, t, iterations);

@@ -29,18 +29,19 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     ifstream gt(workspace+"/associate.txt", ios::in | ios::binary);
     ofstream estimate(workspace+"/online_estimate_" + to_string(globalConfig.overlapNum) + ".txt", ios::out | ios::binary);
     ofstream mapping(workspace+"/mapping.txt", ios::out | ios::binary);
+    ofstream keyf(workspace+"/keyframe.txt", ios::out | ios::binary);
 
     string line;
     for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
         Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
-//        ofstream keyf(workspace+"/keyframe_" + to_string(kf->getIndex()) + ".txt", ios::out | ios::binary);
-        for(shared_ptr<Frame> frame: kf->getFrames()) {
+        for(int i=0; i<kf->getFrames().size(); i++) {
             getline(gt, line);
             while (line.empty()) {
                 getline(gt, line);
             }
             auto gtParts = StringUtil::split(line, ' ');
 
+            shared_ptr<Frame> frame = kf->getFrames()[i];
             if(!viewGraph.isVisible(kf->getIndex())||!frame->isVisible()) continue;
             Transform trans = baseTrans*frame->getTransform();
             Rotation R;
@@ -48,7 +49,7 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
             GeoUtil::T2Rt(trans, R, t);
             Eigen::Quaternion<Scalar> q(R);
             estimate << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
-//            keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            if(i==0) keyf << gtParts[0] << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
             mapping << gtParts[0] << " " << frame->getFrameIndex() << endl;
         }
     }

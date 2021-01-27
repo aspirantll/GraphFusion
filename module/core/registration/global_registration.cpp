@@ -43,50 +43,6 @@ namespace rtf {
         printMutex.unlock();
     }
 
-    bool detectLoop(set<pair<int, int> >& candidates) {
-        bool c1 = candidates.size()>=2;
-
-        int delta = 0;
-        int count = 0;
-        int lastIndex = -1;
-        for(auto sit: candidates) {
-            if(lastIndex!=-1) {
-                delta += abs(sit.second-lastIndex);
-                count ++;
-            }
-            lastIndex = sit.second;
-        }
-        bool c2 = delta/max(count, 1) < 10;
-
-        return c1&&c2;
-    }
-
-    bool GlobalRegistration::loopClosureDetection() {
-        set<pair<int, int>> candidates = ViewGraphUtil::findLoopEdges(viewGraph, viewGraph.getNodesNum() - 1);
-        if(!candidates.empty()) {
-            loopCandidates.insert(candidates.begin(), candidates.end());
-        }else {
-            if(detectLoop(loopCandidates)) {
-                cout << "loop candidates" << endl;
-                for(auto sit: loopCandidates) {
-                    cout << sit.first << ", " << sit.second << endl;
-                }
-                cout << "--------------------------------------------" << endl;
-
-                cout << "loop closure detected!!!" << endl;
-                loops.insert(loops.end(), loopCandidates.begin(), loopCandidates.end());
-                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
-                loopCandidates.clear();
-                return true;
-            }
-            loopCandidates.clear();
-        }
-        if(viewGraph.isChange()) {
-            Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
-        }
-        return false;
-    }
-
     void GlobalRegistration::registrationEdges(shared_ptr<KeyFrame> curKeyFrame, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(Edge)& pairEdges) {
         int k = refKFIndexes.size();
         pairEdges.resize(k, Edge::UNREACHABLE);
@@ -100,7 +56,7 @@ namespace rtf {
             FeatureMatches featureMatches = matcher->matchKeyPointsPair(refFrame->getKps(),
                                                                         curFrame->getKps());
 
-            float weight = refKeyFrame->getPathLength(refInnerIndexes[i])+curKeyFrame->getPathLength(curInnerIndexes[i])+1;
+            float weight = viewGraph.getPathLen(refKFIndexes[i])+refKeyFrame->getPathLength(refInnerIndexes[i])+curKeyFrame->getPathLength(curInnerIndexes[i])+1;
 //            cudaStreamCreate(&streams[index]);
 //            threads[index] = new thread(
 //                    bind(&GlobalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
@@ -143,7 +99,9 @@ namespace rtf {
             int refIndex = refKeyFrame->getIndex();
             spAlreadyAddedKF.insert(refIndex);
             refKFIndexes.emplace_back(refIndex);
-            selectBestOverlappingFrame(refKeyFrame, cur, siftVocabulary,refInnerIndexes, curInnerIndexes);
+            pair<int, int> bestPair = selectBestOverlappingFrame(refKeyFrame, cur, siftVocabulary);
+            refInnerIndexes.emplace_back(bestPair.first);
+            curInnerIndexes.emplace_back(bestPair.second);
             index++;
         }
 
@@ -168,7 +126,9 @@ namespace rtf {
                     shared_ptr<KeyFrame> refKeyFrame = viewGraph.indexFrame(refIndex);
                     spAlreadyAddedKF.insert(refIndex);
                     refKFIndexes.emplace_back(refIndex);
-                    selectBestOverlappingFrame(refKeyFrame, cur, siftVocabulary, refInnerIndexes, curInnerIndexes);
+                    pair<int, int> bestPair = selectBestOverlappingFrame(refKeyFrame, cur, siftVocabulary);
+                    refInnerIndexes.emplace_back(bestPair.first);
+                    curInnerIndexes.emplace_back(bestPair.second);
                     index++;
                 }
                 if (refKFIndexes.size() >= k) break;
@@ -176,9 +136,79 @@ namespace rtf {
         }
     }
 
-    GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, ORBVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
-        dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, true);
-        matcher = new ORBFeatureMatcher();
+    bool GlobalRegistration::checkLoopConsistency(const std::vector<int> &candidates,
+                              std::vector<int> &consistentCandidates,
+                              std::vector<ConsistentGroup> &consistentGroups,
+                              const int covisibilityConsistencyTh) {
+        // For each loop candidate check consistency with previous loop candidates
+        // Each candidate expands a covisibility group (keyframes connected to the loop candidate in the covisibility graph)
+        // A group is consistent with a previous group if they share at least a keyframe
+        // We must detect a consistent loop in several consecutive keyframes to accept it
+
+        consistentCandidates.clear();
+        consistentGroups.clear();
+
+        std::vector<bool> prevConsistentGroupFlag(prevConsistentGroups.size(), false);
+
+
+        for (int candidate : candidates) {
+
+            // --- Create candidate group -----------
+            std::set<int> candidateGroup;
+            const auto &connections = viewGraph[candidate].getConnections();
+            for (auto vi: connections) {
+                candidateGroup.insert(vi);
+            }
+            candidateGroup.insert(candidate);
+
+
+            // --- compare candidate grou against prevoius consistent groups -----------
+
+            bool enoughConsistent = false;
+            bool consistentForSomeGroup = false;
+
+            for (size_t g = 0, iendG = prevConsistentGroups.size(); g < iendG; g++) {
+                // find if candidate_group is consistent with any previous consistent group
+                std::set<int> prevGroup = prevConsistentGroups[g].first;
+                bool consistent = false;
+                for (int vi: candidateGroup) {
+                    if (prevGroup.count(vi)) {
+                        consistent = true;
+                        consistentForSomeGroup = true;
+                        break;
+                    }
+                }
+
+                if (consistent) {
+                    int previousConsistency = prevConsistentGroups[g].second;
+                    int currentConsistency = previousConsistency + 1;
+
+                    if (!prevConsistentGroupFlag[g]) {
+                        consistentGroups.push_back(std::make_pair(candidateGroup,
+                                                                  currentConsistency));
+                        prevConsistentGroupFlag[g] = true; //this avoid to include the same group more than once
+                    }
+
+                    if (currentConsistency >= covisibilityConsistencyTh && !enoughConsistent) {
+                        consistentCandidates.push_back(candidate);
+                        enoughConsistent = true; //this avoid to insert the same candidate more than once
+                    }
+                }
+            }
+
+            // If the group is not consistent with any previous group insert with consistency counter set to zero
+            if (!consistentForSomeGroup) {
+                consistentGroups.push_back(std::make_pair(candidateGroup, 0));
+            }
+        }
+
+        return !consistentCandidates.empty();
+
+    }
+
+    GlobalRegistration::GlobalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): siftVocabulary(siftVocabulary), globalConfig(globalConfig) {
+        dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, &viewGraph, true);
+        matcher = new SIFTFeatureMatcher();
         pnpRegistration = new PnPRegistration(globalConfig);
     }
 
@@ -199,6 +229,61 @@ namespace rtf {
         }
 
         dBoWHashing->updateVisualIndex(updateIds, poses);
+    }
+
+    bool GlobalRegistration::loopClosureCorrection() {
+        int curNodeIndex = viewGraph.getNodesNum()-1;
+        shared_ptr<KeyFrame> curKeyFrame = viewGraph[curNodeIndex].getFrames()[0];
+        auto& sf = curKeyFrame->getKps();
+        // find min score
+        float minScore = 1;
+        int minIndex = -1;
+        for(int ind: viewGraph[curNodeIndex].getConnections()) {
+            assert(ind < curNodeIndex);
+            auto& fp = viewGraph[ind].getFrames()[0]->getKps();
+            float score = siftVocabulary->score(sf.getMBowVec(), fp.getMBowVec());
+            if(score < minScore) {
+                minScore = score;
+                minIndex = ind;
+            }
+        }
+        cout << "minScore:" << minScore << ", minIndex:" << minIndex << endl;
+
+        std::vector<int> candidates = dBoWHashing->detectLoopClosures(sf, minScore);
+        if (!candidates.empty()) {
+            cout << "find loop candidates" << endl;
+            std::vector<int> consistentCandidates;
+            std::vector<ConsistentGroup> consistentGroups;
+
+            if (checkLoopConsistency(candidates, consistentCandidates, consistentGroups)) {
+                std::cout << " * * * loop closure detected * * *\n" << std::endl;
+
+                for (int refNodeIndex : consistentCandidates) {
+                    if(viewGraph.existEdge(refNodeIndex, curNodeIndex)) continue;
+                    shared_ptr<KeyFrame> refKeyFrame = viewGraph[refNodeIndex].getFrames()[0];
+                    pair<int, int> bestPair = selectBestOverlappingFrame(refKeyFrame, curKeyFrame, siftVocabulary);
+                    shared_ptr<Frame> refFrame = refKeyFrame->getFrame(bestPair.first);
+                    shared_ptr<Frame> curFrame = curKeyFrame->getFrame(bestPair.second);
+
+                    FeatureMatches featureMatches = matcher->matchKeyPointsPair(refFrame->getKps(),
+                                                                                curFrame->getKps());
+
+                    Edge &edge = viewGraph(refNodeIndex, curNodeIndex);
+                    float weight = viewGraph.getPathLen(refNodeIndex) + 1;
+                    registrationPairEdge(&featureMatches, &edge, stream, weight);
+
+                    if(!edge.isUnreachable()) {
+                        viewGraph[refNodeIndex].addConnections(curNodeIndex);
+                        viewGraph[curNodeIndex].addConnections(refNodeIndex);
+
+                        loops.emplace_back(make_pair(refNodeIndex, curNodeIndex));
+                    }
+                }
+
+                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
+            }
+            prevConsistentGroups = std::move(consistentGroups);
+        }
     }
 
     void GlobalRegistration::insertKeyFrames(shared_ptr<KeyFrame> keyframe) {
@@ -234,6 +319,11 @@ namespace rtf {
                 Edge &bestEdge = pairEdges[ind];
 
                 if (edgeCompare(bestEdge, edge)) {
+                    if(edge.isUnreachable()) {
+                        viewGraph[refNodeIndex].addConnections(curNodeIndex);
+                        viewGraph[curNodeIndex].addConnections(refNodeIndex);
+                    }
+
                     edge.setKxs(bestEdge.getKxs());
                     edge.setKys(bestEdge.getKys());
                     edge.setTransform(bestEdge.getTransform());
@@ -246,9 +336,7 @@ namespace rtf {
             grTimer.stopTimer();
             updateLostFrames();
 
-            loopClosureDetection();
-//            Optimizer::poseGraphOptimizeCeres(viewGraph);
-
+            loopClosureCorrection();
 
             curNodeIndex = viewGraph.findNodeIndexByFrameIndex(keyframe->getIndex());
             if (viewGraph[curNodeIndex].isVisible()) {

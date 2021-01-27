@@ -11,12 +11,12 @@
 #include "../datastructure/view_graph.h"
 
 #include <DBoW2/TemplatedVocabulary.h>
-#include <DBoW2/FORB.h>
+#include <DBoW2/FSIFT.h>
 
 namespace rtf {
-    class ORBVocabulary : public DBoW2::TemplatedVocabulary<DBoW2::FORB::TDescriptor, DBoW2::FORB>{
+    class SIFTVocabulary : public DBoW2::TemplatedVocabulary<DBoW2::FSIFT::TDescriptor, DBoW2::FSIFT>{
     public:
-        void computeBow(ORBFeaturePoints& sf);
+        void computeBow(SIFTFeaturePoints& sf);
     };
 
     class VIHConfig {
@@ -46,11 +46,11 @@ namespace rtf {
     class DBoWVocabulary {
     public:
         vector<CUDAArrayu*> ptrHolder;
-        vector<pair<int, ORBFeaturePoints*>> cpuVoc;
+        vector<pair<int, SIFTFeaturePoints*>> cpuVoc;
         CUDAVector<CUDABoW> gpuVoc;
         vector<int> imageIds;
 
-        void add(int imageId, ORBFeaturePoints* sf);
+        void add(int imageId, SIFTFeaturePoints* sf);
         void remove(int index);
         int size();
         void clear();
@@ -59,8 +59,10 @@ namespace rtf {
 
     class DBoWHashing {
     private:
+        ViewGraph* viewGraph;
+
         HashItem * items;
-        ORBVocabulary * siftVocabulary;
+        SIFTVocabulary * siftVocabulary;
         DBoWVocabulary * featureCatas;
         DBoWVocabulary * featureCata;
         bool prepared;
@@ -69,7 +71,7 @@ namespace rtf {
 
         ThreadPool* queryPool;
     public:
-        DBoWHashing(const GlobalConfig& config, ORBVocabulary * siftVocabulary,  bool hashing=true);
+        DBoWHashing(const GlobalConfig& config, SIFTVocabulary * siftVocabulary, ViewGraph* viewGraph, bool hashing=true);
 
         void initialize();
 
@@ -79,11 +81,13 @@ namespace rtf {
 
         int3 worldToPos(float3 wPos);
 
-        void addVisualIndex(float3 wPos, ORBFeaturePoints& sf, int imageId, bool notLost=true);
+        void addVisualIndex(float3 wPos, SIFTFeaturePoints& sf, int imageId, bool notLost=true);
 
-        void queryVisualIndex(vector<DBoWVocabulary*> vocs, ORBFeaturePoints* sf, vector<MatchScore>* imageScores);
+        void queryVisualIndex(vector<DBoWVocabulary*> vocs, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores);
 
-        vector<MatchScore> queryImages(float3 wPos, ORBFeaturePoints& sf, bool notLost=true, bool hasLost=false);
+        vector<MatchScore> queryImages(float3 wPos, SIFTFeaturePoints& sf, bool notLost=true, bool hasLost=false);
+
+        vector<int> detectLoopClosures(SIFTFeaturePoints& sf, float minScore=1);
 
         vector<int> lostImageIds();
 
@@ -92,7 +96,7 @@ namespace rtf {
         void clear();
     };
 
-    void selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, ORBVocabulary* siftVocabulary,vector<int>& refInnerIndexes, vector<int>& curInnerIndexes);
+    pair<int, int> selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, SIFTVocabulary* siftVocabulary);
 }
 
 

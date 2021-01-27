@@ -10,22 +10,22 @@
 
 
 namespace rtf {
-    void toDescriptorVector(ORBFeatureDescriptors & desc, vector<cv::Mat>&converted) {
+    void toDescriptorVector(SIFTFeatureDescriptors & desc, vector<vector<float>>&converted) {
         converted.reserve(desc.rows());
         for(int i=0; i<desc.rows(); i++) {
-            cv::Mat row(desc.cols(), 1, CV_8U);
+            vector<float> row(desc.cols());
             for(int j=0; j<desc.cols(); j++) {
-                row.at<uchar>(j) = desc(i, j);
+                row[j] = desc(i, j);
             }
             converted.emplace_back(row);
         }
     }
 
-    void ORBVocabulary::computeBow(ORBFeaturePoints& sf) {
+    void SIFTVocabulary::computeBow(SIFTFeaturePoints& sf) {
         auto & bowVec = sf.getMBowVec();
         auto & featVec = sf.getMFeatVec();
         if(bowVec.empty()) {
-            vector<cv::Mat> vCurrentDesc;
+            vector<vector<float>> vCurrentDesc;
             toDescriptorVector(sf.getDescriptors(), vCurrentDesc);
             transform(vCurrentDesc, bowVec, featVec, 4);
         }
@@ -33,7 +33,7 @@ namespace rtf {
     MatchScore::MatchScore() {}
     MatchScore::MatchScore(int imageId, float score) : imageId(imageId), score(score) {}
 
-    void DBoWVocabulary::add(int imageId, ORBFeaturePoints* sf) {
+    void DBoWVocabulary::add(int imageId, SIFTFeaturePoints* sf) {
         imageIds.emplace_back(imageId);
         cpuVoc.emplace_back(make_pair(imageId, sf));
         // upload gpu
@@ -74,7 +74,7 @@ namespace rtf {
 
     }
 
-    DBoWHashing::DBoWHashing(const GlobalConfig &globalConfig, ORBVocabulary * siftVocabulary, bool hashing): siftVocabulary(siftVocabulary) {
+    DBoWHashing::DBoWHashing(const GlobalConfig &globalConfig, SIFTVocabulary * siftVocabulary, ViewGraph* viewGraph, bool hashing): siftVocabulary(siftVocabulary), viewGraph(viewGraph) {
         config.vocTxtPath = globalConfig.vocTxtPath;
         config.numNeighs = globalConfig.numNeighs;
         config.numThreads = globalConfig.numThreads;
@@ -124,7 +124,7 @@ namespace rtf {
         return make_int3(p + make_float3(sign(p)) * 0.5f);
     }
 
-    void DBoWHashing::addVisualIndex(float3 wPos, ORBFeaturePoints &sf, int imageId, bool notLost) {
+    void DBoWHashing::addVisualIndex(float3 wPos, SIFTFeaturePoints &sf, int imageId, bool notLost) {
         auto* lVisualIndex = featureCata;
         if(config.hashing&&notLost) {
             // locate virtual index
@@ -153,7 +153,6 @@ namespace rtf {
                 item->ptr = vocTh;
                 vocTh++;
             }
-//            cout << "visual Index:" << item->ptr << endl;
             lVisualIndex = featureCatas + item->ptr;
         }else {
             prepared = true;
@@ -163,7 +162,7 @@ namespace rtf {
     }
 
 
-    void DBoWHashing::queryVisualIndex(vector<DBoWVocabulary*> vocs, ORBFeaturePoints* sf, vector<MatchScore>* imageScores) {
+    void DBoWHashing::queryVisualIndex(vector<DBoWVocabulary*> vocs, SIFTFeaturePoints* sf, vector<MatchScore>* imageScores) {
         DBoW2::BowVector &bow = sf->getMBowVec();
         map<int, int> indexMap;
         map<int, int> sharedWordFrames;
@@ -218,7 +217,7 @@ namespace rtf {
         std::sort(imageScores->begin(), imageScores->end(), [=](MatchScore& ind1, MatchScore& ind2) {return ind1.score > ind2.score;});
     }
 
-    vector<MatchScore> DBoWHashing::queryImages(float3 wPos, ORBFeaturePoints& sf, bool notLost, bool hasLost) {
+    vector<MatchScore> DBoWHashing::queryImages(float3 wPos, SIFTFeaturePoints& sf, bool notLost, bool hasLost) {
         set<int> viInds;
         if(config.hashing&&notLost) {
             viInds.clear();
@@ -323,6 +322,145 @@ namespace rtf {
         return matchScore;
     }
 
+    vector<int> DBoWHashing::detectLoopClosures(SIFTFeaturePoints& sf, float minScore) {
+        set<int> viInds;
+        for (int i = vocTh - 1; i >= 0; i--) {
+            viInds.insert(i);
+        }
+
+        // when lost pose, need to search all images; and if prepared, then search featureCata
+        vector < DBoWVocabulary * > vocs;
+        if (prepared) {// hava image in visual index
+            vocs.emplace_back(featureCata);
+        }
+
+        for (uint viInd: viInds) {
+            vocs.emplace_back(featureCatas + viInd);
+        }
+
+        vector<int> loopCandidates;
+        if (!vocs.empty()) {
+            DBoW2::BowVector &bow = sf.getMBowVec();
+            map<int, int> indexMap;
+            map<int, int> sharedWordFrames;
+            vector<int> startVec;
+            int start = 0;
+            for (int i = 0; i < vocs.size(); i++) {
+                DBoWVocabulary *voc = vocs[i];
+                int num = voc->size();
+                vector <uint> wordCounts(num, 0);
+                {
+                    CUDAArrayu cudaWordCounts(num);
+                    vector <uint> curWords = sf.getMBowVec().words();
+                    CUDAArrayu cudaCurWords(curWords);
+                    CUDAPtrArray <CUDABoW> gpuVoc = voc->gpuVoc.uploadToCUDA();
+                    wordsCount(gpuVoc, cudaCurWords, cudaWordCounts);
+                    cudaWordCounts.download(wordCounts);
+                }
+
+                for (int j = 0; j < num; j++) {
+                    if (wordCounts[j]) {
+                        sharedWordFrames.insert(map<int, int>::value_type(start + j, wordCounts[j]));
+                        indexMap.insert(map<int, int>::value_type(start + j, i));
+                    }
+                }
+                startVec.emplace_back(start);
+                start += num;
+            }
+
+
+            if (sharedWordFrames.empty()) {
+                return loopCandidates;
+            }
+
+            // Only compare against those views that share enough words
+            int maxCommonWords = 0;
+            for (auto &sharedWordNode : sharedWordFrames) {
+                if (sharedWordNode.second > maxCommonWords) {
+                    maxCommonWords = sharedWordNode.second;
+                }
+            }
+
+            int minCommonWords = maxCommonWords * 0.8f;
+            // Compute similarity score. Retain the matches whose score is higher than minScore
+            std::map<int, double> scores;
+            std::list <std::pair<double, int>> scoreAndViewPairs;
+
+            for (const auto &sharedWordNode: sharedWordFrames) {
+                if (sharedWordNode.second > minCommonWords) {
+                    int ind = sharedWordNode.first;
+                    int vocInd = indexMap[ind];
+                    ind = ind - startVec[vocInd];
+                    auto item = (*vocs[vocInd]).cpuVoc[ind];
+                    DBoW2::BowVector &ibow = item.second->getMBowVec();
+                    float score = siftVocabulary->score(bow, ibow);
+                    scores[ind] = score;
+                    if (score >= minScore) {
+                        scoreAndViewPairs.push_back(std::make_pair(score, ind));
+                    }
+                }
+            }
+
+            if (scoreAndViewPairs.empty()) {
+                return loopCandidates;
+            }
+
+
+            // ---------------------------------------------------------
+            // --  Lets now accumulate score by covisibility
+            // ---------------------------------------------------------
+
+            std::list <std::pair<double, int>> accScoreAndViewPairs;
+            double bestAccScore = minScore;
+
+            for (const auto &pair: scoreAndViewPairs) {
+                const auto &vi = pair.second;
+
+                auto covisibility = viewGraph->getBestCovisibilityNodes(vi, 10);
+                double bestScore = pair.first;
+                double accScore = pair.first;
+
+                int bestView = vi;
+                for (int coView: covisibility) {
+                    double coViewScore = scores.count(coView)?scores[coView]:1;
+                    if (sharedWordFrames.count(coView)&&sharedWordFrames[coView] > minCommonWords) {
+                        accScore += coViewScore;
+                        if (coViewScore > bestScore) {
+                            bestView = coView;
+                            bestScore = coViewScore;
+                        }
+                    }
+                }
+
+                accScoreAndViewPairs.push_back(std::make_pair(accScore, bestView));
+                if (accScore > bestAccScore) {
+                    bestAccScore = accScore;
+                }
+            }
+
+
+            // --------------------------------------------------------------------
+            // Return all those keyframes with a score higher than 0.75*bestScore
+            // --------------------------------------------------------------------
+            double minScoreToRetain = 0.75f * bestAccScore;
+
+            std::set<int> alreadyAddedViews;
+
+            for (const auto &pair : accScoreAndViewPairs) {
+                auto &score = pair.first;
+                if (score > minScoreToRetain) {
+                    const auto &vi = pair.second;
+                    if (!alreadyAddedViews.count(vi)) {
+                        loopCandidates.emplace_back(vi);
+                        alreadyAddedViews.insert(vi);
+                    }
+                }
+            }
+        }
+
+        return loopCandidates;
+    }
+
 
     vector<int> DBoWHashing::lostImageIds() {
         return featureCata->imageIds;
@@ -356,7 +494,7 @@ namespace rtf {
         }
     }
 
-    void selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, ORBVocabulary* siftVocabulary, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes) {
+    pair<int, int> selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, SIFTVocabulary* siftVocabulary) {
         vector<int> refInners;
         DBoWVocabulary refVoc;
         for(int i=0; i<ref->getFrames().size(); i++) {
@@ -401,7 +539,6 @@ namespace rtf {
             }
         }
 
-        refInnerIndexes.emplace_back(maxPair.first);
-        curInnerIndexes.emplace_back(maxPair.second);
+        return maxPair;
     }
 }

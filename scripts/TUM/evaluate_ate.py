@@ -122,6 +122,7 @@ if __name__=="__main__":
     parser.add_argument('--max_difference', help='maximally allowed time difference for matching entries (default: 0.02)',default=0.02)
     parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
+    parser.add_argument('--save_err', help='save trans error order by timestamp')
     parser.add_argument('--plot', help='plot the first and the aligned second trajectory to an image (format: png)')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute translational error in meters after alignment will be printed)', action='store_true')
     args = parser.parse_args()
@@ -156,16 +157,21 @@ if __name__=="__main__":
         print ("absolute_translational_error.mean %f m"%numpy.mean(trans_error))
         print ("absolute_translational_error.median %f m"%numpy.median(trans_error))
         print ("absolute_translational_error.std %f m"%numpy.std(trans_error))
-        print ("absolute_translational_error.min %f m"%numpy.min(trans_error))
-        print ("absolute_translational_error.max %f m"%numpy.max(trans_error))
+        print ("absolute_translational_error.min %f m@ %f"%(numpy.min(trans_error), first_stamps[numpy.argmin(trans_error)]))
+        print ("absolute_translational_error.max %f m@ %f"%(numpy.max(trans_error), first_stamps[numpy.argmax(trans_error)]))
     else:
         print ("%f"%numpy.sqrt(numpy.dot(trans_error,trans_error) / len(trans_error)))
-        
+    
     if args.save_associations:
         file = open(args.save_associations,"w")
         file.write("\n".join(["%f %f %f %f %f %f %f %f"%(a,x1,y1,z1,b,x2,y2,z2) for (a,b),(x1,y1,z1),(x2,y2,z2) in zip(matches,first_xyz.transpose().A,second_xyz_aligned.transpose().A)]))
         file.close()
-        
+
+    if args.save_err:
+        file = open(args.save_err,"w")
+        file.write("\n".join(["%f,%f,%f" % (match[0], match[1], err) for match, err in zip(matches, trans_error.tolist())]))
+        file.close()
+    
     if args.save:
         file = open(args.save,"w")
         file.write("\n".join(["%f "%stamp+" ".join(["%f"%d for d in line]) for stamp,line in zip(second_stamps,second_xyz_full_aligned.transpose().A)]))

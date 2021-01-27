@@ -231,6 +231,13 @@ namespace rtf {
         return gtTrans;
     }
 
+    void Node::addConnections(int v) {
+        connections.emplace_back(v);
+    }
+
+    vector<int> Node::getConnections() {
+        return connections;
+    }
 
     void Node::setVisible(bool visible) {
         this->visible = visible;
@@ -727,6 +734,37 @@ namespace rtf {
         }
     }
 
+    vector<int> ViewGraph::getBestCovisibilityNodes(int index, int k) {
+        typedef std::pair<int, int> WeightedView;
+
+        std::vector<WeightedView> weighted_views;
+        vector<int> connections = (*this)[index].getConnections();
+        for (int ind: connections) {
+            assert(ind < getNodesNum());
+            weighted_views.push_back( std::make_pair( (int)(*this)[ind].getConnections().size(), ind));
+        }
+
+        // sort by the number of connections in descending order
+        std::sort(weighted_views.begin(), weighted_views.end(),
+                  [](const WeightedView &x, const WeightedView &y) //TODO: fix x is becames null??? why???
+                  {
+                      return x.first > y.first;
+                  }
+        );
+
+        std::vector<int> covisibility;
+        covisibility.reserve(k);
+
+        int i = 0;
+        for (auto wv: weighted_views) {
+            if (i++==k) break;
+
+            covisibility.push_back(wv.second);
+        }
+
+        return covisibility;
+    }
+
     bool ViewGraph::existEdge(int i, int j) {
         return !(*this)(i, j).isUnreachable();
     }
@@ -766,6 +804,12 @@ namespace rtf {
         cout << endl;
 
         cout << "current root:" << curMaxRoot << endl;
+
+        cout << "pathLens:" << endl;
+        for(int i=0; i<n; i++) {
+            cout << i << "-" << nodePathLens[i] << ",";
+        }
+        cout << endl;
 
         cout << "parents:" << endl;
         for(int i=0; i<n; i++) {
