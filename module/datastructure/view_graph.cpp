@@ -39,6 +39,7 @@ namespace rtf {
 
     KeyFrame::KeyFrame(){
         transform = SE3(Transform::Identity());
+        rootIndex = 0;
     }
 
     int KeyFrame::getIndex() {
@@ -80,8 +81,12 @@ namespace rtf {
         return frames;
     }
 
-    shared_ptr<Frame> KeyFrame::getFirstFrame() {
-        return frames[0];
+    void KeyFrame::setRootIndex(int index) {
+        rootIndex = index;
+    }
+
+    shared_ptr<Frame> KeyFrame::getRootFrame() {
+        return frames[rootIndex];
     }
 
     shared_ptr<Frame> KeyFrame::getFrame(int frameIndex) {
@@ -285,7 +290,7 @@ namespace rtf {
             frameNodeIndex.clear();
             parentIndexes.clear();
             rootIndexes.clear();
-            curMaxRoot = -1;
+            curMaxRoot = 0;
         }else {
             nodes.resize(nodesNum, Node());
             adjMatrix->resize(nodesNum, defaultValue);
@@ -322,7 +327,8 @@ namespace rtf {
     }
 
     int ViewGraph::computePathLens(int index) {
-        if(index < 0) return -1;
+        if(index == -1) return -1;
+        assert(index<getNodesNum()&&index>=0);
         if(nodePathLens[index]>=0) return nodePathLens[index];
         nodePathLens[index] = computePathLens(parentIndexes[index])+1;
         return nodePathLens[index];
@@ -402,26 +408,6 @@ namespace rtf {
         if(i<j) (*this)(i, j).setTransform(trans);
         else {
             (*this)(i, j).setTransform(trans.inverse());
-        }
-    }
-
-    void ViewGraph::updateNodeIndex(vector<vector<int>>& ccs) {
-        // collect all frame
-        vector<vector<int>> frameIndexes(ccs.size());
-        for(int i=0; i<ccs.size(); i++) {
-            for(auto ind: ccs[i]) {
-                for(int j=0; j<frameNodeIndex.size(); j++) {
-                    if(frameNodeIndex[j]==ind) {
-                        frameIndexes[i].emplace_back(j);
-                    }
-                }
-            }
-        }
-
-        for(int i=0; i<ccs.size(); i++) {
-            for(auto ind: frameIndexes[i]) {
-                frameNodeIndex[ind] = i;
-            }
         }
     }
 
@@ -597,88 +583,13 @@ namespace rtf {
         return lostCount;
     }
 
-    void ViewGraph::generateSpanningTree() {
-        // generate minimum spanning tree
-        int n = nodes.size();
-        parentIndexes.resize(n,-1);
-        rootIndexes.resize(n);
-        iota(rootIndexes.begin(), rootIndexes.end(), 0);
-
-        vector<bool> fixed(n, false);
-        vector<double> lowCost(n);
-        for(int u=0; u<n; u++) {
-            if(fixed[u]) continue;
-
-            // initialize vectors
-            for(int v=0; v<n; v++) {
-                Edge edge = getEdge(u, v);
-                if(!fixed[v]){
-                    lowCost[v] = edge.isUnreachable()? numeric_limits<double>::infinity(): edge.getCost();
-                    parentIndexes[v] = edge.isUnreachable()? -1: u;
-                }
-            }
-            fixed[u] = true;
-
-            // begin to update lowCost and path
-            for(int k=u+1; k<n; k++) {
-                // find min cost index
-                double minCost = numeric_limits<double>::infinity();
-                int minIndex = -1;
-                for(int v=0; v<n; v++) {
-                    if(!fixed[v]&&lowCost[v]<minCost) {
-                        minCost = lowCost[v];
-                        minIndex = v;
-                    }
-                }
-                if(minIndex==-1) {
-                    break;
-                }
-                // fix min cost index path
-                int s = minIndex;
-                fixed[s] = true;
-                for(int v=0; v<n; v++) {
-                    Edge edge = getEdge(s, v);
-                    if(!edge.isUnreachable()) {
-                        double cost = edge.getCost();
-                        if(!fixed[v]&&lowCost[v]>cost) {
-                            lowCost[v] = cost;
-                            parentIndexes[v] = s;
-                        }
-                    }
-                }
-            }
-        }
-
-        // update root nodes
-        map<int,int> rootCounter;
-        for(int i=0; i<n; i++) {
-            int u = i;
-            while (parentIndexes[u]!=-1) u = parentIndexes[u];
-            rootIndexes[i] = u;
-            if(!rootCounter.count(u)) {
-                rootCounter.insert(map<int, int>::value_type(u, 0));
-            }
-            rootCounter[u]++;
-        }
-
-        int maxRoot = 0;
-        int maxCount = rootCounter[0];
-        for(auto mit: rootCounter) {
-            if(mit.second>maxCount) {
-                maxCount = mit.second;
-                maxRoot = mit.first;
-            }
-        }
-
-        curMaxRoot = maxRoot;
-    }
-
     int ViewGraph::getParent(int nodeIndex) {
         return parentIndexes[nodeIndex];
     }
 
     int ViewGraph::getPathLen(int frameIndex) {
         int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
+        assert(nodePathLens[nodeIndex]<=getNodesNum());
         return nodePathLens[nodeIndex];
     }
 
@@ -758,6 +669,76 @@ namespace rtf {
         }
 
         return covisibility;
+    }
+
+    int ViewGraph::getMaxRoot() {
+        return curMaxRoot;
+    }
+
+    void ViewGraph::optimizeBestRootNode() {
+        vector<int> cc = maxConnectedComponent();
+
+        int m = cc.size();
+        vector<int> nodeNums(getNodesNum(), 0);
+        for(int ind: cc) {
+            for(int p=ind; p!=-1; p=getParent(p)) nodeNums[p]++;
+        }
+
+        int maxPathLen = 0;
+        int maxPathIndex = 0;
+        for(int i=0; i<m; i++) {
+            // compute path length in MST
+            int pathLen = nodePathLens[cc[i]];
+            int curPathLen = 0;
+            for(int j=0, p=cc[i], q=0; p!=-1; q=nodeNums[p], p=getParent(p), j++) {
+                curPathLen += (nodeNums[p]-q)*(nodePathLens[p]-j);
+            }
+            if(curPathLen > maxPathLen) {
+                maxPathLen = curPathLen;
+                maxPathIndex = cc[i];
+            }
+        }
+
+        vector<int> path;
+        for(int p=maxPathIndex; p!=-1; p=getParent(p)) {
+            path.emplace_back(p);
+        }
+
+        for(int i=path.size()-1; i>0; i--) {
+            parentIndexes[path[i]] = path[i-1];
+        }
+        parentIndexes[path[0]] = -1;
+        curMaxRoot = maxPathIndex;
+
+        // update root indexes
+        for(int i=0; i<m; i++) {
+            int pathLen = 0, p = cc[i], q = getParent(p);
+            for(; q!=-1; p=q, q=getParent(p)) pathLen++;
+            rootIndexes[cc[i]] = p;
+            nodePathLens[cc[i]] = pathLen;
+        }
+
+        // compute transformations
+        vector<bool> visited(cc.size(), false);
+        map<int, int> ccIndex;
+        for(int j=0; j<cc.size(); j++) {
+            ccIndex.insert(map<int, int>::value_type(cc[j], j));
+        }
+        for(int j=0; j<cc.size(); j++) {
+            computeTransform(j, ccIndex, cc, visited);
+        }
+
+
+    }
+
+    vector<int> ViewGraph::maxConnectedComponent() {
+        vector<int> cc;
+        for(int i=0; i<getNodesNum(); i++) {
+            if(rootIndexes[i]==curMaxRoot) {
+                cc.emplace_back(i);
+            }
+        }
+        return cc;
     }
 
     bool ViewGraph::existEdge(int i, int j) {

@@ -336,7 +336,7 @@ namespace rtf {
             grTimer.stopTimer();
             updateLostFrames();
 
-            loopClosureCorrection();
+//            loopClosureCorrection();
 
             curNodeIndex = viewGraph.findNodeIndexByFrameIndex(keyframe->getIndex());
             if (viewGraph[curNodeIndex].isVisible()) {

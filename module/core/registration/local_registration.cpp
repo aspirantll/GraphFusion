@@ -84,8 +84,8 @@ namespace rtf {
 //            cudaStreamCreate(&streams[index]);
 //            threads[index] = new thread(
 //                    bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-//                         placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
-            registrationPairEdge(&frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], stream);
+//                         placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], streams[index]);
+            registrationPairEdge(&frames[refIndex]->getRootFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], stream);
             index++;
         }
 
@@ -105,8 +105,8 @@ namespace rtf {
 //                        cudaStreamCreate(&streams[index]);
 //                        threads[index] = new thread(
 //                                bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
-//                                     placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], streams[index]);
-                        registrationPairEdge(&frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getFirstFrame()->getKps(), &edges[index], stream);
+//                                     placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], streams[index]);
+                        registrationPairEdge(&frames[refIndex]->getRootFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], stream);
 
                         index++;
                     }
@@ -238,32 +238,33 @@ namespace rtf {
     shared_ptr<KeyFrame> LocalRegistration::mergeFramesIntoKeyFrame() {
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
-        vector<vector<int>> connectedComponents = findConnectedComponents(localViewGraph, globalConfig.maxAvgCost);
+//        localViewGraph.optimizeBestRootNode();
         Optimizer::poseGraphOptimizeCeres(localViewGraph);
 
         // 2. initialize key frame
-        set<int> visibleSet(connectedComponents[0].begin(), connectedComponents[0].end());
+        vector<int> cc = localViewGraph.maxConnectedComponent();
+        assert(cc.size()>=1);
+        set<int> visibleSet(cc.begin(), cc.end());
         shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
         keyframe->setTransform(Transform::Identity());
+        keyframe->setRootIndex(localViewGraph.getMaxRoot());
         for(int i=0; i<n; i++) {
-            shared_ptr<Frame> frame = localViewGraph[i].getFrames()[0]->getFirstFrame();
+            shared_ptr<Frame> frame = localViewGraph[i].getFrames()[0]->getRootFrame();
             frame->setVisible(visibleSet.count(i));
-
             // compute path length in MST
-            int pathLength = 0;
-            for(int p=i; (p=localViewGraph.getParent(p))!=-1; pathLength++);
-            keyframe->addFrame(frame, pathLength);
+            int pathLen = localViewGraph.getPathLen(frame->getFrameIndex());
+            keyframe->addFrame(frame, pathLen);
         }
 
         //3. collect keypoints
         SIFTFeaturePoints &sf = keyframe->getKps();
-        int m = connectedComponents[0].size();
+        int m = cc.size();
         if(m > 1) {
             Optimizer::poseGraphOptimizeCeres(localViewGraph);
             // update transforms
             vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
-            for(int i=0; i<connectedComponents[0].size(); i++) {
-                frames[connectedComponents[0][i]]->setTransform(localViewGraph[connectedComponents[0][i]].getGtTransform());
+            for(int i=0; i<cc.size(); i++) {
+                frames[cc[i]]->setTransform(localViewGraph[cc[i]].getGtTransform());
             }
 
             sf.setCamera(localViewGraph[0].getCamera());
@@ -276,7 +277,7 @@ namespace rtf {
             vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
             Scalar minX=numeric_limits<Scalar>::infinity(), maxX=0, minY=numeric_limits<Scalar>::infinity(), maxY=0;
             for(int i=0; i<m; i++) {
-                int nodeIndex = connectedComponents[0][i];
+                int nodeIndex = cc[i];
                 SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
                 for(int j=0; j<sift.getKeyPoints().size(); j++) {
                     int curIndex = startIndexes[nodeIndex]+j;
@@ -311,7 +312,7 @@ namespace rtf {
             sf.setBounds(minX, maxX, minY, maxY);
             sf.fuseFeaturePoints(kp, desc);
         }else if(m==1){
-            sf = localViewGraph[connectedComponents[0][0]].getFrames()[0]->getKps();
+            sf = localViewGraph[cc[0]].getFrames()[0]->getKps();
         }
 
 

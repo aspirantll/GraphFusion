@@ -41,6 +41,8 @@ namespace rtf {
         vector<shared_ptr<Frame>> frames;
         vector<int> pathLengths;
         map<int, int> indexToInnerMap;
+
+        int rootIndex;
         SE3 transform;
         SIFTFeaturePoints kps;
     public:
@@ -66,7 +68,9 @@ namespace rtf {
 
         vector<shared_ptr<Frame>> &getFrames();
 
-        shared_ptr<Frame> getFirstFrame();
+        void setRootIndex(int index);
+
+        shared_ptr<Frame> getRootFrame();
 
         shared_ptr<Frame> getFrame(int frameIndex);
 
@@ -244,19 +248,21 @@ namespace rtf {
 
         vector<shared_ptr<KeyFrame>> getSourceFrames();
 
-        void updateNodeIndex(vector<vector<int>> &ccs);
-
         int findNodeIndexByFrameIndex(int frameIndex);
 
         int updateSpanningTree();
-
-        void generateSpanningTree();
 
         vector<vector<int>> getConnectComponents();
 
         void computeGtTransforms();
 
         vector<int> getBestCovisibilityNodes(int index, int k);
+
+        int getMaxRoot();
+
+        void optimizeBestRootNode();
+
+        vector<int> maxConnectedComponent();
 
         bool isVisible(int frameIndex);
 
