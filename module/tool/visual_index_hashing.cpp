@@ -494,7 +494,7 @@ namespace rtf {
         }
     }
 
-    pair<int, int> selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, SIFTVocabulary* siftVocabulary) {
+    pair<int, int> selectBestOverlappingFrame(shared_ptr<ViewCluster> ref, shared_ptr<ViewCluster> cur, SIFTVocabulary* siftVocabulary) {
         vector<int> refInners;
         DBoWVocabulary refVoc;
         for(int i=0; i<ref->getFrames().size(); i++) {

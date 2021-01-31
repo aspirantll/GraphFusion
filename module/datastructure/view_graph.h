@@ -13,6 +13,11 @@
 using namespace std;
 
 namespace rtf {
+    class Frame;
+    class Connection;
+    class ViewCluster;
+
+
     class Frame: public FrameRGBDT {
     protected:
         SIFTFeaturePoints kps;
@@ -36,19 +41,103 @@ namespace rtf {
         void setVisible(bool visible);
     };
 
-    class KeyFrame {
+    class ConnectionCandidate {
+    protected:
+        vector<FeatureKeypoint> kxs;
+        vector<FeatureKeypoint> kys;
+        SE3 transform;
+        double cost;
+        bool unreachable = false;
+    private:
+        ConnectionCandidate(bool unreachable);
+
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        static ConnectionCandidate UNREACHABLE;
+
+        ConnectionCandidate();
+
+        vector<FeatureKeypoint> &getKxs();
+
+        void setKxs(const vector<FeatureKeypoint> &kxs);
+
+        vector<FeatureKeypoint> &getKys();
+
+        void setKys(const vector<FeatureKeypoint> &kys);
+
+        void setTransform(Transform transformation);
+
+        void setCost(double cost);
+
+        Transform getTransform();
+
+        SE3 getSE();
+
+        double getCost();
+
+        bool isUnreachable();
+    };
+
+
+    class Connection {
+    protected:
+        shared_ptr<ViewCluster> v;
+        Vector3 p;
+        float pointWeight;
+        SE3 transform;
+        double cost;
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        Connection();
+
+        Connection(shared_ptr<ViewCluster> v, Vector3 p, float pointWeight, SE3 transform, double cost);
+
+        void setViewCluster(const shared_ptr<ViewCluster> &v);
+
+        void setNormPoint(const Vector3 &p);
+
+        void setPointWeight(float pointWeight);
+
+        void setTransform(const Transform &transform);
+
+        void setSE(const SE3 &transform);
+
+        void setCost(double cost);
+
+
+        shared_ptr<ViewCluster> getViewCluster();
+
+        Vector3 getNormPoint();
+
+        float getPointWeight();
+
+        Transform getTransform();
+
+        SE3 getSE();
+
+        double getCost();
+    };
+
+
+    class ViewCluster {
     protected:
         vector<shared_ptr<Frame>> frames;
         vector<int> pathLengths;
+
         map<int, int> indexToInnerMap;
+        map<int, shared_ptr<Connection>> connections;
 
         int rootIndex;
         SE3 transform;
+        bool visible = true;
+
         SIFTFeaturePoints kps;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-        KeyFrame();
+        ViewCluster();
 
         int getIndex();
 
@@ -56,11 +145,15 @@ namespace rtf {
 
         shared_ptr<Camera> getCamera();
 
+        Transform getFrameTransform(int frameIndex);
+
         Transform getTransform();
 
-        Transform getTransform(int frameIndex);
-
         void setTransform(Transform trans);
+
+        SE3 getSE();
+
+        void setSE(SE3 se3);
 
         void addFrame(shared_ptr<Frame> frame, int pathLength=0);
 
@@ -74,126 +167,27 @@ namespace rtf {
 
         shared_ptr<Frame> getFrame(int frameIndex);
 
+        bool existConnection(int v);
+
+        shared_ptr<Connection> getConnection(int v);
+
+        void addConnection(int v, shared_ptr<Connection> con);
+
+        vector<shared_ptr<Connection>> getConnections();
+
+        void setVisible(bool visible);
+
+        bool isVisible();
+
         SIFTFeaturePoints &getKps();
 
         void setKps(const SIFTFeaturePoints &kps);
     };
 
-    class Edge {
-    protected:
-        vector<FeatureKeypoint> kxs;
-        vector<FeatureKeypoint> kys;
-        map<int, int> matchIndexesX;
-        map<int, int> matchIndexesY;
-        SE3 transform;
-        double cost;
-        bool unreachable = false;
-    private:
-        Edge(bool unreachable);
-
-    public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
-        static Edge UNREACHABLE;
-
-        Edge();
-
-        vector<FeatureKeypoint> &getKxs();
-
-        void setKxs(const vector<FeatureKeypoint> &kxs);
-
-        vector<FeatureKeypoint> &getKys();
-
-        void setKys(const vector<FeatureKeypoint> &kys);
-
-        bool containKeypoint(int index);
-
-        FeatureKeypoint getMatchKeypoint(int index);
-
-        void setTransform(Transform transformation);
-
-        void setCost(double cost);
-
-        void setUnreachable();
-
-        Transform getTransform();
-
-        void setSE(SE3 t);
-
-        SE3 getSE();
-
-        double getCost();
-
-        bool isUnreachable();
-
-        Edge reverse();
-
-        YAML::Node serialize();
-
-    };
-
-
-    class Node {
-    protected:
-        // the first frame is key frame
-        vector<shared_ptr<KeyFrame>> frames;
-        vector<int> frameIndexes;
-        map<int, int> frameIndexesToInnerIndexes;
-        vector<int> connections;
-        // flag for vis
-        bool visible = true;
-        SE3 gtTrans;
-
-    public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
-        int status; //0-frame node 1-keyframe node
-
-        Node();
-
-        int getIndex();
-
-        shared_ptr<Camera> getCamera();
-
-        Intrinsic getK();
-
-        Intrinsic getKInv();
-
-        vector<shared_ptr<KeyFrame>> &getFrames();
-
-        void addFrame(shared_ptr<KeyFrame> frame);
-
-        vector<int> &getFrameIndexes();
-
-        Transform getTransform(int frameIndex);
-
-        shared_ptr<KeyFrame> getKeyFrame(int frameIndex);
-
-        void setGtTransform(Transform trans);
-
-        Transform getGtTransform();
-
-        void setGtSE(SE3 gt);
-
-        SE3 getGtSE();
-
-        void addConnections(int v);
-
-        vector<int> getConnections();
-
-        void setVisible(bool visible);
-
-        bool isVisible();
-    };
-
-    typedef vector<Node, Eigen::aligned_allocator<Node>> NodeVector;
 
     class ViewGraph {
     protected:
-        NodeVector nodes;
-        EigenUpperTriangularMatrix <Edge> *adjMatrix;
-
-        vector<shared_ptr<KeyFrame>> sourceFrames;
+        vector<shared_ptr<ViewCluster>> sourceNodes;
         vector<int> frameNodeIndex;
         map<int,int> frameToInnerIndex;
 
@@ -212,49 +206,37 @@ namespace rtf {
 
         ViewGraph(int nodesNum);
 
-        void reset(int nodesNum = 0, Edge defaultValue = Edge::UNREACHABLE);
+        void reset(int nodesNum = 0);
 
         int getNodesNum();
 
-        Transform getFrameTransform(int frameIndex);
+        Transform getViewTransform(int frameIndex);
 
-        Edge &operator()(int i, int j);
+        shared_ptr<Connection> operator()(int i, int j);
 
-        Node &operator[](int index);
+        shared_ptr<ViewCluster> operator[](int index);
 
-        Node &extendNode(shared_ptr<KeyFrame> frame);
-
-        shared_ptr<KeyFrame> indexFrame(int index);
-
-        void addSourceFrame(shared_ptr<KeyFrame> frame);
-
-        Edge getEdge(int i, int j);
-
+        void extendNode(shared_ptr<ViewCluster> node);
+        
         double getEdgeCost(int i, int j);
-
-        Transform getEdgeTransform(int i, int j);
 
         SE3 getEdgeSE(int i, int j);
 
-        void setEdgeTransform(int i, int j, Transform trans);
-
         bool existEdge(int i, int j);
+
+        shared_ptr<Camera> getCamera();
 
         int getParent(int child);
 
         int getPathLen(int frameIndex);
 
-        int getFramesNum();
-
-        vector<shared_ptr<KeyFrame>> getSourceFrames();
-
         int findNodeIndexByFrameIndex(int frameIndex);
+
+        shared_ptr<ViewCluster> findNodeByFrameIndex(int frameIndex);
 
         int updateSpanningTree();
 
         vector<vector<int>> getConnectComponents();
-
-        void computeGtTransforms();
 
         vector<int> getBestCovisibilityNodes(int index, int k);
 
@@ -266,12 +248,8 @@ namespace rtf {
 
         bool isVisible(int frameIndex);
 
-        void check();
-
         void print();
 
     };
-
-    bool edgeCompare(Edge &one, Edge &another);
 }
 #endif //GraphFusion_VIEW_GRAPH_H

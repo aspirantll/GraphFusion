@@ -27,8 +27,6 @@ cuda_add_library(${SUBSYS_NAME} STATIC
         map_reduce.cu
         map_reduce.h
         thread_pool.h
-        view_graph_util.cpp
-        view_graph_util.h
         viewer_util.cpp
         viewer_util.h
         visual_index_hashing.cpp

@@ -42,7 +42,7 @@ namespace rtf {
         // merging graph
         if(localRegistration->needMerge()) {
             Timer merger = Timer::startTimer("merge frames");
-            shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
+            shared_ptr<ViewCluster> kf = localRegistration->mergeFramesIntoKeyFrame();
             merger.stopTimer();
 //            kfTracker.join();
             Timer insertKF = Timer::startTimer("insert frames");
@@ -56,7 +56,7 @@ namespace rtf {
 
     void OnlineReconstruction::finalOptimize(bool opt) {
         if(localRegistration->isRemain()) {
-            shared_ptr<KeyFrame> kf = localRegistration->mergeFramesIntoKeyFrame();
+            shared_ptr<ViewCluster> kf = localRegistration->mergeFramesIntoKeyFrame();
             globalRegistration->insertKeyFrames(kf);
         }
 

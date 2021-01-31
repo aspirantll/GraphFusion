@@ -96,7 +96,7 @@ namespace rtf {
         void clear();
     };
 
-    pair<int, int> selectBestOverlappingFrame(shared_ptr<KeyFrame> ref, shared_ptr<KeyFrame> cur, SIFTVocabulary* siftVocabulary);
+    pair<int, int> selectBestOverlappingFrame(shared_ptr<ViewCluster> ref, shared_ptr<ViewCluster> cur, SIFTVocabulary* siftVocabulary);
 }
 
 

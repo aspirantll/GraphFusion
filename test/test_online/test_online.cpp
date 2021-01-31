@@ -32,8 +32,9 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
     ofstream keyf(workspace+"/keyframe.txt", ios::out | ios::binary);
 
     string line;
-    for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
-        Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
+    for(int j=0; j<viewGraph.getNodesNum(); j++) {
+        const shared_ptr<ViewCluster> kf = viewGraph[j];
+        Transform baseTrans = viewGraph.getViewTransform(kf->getIndex());
         for(int i=0; i<kf->getFrames().size(); i++) {
             getline(gt, line);
             while (line.empty()) {
@@ -57,9 +58,10 @@ void saveATP(ViewGraph& viewGraph, GlobalConfig& globalConfig) {
 
 void saveResult(ViewGraph& viewGraph) {
     int count = 0;
-    for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
+    for(int j=0; j<viewGraph.getNodesNum(); j++) {
+        const shared_ptr<ViewCluster> kf = viewGraph[j];
         pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pointCloud(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-        Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
+        Transform baseTrans = viewGraph.getViewTransform(kf->getIndex());
         for(shared_ptr<Frame> frame: kf->getFrames()) {
             frame->reloadImages();
             FrameConverters::convertImageType(frame);

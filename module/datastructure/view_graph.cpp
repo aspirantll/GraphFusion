@@ -37,236 +37,207 @@ namespace rtf {
         Frame::visible = visible;
     }
 
-    KeyFrame::KeyFrame(){
+    ConnectionCandidate::ConnectionCandidate(bool unreachable) : unreachable(unreachable) {}
+
+
+    ConnectionCandidate::ConnectionCandidate() : ConnectionCandidate(false) {}
+
+    ConnectionCandidate ConnectionCandidate::UNREACHABLE(true);
+
+    void ConnectionCandidate::setTransform(Transform transformation) {
+        this->transform = SE3(transformation);
+    }
+
+    void ConnectionCandidate::setCost(double cost) {
+        this->cost = cost;
+        this->unreachable = false;
+    }
+
+
+    vector<FeatureKeypoint> &ConnectionCandidate::getKxs() {
+        return kxs;
+    }
+
+    void ConnectionCandidate::setKxs(const vector<FeatureKeypoint> &kxs) {
+        ConnectionCandidate::kxs = kxs;
+    }
+
+    vector<FeatureKeypoint> &ConnectionCandidate::getKys() {
+        return kys;
+    }
+
+    void ConnectionCandidate::setKys(const vector<FeatureKeypoint> &kys) {
+        ConnectionCandidate::kys = kys;
+    }
+
+    Transform ConnectionCandidate::getTransform() {
+        return transform.matrix();
+    }
+
+    SE3 ConnectionCandidate::getSE() {
+        return transform;
+    }
+
+    double ConnectionCandidate::getCost() {
+        return cost;
+    }
+
+    bool ConnectionCandidate::isUnreachable() {
+        return unreachable;
+    }
+
+    Connection::Connection() {}
+
+    Connection::Connection(shared_ptr<ViewCluster> v, Vector3 p, float pointWeight, SE3 transform, double cost) : v(v), p(p), pointWeight(pointWeight), transform(transform), cost(cost) {}
+
+    shared_ptr<ViewCluster> Connection::getViewCluster() {
+        return v;
+    }
+
+    Vector3 Connection::getNormPoint() {
+        return p;
+    }
+
+    float Connection::getPointWeight() {
+        return pointWeight;
+    }
+
+    Transform Connection::getTransform() {
+        return transform.matrix();
+    }
+
+    SE3 Connection::getSE() {
+        return transform;
+    }
+
+    double Connection::getCost() {
+        return cost;
+    }
+
+    void Connection::setViewCluster(const shared_ptr<ViewCluster> &v) {
+        Connection::v = v;
+    }
+
+    void Connection::setNormPoint(const Vector3 &p) {
+        Connection::p = p;
+    }
+
+    void Connection::setPointWeight(float pointWeight) {
+        Connection::pointWeight = pointWeight;
+    }
+
+    void Connection::setTransform(const Transform &transform) {
+        Connection::transform = SE3(transform);
+    }
+
+    void Connection::setSE(const SE3 &transform) {
+        Connection::transform = transform;
+    }
+
+    void Connection::setCost(double cost) {
+        Connection::cost = cost;
+    }
+
+    ViewCluster::ViewCluster(){
         transform = SE3(Transform::Identity());
         rootIndex = 0;
     }
 
-    int KeyFrame::getIndex() {
+    int ViewCluster::getIndex() {
         return frames[0]->getFrameIndex();
     }
 
-    shared_ptr<Camera> KeyFrame::getCamera() {
+    shared_ptr<Camera> ViewCluster::getCamera() {
         return frames[0]->getCamera();
     }
 
-    Transform KeyFrame::getTransform() {
+    Transform ViewCluster::getTransform() {
         return transform.matrix();
     }
 
-    Transform KeyFrame::getTransform(int frameIndex) {
+    Transform ViewCluster::getFrameTransform(int frameIndex) {
         return getFrame(frameIndex)->getTransform();
     }
 
-    void KeyFrame::setTransform(Transform trans) {
+    void ViewCluster::setTransform(Transform trans) {
         transform = SE3(trans);
     }
 
-    Intrinsic KeyFrame::getK() {
+    SE3 ViewCluster::getSE() {
+        return transform;
+    }
+
+    void ViewCluster::setSE(SE3 se3) {
+        transform = se3;
+    }
+
+    Intrinsic ViewCluster::getK() {
         return getCamera()->getK();
     }
 
-    void KeyFrame::addFrame(shared_ptr<Frame> frame, int pathLength) {
+    void ViewCluster::addFrame(shared_ptr<Frame> frame, int pathLength) {
         indexToInnerMap.insert(map<int, int>::value_type(frame->getFrameIndex(), frames.size()));
         frames.emplace_back(frame);
         pathLengths.emplace_back(pathLength);
     }
 
-    int KeyFrame::getPathLength(int frameIndex) {
+    int ViewCluster::getPathLength(int frameIndex) {
         int innerIndex = indexToInnerMap[frameIndex];
         return pathLengths[innerIndex];
     }
 
-    vector<shared_ptr<Frame>> &KeyFrame::getFrames() {
+    vector<shared_ptr<Frame>> &ViewCluster::getFrames() {
         return frames;
     }
 
-    void KeyFrame::setRootIndex(int index) {
+    void ViewCluster::setRootIndex(int index) {
         rootIndex = index;
     }
 
-    shared_ptr<Frame> KeyFrame::getRootFrame() {
+    shared_ptr<Frame> ViewCluster::getRootFrame() {
         return frames[rootIndex];
     }
 
-    shared_ptr<Frame> KeyFrame::getFrame(int frameIndex) {
+    shared_ptr<Frame> ViewCluster::getFrame(int frameIndex) {
         int innerIndex = indexToInnerMap[frameIndex];
         return frames[innerIndex];
     }
 
-    SIFTFeaturePoints &KeyFrame::getKps() {
-        return kps;
+    bool ViewCluster::existConnection(int v) {
+        return connections.count(v);
     }
 
-    void KeyFrame::setKps(const SIFTFeaturePoints &kps) {
-        KeyFrame::kps = kps;
+    shared_ptr<Connection> ViewCluster::getConnection(int v) {
+        assert(existConnection(v));
+        return connections[v];
     }
 
-    Transform Edge::getTransform() {
-        return transform.matrix();
+    void ViewCluster::addConnection(int v, shared_ptr<Connection> con) {
+        connections.insert(map<int, shared_ptr<Connection>>::value_type(v, con));
     }
 
-    void Edge::setSE(SE3 t) {
-        transform = t;
-    }
-
-    SE3 Edge::getSE() {
-        return transform;
-    }
-
-    double Edge::getCost() {
-        return cost;
-    }
-
-    Edge Edge::reverse() {
-        Edge edge(this->unreachable);
-        if(!edge.isUnreachable()) {
-            edge.setKxs(kys);
-            edge.setKys(kxs);
-            edge.transform = transform.inverse();
-            edge.cost = cost;
-            edge.matchIndexesX = matchIndexesY;
-            edge.matchIndexesY = matchIndexesX;
+    vector<shared_ptr<Connection>> ViewCluster::getConnections() {
+        vector<shared_ptr<Connection>> conVec;
+        for(auto mit: connections) {
+            conVec.emplace_back(mit.second);
         }
-        return edge;
+        return conVec;
     }
 
-    bool Edge::isUnreachable() {
-        return unreachable;
-    }
-
-    Edge::Edge() : Edge(false) {}
-
-    Edge Edge::UNREACHABLE(true);
-
-    void Edge::setUnreachable() {
-        unreachable = true;
-    }
-
-    void Edge::setTransform(Transform transformation) {
-        this->transform = SE3(transformation);
-    }
-
-    void Edge::setCost(double cost) {
-        this->cost = cost;
-        this->unreachable = false;
-    }
-
-    YAML::Node Edge::serialize() {
-        YAML::Node node;
-        node["cost"] = cost;
-        node["unreachable"] = unreachable;
-
-        return node;
-    }
-
-    Edge::Edge(bool unreachable) : unreachable(unreachable) {}
-
-    vector<FeatureKeypoint> &Edge::getKxs() {
-        return kxs;
-    }
-
-    void Edge::setKxs(const vector<FeatureKeypoint> &kxs) {
-        matchIndexesX.clear();
-        for(int i=0; i<kxs.size(); i++) {
-            matchIndexesX.insert(map<int,int>::value_type(kxs[i].getIndex(), i));
-        }
-        Edge::kxs = kxs;
-    }
-
-    vector<FeatureKeypoint> &Edge::getKys() {
-        return kys;
-    }
-
-    void Edge::setKys(const vector<FeatureKeypoint> &kys) {
-        matchIndexesY.clear();
-        for(int i=0; i<kys.size(); i++) {
-            matchIndexesY.insert(map<int,int>::value_type(kys[i].getIndex(), i));
-        }
-        Edge::kys = kys;
-    }
-
-    bool Edge::containKeypoint(int index) {
-        return matchIndexesX.count(index);
-    }
-
-    FeatureKeypoint Edge::getMatchKeypoint(int index) {
-        int innerIndex = matchIndexesX[index];
-        return kys[innerIndex];
-    }
-
-    shared_ptr<Camera> Node::getCamera() {
-        return frames[0]->getCamera();
-    }
-
-    Intrinsic Node::getK() {
-        return getCamera()->getK();
-    }
-
-    Intrinsic Node::getKInv() {
-        return getCamera()->getReverseK();
-    }
-
-    vector<int>& Node::getFrameIndexes() {
-        return frameIndexes;
-    }
-
-    Transform Node::getTransform(int frameIndex) {
-        return getKeyFrame(frameIndex)->getTransform();
-    }
-
-    shared_ptr<KeyFrame> Node::getKeyFrame(int frameIndex) {
-        int inner = frameIndexesToInnerIndexes[frameIndex];
-        return frames[inner];
-    }
-
-    void Node::setGtTransform(Transform trans) {
-        gtTrans = SE3(trans);
-    }
-
-    Transform Node::getGtTransform() {
-        return gtTrans.matrix();
-    }
-
-    void Node::setGtSE(SE3 gt) {
-        gtTrans = gt;
-    }
-
-    SE3 Node::getGtSE() {
-        return gtTrans;
-    }
-
-    void Node::addConnections(int v) {
-        connections.emplace_back(v);
-    }
-
-    vector<int> Node::getConnections() {
-        return connections;
-    }
-
-    void Node::setVisible(bool visible) {
+    void ViewCluster::setVisible(bool visible) {
         this->visible = visible;
     }
 
-    bool Node::isVisible() {
-        return this->visible;
+    bool ViewCluster::isVisible() {
+        return visible;
     }
 
-    Node::Node() {}
-
-    int Node::getIndex() {
-        return frames[0]->getIndex();
+    SIFTFeaturePoints &ViewCluster::getKps() {
+        return kps;
     }
 
-    vector<shared_ptr<KeyFrame>> &Node::getFrames() {
-        return this->frames;
-    }
-
-    void Node::addFrame(shared_ptr<KeyFrame> frame) {
-        int index = frame->getIndex();
-        frames.emplace_back(frame);
-        frameIndexes.emplace_back(index);
-        frameIndexesToInnerIndexes.insert(map<int, int>::value_type(index, frames.size()-1));
+    void ViewCluster::setKps(const SIFTFeaturePoints &kps) {
+        ViewCluster::kps = kps;
     }
 
     ViewGraph::ViewGraph(): ViewGraph(0) {
@@ -274,26 +245,22 @@ namespace rtf {
     }
 
     ViewGraph::~ViewGraph() {
-        delete adjMatrix;
+
     }
 
     ViewGraph::ViewGraph(int nodesNum) {
-        adjMatrix = new EigenUpperTriangularMatrix<Edge>();
         reset(nodesNum);
     }
 
-    void ViewGraph::reset(int nodesNum, Edge defaultValue) {
+    void ViewGraph::reset(int nodesNum) {
         if(nodesNum <= 0) {
-            nodes.clear();
-            adjMatrix->resize(0, defaultValue);
-            sourceFrames.clear();
+            sourceNodes.clear();
             frameNodeIndex.clear();
             parentIndexes.clear();
             rootIndexes.clear();
             curMaxRoot = 0;
         }else {
-            nodes.resize(nodesNum, Node());
-            adjMatrix->resize(nodesNum, defaultValue);
+            sourceNodes.resize(nodesNum);
             parentIndexes.resize(nodesNum, -1);
             rootIndexes.resize(nodesNum);
             iota(rootIndexes.begin(), rootIndexes.end(), 0);
@@ -302,28 +269,27 @@ namespace rtf {
     }
 
     int ViewGraph::getNodesNum() {
-        return nodes.size();
+        return sourceNodes.size();
     }
 
-    Transform ViewGraph::getFrameTransform(int frameIndex) {
+    Transform ViewGraph::getViewTransform(int frameIndex) {
         int innerIndex = frameToInnerIndex[frameIndex];
-        int nodeIndex = frameNodeIndex[innerIndex];
-        return nodes[nodeIndex].getGtTransform()*sourceFrames[innerIndex]->getTransform();
+        return sourceNodes[innerIndex]->getTransform();
     }
 
     SE3 ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited) {
         int nodeIndex = cc[u];
-        if(visited[u]) return nodes[nodeIndex].getGtSE();
+        if(visited[u]) return sourceNodes[nodeIndex]->getSE();
         int parent = parentIndexes[cc[u]];
         if(parent==-1) {
-            nodes[nodeIndex].setGtTransform(Transform::Identity());
+            sourceNodes[nodeIndex]->setTransform(Transform::Identity());
         }else {
             int v = innerMap[parent];
             SE3 trans = computeTransform(v, innerMap, cc, visited)*getEdgeSE(parent, nodeIndex);
-            nodes[nodeIndex].setGtSE(trans);
+            sourceNodes[nodeIndex]->setSE(trans);
         }
         visited[u] = true;
-        return nodes[nodeIndex].getGtSE();
+        return sourceNodes[nodeIndex]->getSE();
     }
 
     int ViewGraph::computePathLens(int index) {
@@ -334,101 +300,58 @@ namespace rtf {
         return nodePathLens[index];
     }
 
-    Edge &ViewGraph::operator()(int i, int j) {
-        return (*adjMatrix)(i, j);
+    shared_ptr<Connection> ViewGraph::operator()(int i, int j) {
+        shared_ptr<ViewCluster> view = (*this)[i];
+        LOG_ASSERT(view->existConnection(j)) << " connection no exist: " << to_string(i) << "->" << to_string(j) << endl;
+        return view->getConnection(j);
     }
 
-    Node &ViewGraph::operator[](int index) {
-        return nodes[index];
+    shared_ptr<ViewCluster> ViewGraph::operator[](int index) {
+        LOG_ASSERT(index<getNodesNum()) << " view no exist: " << to_string(index) << endl;
+        return sourceNodes[index];
     }
 
-    Node& ViewGraph::extendNode(shared_ptr<KeyFrame> frame) {
-        Node node;
-        node.addFrame(frame);
-        node.setGtTransform(Transform::Identity());
-        node.status = 1;
+    void ViewGraph::extendNode(shared_ptr<ViewCluster> node) {
+        sourceNodes.emplace_back(node);
+        node->setTransform(Transform::Identity());
 
-        nodes.emplace_back(node);
-        adjMatrix->extend();
-
-        sourceFrames.emplace_back(frame);
-        frameNodeIndex.emplace_back(nodes.size()-1);
-        frameToInnerIndex.insert(map<int, int>::value_type(frame->getIndex(), sourceFrames.size()-1));
+        frameNodeIndex.emplace_back(sourceNodes.size()-1);
+        frameToInnerIndex.insert(map<int, int>::value_type(node->getIndex(), sourceNodes.size() - 1));
         parentIndexes.emplace_back(-1);
-        rootIndexes.emplace_back(nodes.size()-1);
+        rootIndexes.emplace_back(sourceNodes.size()-1);
         nodePathLens.emplace_back(0);
-        return nodes[nodes.size()-1];
-    }
-
-    shared_ptr<KeyFrame> ViewGraph::indexFrame(int index) {
-        LOG_ASSERT(frameToInnerIndex.count(index)) << "error index";
-        int innerIndex = frameToInnerIndex[index];
-        return sourceFrames[innerIndex];
-    }
-
-    int ViewGraph::getFramesNum() {
-        return sourceFrames.size();
-    }
-
-    vector<shared_ptr<KeyFrame>> ViewGraph::getSourceFrames() {
-        return sourceFrames;
-    }
-
-    void ViewGraph::addSourceFrame(shared_ptr<KeyFrame> frame) {
-        sourceFrames.emplace_back(frame);
-        frameNodeIndex.emplace_back(-1);
-        frameToInnerIndex.insert(map<int, int>::value_type(frame->getIndex(), sourceFrames.size()-1));
-    }
-
-    Edge ViewGraph::getEdge(int i, int j) {
-        if(i<=j) return (*adjMatrix)(i,j);
-        else {
-            return (*adjMatrix)(i,j).reverse();
-        }
     }
 
     double ViewGraph::getEdgeCost(int i, int j) {
-        LOG_ASSERT(!(*this)(i,j).isUnreachable());
-        return (*this)(i,j).getCost();
-    }
-
-    Transform ViewGraph::getEdgeTransform(int i, int j) {
-        LOG_ASSERT(!(*this)(i,j).isUnreachable());
-        Transform trans = (*this)(i, j).getTransform();
-        return i<=j?trans:trans.inverse();
+        return (*this)(i,j)->getCost();
     }
 
     SE3 ViewGraph::getEdgeSE(int i, int j) {
-        LOG_ASSERT(!(*this)(i,j).isUnreachable());
-        SE3 trans = (*this)(i, j).getSE();
-        return i<=j?trans:trans.inverse();
-    }
-
-    void ViewGraph::setEdgeTransform(int i, int j, Transform trans) {
-        if(i<j) (*this)(i, j).setTransform(trans);
-        else {
-            (*this)(i, j).setTransform(trans.inverse());
-        }
+        return (*this)(i, j)->getSE();
     }
 
     int ViewGraph::findNodeIndexByFrameIndex(int frameIndex) {
+        assert(frameToInnerIndex.count(frameIndex));
         int innerIndex = frameToInnerIndex[frameIndex];
         return frameNodeIndex[innerIndex];
+    }
+
+    shared_ptr<ViewCluster> ViewGraph::findNodeByFrameIndex(int frameIndex) {
+        return sourceNodes[findNodeIndexByFrameIndex(frameIndex)];
     }
 
     int ViewGraph::updateSpanningTree() { // for last node
         // collect all edges for last node
         map<int, vector<pair<int, double>>> costsMap;
-        int lastIndex = nodes.size()-1;
-        for(int index=0; index<lastIndex; index++) {
-            Edge& edge = (*this)(index, lastIndex);
-            if(!edge.isUnreachable()) {
-                int root = rootIndexes[index];
-                if(!costsMap.count(root)) {
-                    costsMap.insert(map<int, vector<pair<int, double>>>::value_type(root, vector<pair<int, double>>()));
-                }
-                costsMap[root].emplace_back(make_pair(index, edge.getCost()));
+        int lastIndex = sourceNodes.size()-1;
+        shared_ptr<ViewCluster> lastNode = (*this)[lastIndex];
+        for(shared_ptr<Connection> edge: lastNode->getConnections()) {
+            int index = findNodeIndexByFrameIndex(edge->getViewCluster()->getIndex());
+            int root = rootIndexes[index];
+            if(!costsMap.count(root)) {
+                costsMap.insert(map<int, vector<pair<int, double>>>::value_type(root, vector<pair<int, double>>()));
             }
+            costsMap[root].emplace_back(make_pair(index, edge->getCost()));
         }
 
         // select root for last frame
@@ -574,13 +497,17 @@ namespace rtf {
 
         int lostCount = 0;
         for(int i=0; i<rootIndexes.size(); i++) {
-            nodes[i].setVisible(rootIndexes[i]==curMaxRoot);
-            if(!nodes[i].isVisible()) {
-                lostCount += nodes[i].getFrames().size();
+            sourceNodes[i]->setVisible(rootIndexes[i]==curMaxRoot);
+            if(!sourceNodes[i]->isVisible()) {
+                lostCount += sourceNodes[i]->getFrames().size();
             }
         }
 
         return lostCount;
+    }
+
+    shared_ptr<Camera> ViewGraph::getCamera() {
+        return (*this)[0]->getCamera();
     }
 
     int ViewGraph::getParent(int nodeIndex) {
@@ -596,7 +523,7 @@ namespace rtf {
 
     bool ViewGraph::isVisible(int frameIndex) {
         int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
-        return nodes[nodeIndex].isVisible();
+        return sourceNodes[nodeIndex]->isVisible();
     }
 
     vector<vector<int>> ViewGraph::getConnectComponents() {
@@ -616,38 +543,14 @@ namespace rtf {
         return ccs;
     }
 
-    void ViewGraph::computeGtTransforms() {
-        map<int, vector<int>> ccMap;
-        for(int i=0; i<rootIndexes.size(); i++) {
-            int root = rootIndexes[i];
-            if(!ccMap.count(root)) {
-                ccMap.insert(map<int, vector<int>>::value_type(root, vector<int>()));
-            }
-            ccMap[root].emplace_back(i);
-        }
-
-        auto mit = ccMap.begin();
-        for(int i=0; i<ccMap.size(); i++, mit++) {
-            vector<int>& cc = mit->second;
-            vector<bool> visited(cc.size(), false);
-            map<int, int> ccIndex;
-            for(int j=0; j<cc.size(); j++) {
-                ccIndex.insert(map<int, int>::value_type(cc[j], j));
-            }
-            for(int j=0; j<cc.size(); j++) {
-                computeTransform(j, ccIndex, cc, visited);
-            }
-        }
-    }
-
     vector<int> ViewGraph::getBestCovisibilityNodes(int index, int k) {
         typedef std::pair<int, int> WeightedView;
 
         std::vector<WeightedView> weighted_views;
-        vector<int> connections = (*this)[index].getConnections();
-        for (int ind: connections) {
-            assert(ind < getNodesNum());
-            weighted_views.push_back( std::make_pair( (int)(*this)[ind].getConnections().size(), ind));
+        vector<shared_ptr<Connection>> connections = (*this)[index]->getConnections();
+        for (shared_ptr<Connection> con: connections) {
+            int ind = findNodeIndexByFrameIndex(con->getViewCluster()->getIndex());
+            weighted_views.push_back( std::make_pair( (int)(*this)[ind]->getConnections().size(), ind));
         }
 
         // sort by the number of connections in descending order
@@ -727,8 +630,6 @@ namespace rtf {
         for(int j=0; j<cc.size(); j++) {
             computeTransform(j, ccIndex, cc, visited);
         }
-
-
     }
 
     vector<int> ViewGraph::maxConnectedComponent() {
@@ -742,11 +643,8 @@ namespace rtf {
     }
 
     bool ViewGraph::existEdge(int i, int j) {
-        return !(*this)(i, j).isUnreachable();
-    }
-
-    void ViewGraph::check() {
-        CHECK_EQ(nodes.size(), adjMatrix->getN());
+        shared_ptr<ViewCluster> view = (*this)[i];
+        return view->existConnection(j);
     }
 
     void ViewGraph::print() {
@@ -756,25 +654,20 @@ namespace rtf {
         cout << "nodes:" << n << endl;
         for (int i = 0; i < n; i++) {
             cout << i << ": ";
-            for (auto frame: nodes[i].getFrames()) {
-                cout << frame->getIndex() << ",";
+            for (auto frame: sourceNodes[i]->getFrames()) {
+                cout << frame->getFrameIndex() << ",";
+            }
+            cout  << endl;
+            cout << "  |   ";
+            for (auto con: sourceNodes[i]->getConnections()) {
+                int index = con->getViewCluster()->getIndex();
+                cout << "(" << findNodeIndexByFrameIndex(index) << " : " << index << "-" << con->getCost() << "), ";
             }
             cout  << endl;
         }
 
-        // print cost
-        cout << "edges:" << endl;
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                auto edge = (*this)(i, j);
-                double cost = edge.isUnreachable() ? -1.0 : edge.getCost();
-                int kpNum = edge.getKxs().size();
-                cout << cost << "(" << kpNum << ")" << "\t";
-            }
-            cout << endl;
-        }
         cout << "frameNodeIndex:" << endl;
-        for(int i=0; i<getFramesNum(); i++) {
+        for(int i=0; i<getNodesNum(); i++) {
             cout << i << "-" << frameNodeIndex[i] << ",";
         }
         cout << endl;
@@ -799,13 +692,6 @@ namespace rtf {
         }
         cout << endl;
         cout << "---------------------view graph end------------------------------" << endl;
-    }
-
-    bool edgeCompare(Edge& one, Edge& another) {
-        if(one.isUnreachable()) return false;
-        if(!one.isUnreachable()&&another.isUnreachable()) return true;
-        float factor = 1; //(float)one.getKxs().size()/another.getKxs().size();
-        return one.getCost() < factor*another.getCost();
     }
 }
 

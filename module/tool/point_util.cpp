@@ -7,40 +7,20 @@
 
 namespace rtf {
     namespace PointUtil {
-        cv::Mat vec2Mat(vector<Point3D> &pointVec) {
-            cv::Mat mat(pointVec.size(), 3, CV_64FC1);
-            for(int i=0; i<pointVec.size(); i++) {
-                Point3D point = pointVec[i];
-                mat.at<double>(i, 0) = point.x;
-                mat.at<double>(i, 1) = point.y;
-                mat.at<double>(i, 2) = point.z;
+        void meanFeatures(vector<Point3D> &kys, shared_ptr<Camera> camera, Vector3 &p, float& weight) {
+            p.setZero();
+            weight = 0;
+
+            for (int i = 0; i < kys.size(); i++) {
+                Vector3 py = camera->getCameraModel()->unproject(kys[i].x, kys[i].y, kys[i].z);
+                p += py;
+                weight += py.norm();
             }
-            return mat;
-        }
 
-        cv::Mat vec2Mat(vector<Point2D> &pixelVec) {
-            cv::Mat mat(pixelVec.size(), 2, CV_64FC1);
-            for(int i=0; i<pixelVec.size(); i++) {
-                Point2D pixel = pixelVec[i];
-                mat.at<double>(i, 0) = pixel.x;
-                mat.at<double>(i, 1) = pixel.y;
-            }
-            return mat;
-        }
+            p /= kys.size();
+            weight /= kys.size();
 
-        cv::Mat point2Mat(Point2D pixel) {
-            cv::Mat mat(2, 1, CV_64FC1);
-            mat.at<double>(0, 0) = pixel.x;
-            mat.at<double>(1, 0) = pixel.y;
-            return mat;
-        }
-
-        cv::Mat point2Mat(Point3D point) {
-            cv::Mat mat(3, 1, CV_64FC1);
-            mat.at<double>(0, 0) = point.x;
-            mat.at<double>(1, 0) = point.y;
-            mat.at<double>(2, 0) = point.z;
-            return mat;
+            p.normalize();
         }
 
 

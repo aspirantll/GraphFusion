@@ -84,8 +84,6 @@ namespace rtf {
     public:
         BARegistration(const GlobalConfig &config);
 
-        RegReport multiViewBundleAdjustment(ViewGraph &viewGraph, const vector<int>& cc);
-
         RegReport bundleAdjustment(Transform initT, shared_ptr<Camera> cx, shared_ptr<Camera> cy,
                                    vector<FeatureKeypoint> &kxs, vector<FeatureKeypoint> &kys,
                                    bool robust = false);
@@ -199,15 +197,16 @@ namespace rtf {
         vector<int> startIndexes;
         vector<vector<pair<int, Point3D>>> correlations;
 
+        vector<int> overlapFrames;
+        EigenVector(ConnectionCandidate) edges;
+
         void updateCorrelations();
 
         void updateLocalEdges();
 
-        void registrationPnPBA(FeatureMatches* featureMatches, Edge* edge);
+        void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, ConnectionCandidate* edge, cudaStream_t curStream);
 
-        void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge* edge, cudaStream_t curStream);
-
-        void registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges);
+        void registrationLocalEdges();
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         LocalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
@@ -220,7 +219,7 @@ namespace rtf {
 
         bool isRemain();
 
-        shared_ptr<KeyFrame> mergeFramesIntoKeyFrame();
+        shared_ptr<ViewCluster> mergeFramesIntoKeyFrame();
 
         ~LocalRegistration();
     };
@@ -248,11 +247,11 @@ namespace rtf {
         std::vector<ConsistentGroup> prevConsistentGroups;
 
 
-        void registrationPairEdge(FeatureMatches* featureMatches, Edge* edge, cudaStream_t curStream, float weight=1);
+        void registrationPairEdge(FeatureMatches* featureMatches, ConnectionCandidate* edge, cudaStream_t curStream, float weight=1);
 
-        void registrationEdges(shared_ptr<KeyFrame> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(Edge)& pairEdges);
+        void registrationEdges(shared_ptr<ViewCluster> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(ConnectionCandidate)& pairEdges);
 
-        void findOverlapping(shared_ptr<KeyFrame> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes);
+        void findOverlapping(shared_ptr<ViewCluster> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes);
 
         bool checkLoopConsistency(const std::vector<int> &candidates,
                                   std::vector<int> &consistentCandidates,
@@ -267,7 +266,7 @@ namespace rtf {
 
         GlobalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
-        void insertKeyFrames(shared_ptr<KeyFrame> frame);
+        void insertKeyFrames(shared_ptr<ViewCluster> frame);
 
         int registration(bool opt = true);
 

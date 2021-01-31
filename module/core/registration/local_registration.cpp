@@ -4,12 +4,8 @@
 
 #include "registrations.h"
 #include "optimizer.h"
-#include "../../tool/view_graph_util.h"
 #include <glog/logging.h>
-
 #include <utility>
-
-using namespace rtf::ViewGraphUtil;
 
 namespace rtf {
     LocalRegistration::LocalRegistration(const GlobalConfig &globalConfig, SIFTVocabulary* siftVocabulary): globalConfig(globalConfig), siftVocabulary(siftVocabulary) {
@@ -19,22 +15,24 @@ namespace rtf {
         pnpRegistration = new PnPRegistration(globalConfig);
     }
 
-    void LocalRegistration::registrationPnPBA(FeatureMatches *featureMatches, Edge *edge) {
-        RANSAC2DReport pnp = pnpRegistration->registrationFunction(*featureMatches);
+    void LocalRegistration::registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, ConnectionCandidate *edge, cudaStream_t curStream) {
+        stream = curStream;
+        FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
+        RANSAC2DReport pnp = pnpRegistration->registrationFunction(featureMatches);
         RegReport ba;
         if (pnp.success) {
             BARegistration baRegistration(globalConfig);
             vector<FeatureKeypoint> kxs, kys;
             if(pnp.inliers.size()<100) {
-                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
+                FeatureMatches matches = matcher->matchKeyPointsWithProjection(featureMatches.getFp1(), featureMatches.getFp2(), pnp.T);
                 featureMatchesToPoints(matches, kxs, kys);
 
                 ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
             }else {
-                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
+                featureIndexesToPoints(featureMatches.getKx(), pnp.kps1, kxs);
+                featureIndexesToPoints(featureMatches.getKy(), pnp.kps2, kys);
 
-                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches.getCx(), featureMatches.getCy(), kxs, kys);
             }
 
             if (ba.success) {
@@ -49,7 +47,7 @@ namespace rtf {
         }
 
         printMutex.lock();
-        cout << "-------------------" << featureMatches->getFIndexX() << "-" << featureMatches->getFIndexY()  << "-pnp+ba---------------------------------" << endl;
+        cout << "-------------------" << featureMatches.getFIndexX() << "-" << featureMatches.getFIndexY()  << "-pnp+ba---------------------------------" << endl;
         pnp.printReport();
         if (ba.success) {
             ba.printReport();
@@ -57,21 +55,14 @@ namespace rtf {
         printMutex.unlock();
     }
 
-    void LocalRegistration::registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, Edge *edge, cudaStream_t curStream) {
-        stream = curStream;
-        FeatureMatches featureMatches = matcher->matchKeyPointsPair(*f1, *f2);
-        registrationPnPBA(&featureMatches, edge);
-    }
-
-    void LocalRegistration::registrationLocalEdges(vector<int>& overlapFrames, EigenVector(Edge)& edges) {
+    void LocalRegistration::registrationLocalEdges() {
         const int k = globalConfig.overlapNum;
         const int lastNum = 2;
-        const int curIndex = localViewGraph.getFramesNum()-1;
-        auto frames = localViewGraph.getSourceFrames();
+        const int curIndex = localViewGraph.getNodesNum()-1;
 
         set<int> spAlreadyAddedKF;
         overlapFrames.reserve(k);
-        edges.resize(k, Edge::UNREACHABLE);
+        edges.resize(k, ConnectionCandidate::UNREACHABLE);
         thread *threads[k];
         cudaStream_t streams[k];
         // last frame
@@ -85,12 +76,12 @@ namespace rtf {
 //            threads[index] = new thread(
 //                    bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
 //                         placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], streams[index]);
-            registrationPairEdge(&frames[refIndex]->getRootFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], stream);
+            registrationPairEdge(&localViewGraph[refIndex]->getRootFrame()->getKps(), &localViewGraph[curIndex]->getRootFrame()->getKps(), &edges[index], stream);
             index++;
         }
 
         if (overlapFrames.size() < k) {
-            auto cur = localViewGraph.indexFrame(curIndex);
+            auto cur = localViewGraph[curIndex];
             std::vector<MatchScore> imageScores = localDBoWHashing->queryImages(make_float3(0,0,0), cur->getKps());
             // Return all those keyframes with a score higher than 0.75*bestScore
             float minScoreToRetain = globalConfig.minScore;
@@ -106,7 +97,7 @@ namespace rtf {
 //                        threads[index] = new thread(
 //                                bind(&LocalRegistration::registrationPairEdge, this, placeholders::_1, placeholders::_2,
 //                                     placeholders::_3, placeholders::_4), &frames[refIndex]->getFirstFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], streams[index]);
-                        registrationPairEdge(&frames[refIndex]->getRootFrame()->getKps(), &frames[curIndex]->getRootFrame()->getKps(), &edges[index], stream);
+                        registrationPairEdge(&localViewGraph[refIndex]->getRootFrame()->getKps(), &localViewGraph[curIndex]->getRootFrame()->getKps(), &edges[index], stream);
 
                         index++;
                     }
@@ -124,24 +115,25 @@ namespace rtf {
 
     void LocalRegistration::updateCorrelations() {
         int curNodeIndex = localViewGraph.getNodesNum()-1;
-        shared_ptr<Camera> camera = localViewGraph[curNodeIndex].getCamera();
-        for(int refNodeIndex=0; refNodeIndex<curNodeIndex; refNodeIndex++) {
-            Edge edge = localViewGraph.getEdge(refNodeIndex, curNodeIndex);
+        shared_ptr<Camera> camera = localViewGraph[curNodeIndex]->getCamera();
+        for(int i=0; i<edges.size(); i++) {
+            ConnectionCandidate& edge = edges[i];
+            int refNodeIndex = overlapFrames[i];
             if(!edge.isUnreachable()) {
                 for(int k=0; k<edge.getKxs().size(); k++) {
                     FeatureKeypoint px = edge.getKxs()[k];
                     FeatureKeypoint py = edge.getKys()[k];
 
-                    Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), localViewGraph[refNodeIndex].getGtTransform());
-                    Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), localViewGraph[curNodeIndex].getGtTransform());
+                    Vector3 qx = PointUtil::transformPoint(camera->getCameraModel()->unproject(px.x, px.y, px.z), localViewGraph[refNodeIndex]->getTransform());
+                    Vector3 qy = PointUtil::transformPoint(camera->getCameraModel()->unproject(py.x, py.y, py.z), localViewGraph[curNodeIndex]->getTransform());
                     if((qx-qy).norm()<globalConfig.maxPointError) {
                         int ix = startIndexes[refNodeIndex] + px.getIndex();
                         int iy = startIndexes[curNodeIndex] + py.getIndex();
 
                         if(correlations[ix].empty()&&correlations[iy].empty()) kpNum++;
 
-                        correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[curNodeIndex].getGtTransform(), camera)));
-                        correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[refNodeIndex].getGtTransform(), camera)));
+                        correlations[ix].emplace_back(make_pair(iy, PointUtil::transformPixel(py, localViewGraph[curNodeIndex]->getTransform(), camera)));
+                        correlations[iy].emplace_back(make_pair(ix, PointUtil::transformPixel(px, localViewGraph[refNodeIndex]->getTransform(), camera)));
                     }
                 }
             }
@@ -150,9 +142,9 @@ namespace rtf {
 
     void LocalRegistration::updateLocalEdges() {
         clock_t start = clock();
-        vector<int> overlapFrames;
-        vector<Edge, Eigen::aligned_allocator<Edge>> edges;
-        registrationLocalEdges(overlapFrames, edges);
+        overlapFrames.clear();
+        edges.clear();
+        registrationLocalEdges();
 
         map<int, int> bestEdgeMap;
         for(int i=0; i<overlapFrames.size(); i++) {
@@ -173,19 +165,61 @@ namespace rtf {
         for (auto mit: bestEdgeMap) {
             int refNodeIndex = mit.first;
             int ind = mit.second;
-            Edge &edge = localViewGraph(refNodeIndex, curNodeIndex);
-            Edge &bestEdge = edges[ind];
+            ConnectionCandidate& candidate = edges[ind];
 
-            if (edgeCompare(bestEdge, edge)) {
-                if(edge.isUnreachable()) {
-                    localViewGraph[refNodeIndex].addConnections(curNodeIndex);
-                    localViewGraph[curNodeIndex].addConnections(refNodeIndex);
+            shared_ptr<ViewCluster> curNode = localViewGraph[curNodeIndex];
+            shared_ptr<ViewCluster> refNode = localViewGraph[refNodeIndex];
+
+            if(localViewGraph.existEdge(refNodeIndex, curNodeIndex)) {
+                shared_ptr<Connection> edge = localViewGraph(refNodeIndex, curNodeIndex);
+                if(candidate.getCost() < edge->getCost()) {
+                    {
+                        Vector3 p;
+                        float weight;
+                        vector<Point3D> points(candidate.getKys().begin(), candidate.getKys().end());
+
+                        PointUtil::meanFeatures(points, localViewGraph.getCamera(), p, weight);
+
+                        edge->setNormPoint(p);
+                        edge->setPointWeight(weight);
+                        edge->setTransform(candidate.getTransform());
+                        edge->setCost(candidate.getCost());
+                    }
+
+                    {
+                        shared_ptr<Connection> rEdge = localViewGraph(curNodeIndex, refNodeIndex);
+                        Vector3 p;
+                        float weight;
+                        vector<Point3D> points(candidate.getKxs().begin(), candidate.getKxs().end());
+
+                        PointUtil::meanFeatures(points, localViewGraph.getCamera(), p, weight);
+
+                        rEdge->setNormPoint(p);
+                        rEdge->setPointWeight(weight);
+                        rEdge->setSE(candidate.getSE().inverse());
+                        rEdge->setCost(candidate.getCost());
+                    }
+                }
+            }else {
+                {
+                    Vector3 p;
+                    float weight;
+                    vector<Point3D> points(candidate.getKys().begin(), candidate.getKys().end());
+
+                    PointUtil::meanFeatures(points, localViewGraph.getCamera(), p, weight);
+
+                    localViewGraph[refNodeIndex]->addConnection(curNodeIndex, allocate_shared<Connection>(Eigen::aligned_allocator<Connection>(), curNode, p, weight, candidate.getSE(), candidate.getCost()));
                 }
 
-                edge.setKxs(bestEdge.getKxs());
-                edge.setKys(bestEdge.getKys());
-                edge.setTransform(bestEdge.getTransform());
-                edge.setCost(bestEdge.getCost());
+                {
+                    Vector3 p;
+                    float weight;
+                    vector<Point3D> points(candidate.getKxs().begin(), candidate.getKxs().end());
+
+                    PointUtil::meanFeatures(points, localViewGraph.getCamera(), p, weight);
+
+                    localViewGraph[curNodeIndex]->addConnection(refNodeIndex, allocate_shared<Connection>(Eigen::aligned_allocator<Connection>(), refNode, p, weight, candidate.getSE().inverse(), candidate.getCost()));
+                }
             }
 
         }
@@ -195,19 +229,19 @@ namespace rtf {
     }
 
     void LocalRegistration::localTrack(shared_ptr<Frame> frame) {
-        shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
+        shared_ptr<ViewCluster> keyframe = allocate_shared<ViewCluster>(Eigen::aligned_allocator<ViewCluster>());
         siftVocabulary->computeBow(frame->getKps());
         keyframe->addFrame(frame);
         keyframe->setKps(frame->getKps());
         localViewGraph.extendNode(keyframe);
         startIndexes.emplace_back(correlations.size());
         correlations.resize(correlations.size()+frame->getKps().size());
-        if (localViewGraph.getFramesNum() > 1) {
+        if (localViewGraph.getNodesNum() > 1) {
             updateLocalEdges();
             localViewGraph.updateSpanningTree();
             updateCorrelations();
         }
-        localDBoWHashing->addVisualIndex(make_float3(0,0,0), keyframe->getKps(), localViewGraph.getFramesNum()-1);
+        localDBoWHashing->addVisualIndex(make_float3(0,0,0), keyframe->getKps(), localViewGraph.getNodesNum()-1);
     }
 
     void collectCorrespondences(vector<vector<pair<int, Point3D>>>& correlations, vector<bool>& visited, int u, vector<int>& corrIndexes, vector<Point3D>& corr) {
@@ -224,8 +258,8 @@ namespace rtf {
 
     bool LocalRegistration::needMerge() {
         const int n = localViewGraph.getNodesNum();
-        bool c1 = localViewGraph[n-1].getIndex() - localViewGraph[0].getIndex() + 1>=globalConfig.chunkSize;
-        bool c2 = localViewGraph[n-1].getIndex() - localViewGraph[0].getIndex() + 1>=2*globalConfig.chunkSize;
+        bool c1 = localViewGraph[n-1]->getIndex() - localViewGraph[0]->getIndex() + 1>=globalConfig.chunkSize;
+        bool c2 = localViewGraph[n-1]->getIndex() - localViewGraph[0]->getIndex() + 1>=2*globalConfig.chunkSize;
         bool c3 = kpNum > 1000;
 
         return (c1&&c3)||c2;
@@ -235,7 +269,7 @@ namespace rtf {
         return localViewGraph.getNodesNum()>0;
     }
 
-    shared_ptr<KeyFrame> LocalRegistration::mergeFramesIntoKeyFrame() {
+    shared_ptr<ViewCluster> LocalRegistration::mergeFramesIntoKeyFrame() {
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
 //        localViewGraph.optimizeBestRootNode();
@@ -245,11 +279,11 @@ namespace rtf {
         vector<int> cc = localViewGraph.maxConnectedComponent();
         assert(cc.size()>=1);
         set<int> visibleSet(cc.begin(), cc.end());
-        shared_ptr<KeyFrame> keyframe = allocate_shared<KeyFrame>(Eigen::aligned_allocator<KeyFrame>());
+        shared_ptr<ViewCluster> keyframe = allocate_shared<ViewCluster>(Eigen::aligned_allocator<ViewCluster>());
         keyframe->setTransform(Transform::Identity());
         keyframe->setRootIndex(localViewGraph.getMaxRoot());
         for(int i=0; i<n; i++) {
-            shared_ptr<Frame> frame = localViewGraph[i].getFrames()[0]->getRootFrame();
+            shared_ptr<Frame> frame = localViewGraph[i]->getRootFrame();
             frame->setVisible(visibleSet.count(i));
             // compute path length in MST
             int pathLen = localViewGraph.getPathLen(frame->getFrameIndex());
@@ -264,21 +298,21 @@ namespace rtf {
             // update transforms
             vector<shared_ptr<Frame>>& frames = keyframe->getFrames();
             for(int i=0; i<cc.size(); i++) {
-                frames[cc[i]]->setTransform(localViewGraph[cc[i]].getGtTransform());
+                frames[cc[i]]->setTransform(localViewGraph[cc[i]]->getTransform());
             }
 
-            sf.setCamera(localViewGraph[0].getCamera());
-            sf.setFIndex(localViewGraph[0].getIndex());
+            sf.setCamera(localViewGraph.getCamera());
+            sf.setFIndex(localViewGraph[0]->getIndex());
 
             // foreach edge
-            shared_ptr<CameraModel> cameraModel = localViewGraph[0].getCamera()->getCameraModel();
+            shared_ptr<CameraModel> cameraModel = localViewGraph.getCamera()->getCameraModel();
             vector<bool> visited(correlations.size(), false);
             FeatureKeypoints kp;
             vector<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>, Eigen::aligned_allocator<Eigen::Matrix<uint8_t, 1, -1, Eigen::RowMajor>>> desc;
             Scalar minX=numeric_limits<Scalar>::infinity(), maxX=0, minY=numeric_limits<Scalar>::infinity(), maxY=0;
             for(int i=0; i<m; i++) {
                 int nodeIndex = cc[i];
-                SIFTFeaturePoints &sift = localViewGraph[nodeIndex].getFrames()[0]->getKps();
+                SIFTFeaturePoints &sift = localViewGraph[nodeIndex]->getRootFrame()->getKps();
                 for(int j=0; j<sift.getKeyPoints().size(); j++) {
                     int curIndex = startIndexes[nodeIndex]+j;
                     if(!visited[curIndex]) {
@@ -312,7 +346,7 @@ namespace rtf {
             sf.setBounds(minX, maxX, minY, maxY);
             sf.fuseFeaturePoints(kp, desc);
         }else if(m==1){
-            sf = localViewGraph[cc[0]].getFrames()[0]->getKps();
+            sf = localViewGraph[cc[0]]->getRootFrame()->getKps();
         }
 
 

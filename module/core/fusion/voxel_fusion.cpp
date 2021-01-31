@@ -54,7 +54,7 @@ namespace rtf {
 
 
     Mesh* VoxelFusion::integrateFrames(ViewGraph& viewGraph) {
-        auto camera = viewGraph[0].getCamera();
+        auto camera = viewGraph.getCamera();
         int width = camera->getWidth();
         int height = camera->getHeight();
 
@@ -63,8 +63,9 @@ namespace rtf {
         marchingCubesHashSdf->clearMeshBuffer();
         int mergeCount = 0;
         Transform trans;
-        for(const shared_ptr<KeyFrame>& kf: viewGraph.getSourceFrames()) {
-            Transform baseTrans = viewGraph.getFrameTransform(kf->getIndex());
+        for(int i=0; i<viewGraph.getNodesNum(); i++) {
+            const shared_ptr<ViewCluster> kf = viewGraph[i];
+            Transform baseTrans = viewGraph.getViewTransform(kf->getIndex());
             if(!viewGraph.isVisible(kf->getIndex())) {
                 continue;
             }
