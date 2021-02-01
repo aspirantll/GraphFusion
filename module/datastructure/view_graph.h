@@ -175,6 +175,8 @@ namespace rtf {
 
         vector<shared_ptr<Connection>> getConnections();
 
+        map<int, shared_ptr<Connection>> getConnectionMap();
+
         void setVisible(bool visible);
 
         bool isVisible();

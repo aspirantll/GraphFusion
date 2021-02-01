@@ -45,7 +45,7 @@ ICP speed: 755Hz
 The code will output one file; output.poses. You can evaluate it on the TUM benchmark by using their tools. I get something like this;
 
 ```bash
-python ~/stuff/Kinect_Logs/Freiburg/evaluate_ate.py ~/Desktop/rgbd_dataset_freiburg1_desk/groundtruth.txt output.poses 
+python ~/stuff/Kinect_Logs/Freiburg/evaluate_ate.p ~/Desktop/rgbd_dataset_freiburg1_desk/groundtruth.txt output.poses 
 0.144041
 ```
 

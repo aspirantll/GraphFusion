@@ -19,6 +19,7 @@ namespace rtf {
 
             p /= kys.size();
             weight /= kys.size();
+            assert(!isnan(weight));
 
             p.normalize();
         }

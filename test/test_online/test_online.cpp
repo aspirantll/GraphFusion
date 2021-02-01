@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
     string savePath = workspace + "/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    string savePath = "/home/liulei/桌面/online_result_mesh_" + to_string(globalConfig.overlapNum) + ".ply";
 //    if(FileUtil::exist(savePath)) return 0;
-    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
+//    freopen((workspace+"/online_out.txt").c_str(),"w",stdout);
 
     FileInputSource * fileInputSource = new TUMInputSource();
     cout << "device_num: " << fileInputSource->getDevicesNum() << endl;

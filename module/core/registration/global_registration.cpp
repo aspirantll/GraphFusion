@@ -151,9 +151,8 @@ namespace rtf {
 
             // --- Create candidate group -----------
             std::set<int> candidateGroup;
-            const auto &connections = viewGraph[candidate]->getConnections();
-            for (auto vi: connections) {
-//                candidateGroup.insert(vi);
+            for (auto& vit: viewGraph[candidate]->getConnectionMap()) {
+                candidateGroup.insert(vit.first);
             }
             candidateGroup.insert(candidate);
 
@@ -262,42 +261,37 @@ namespace rtf {
                                                                                 curFrame->getKps());
 
                     ConnectionCandidate candidate;
-                    registrationPairEdge(&featureMatches, &candidate, stream, viewGraph.getPathLen(refNodeIndex) + 1);
+                    registrationPairEdge(&featureMatches, &candidate, stream,  1);
 
                     if(!candidate.isUnreachable()) {
                         {
-                            shared_ptr<Connection> edge = viewGraph(refNodeIndex, curNodeIndex);
                             Vector3 p;
                             float weight;
                             vector<Point3D> points(candidate.getKys().begin(), candidate.getKys().end());
 
                             PointUtil::meanFeatures(points, viewGraph.getCamera(), p, weight);
 
-                            edge->setNormPoint(p);
-                            edge->setPointWeight(weight);
-                            edge->setTransform(candidate.getTransform());
-                            edge->setCost(candidate.getCost());
+                            viewGraph[refNodeIndex]->addConnection(curNodeIndex, allocate_shared<Connection>(Eigen::aligned_allocator<Connection>(), viewGraph[curNodeIndex], p, weight, candidate.getSE(), candidate.getCost()));
                         }
 
                         {
-                            shared_ptr<Connection> rEdge = viewGraph(curNodeIndex, refNodeIndex);
                             Vector3 p;
                             float weight;
                             vector<Point3D> points(candidate.getKxs().begin(), candidate.getKxs().end());
 
                             PointUtil::meanFeatures(points, viewGraph.getCamera(), p, weight);
 
-                            rEdge->setNormPoint(p);
-                            rEdge->setPointWeight(weight);
-                            rEdge->setSE(candidate.getSE().inverse());
-                            rEdge->setCost(candidate.getCost());
+                            viewGraph[curNodeIndex]->addConnection(refNodeIndex, allocate_shared<Connection>(Eigen::aligned_allocator<Connection>(), viewGraph[refNodeIndex], p, weight, candidate.getSE().inverse(), candidate.getCost()));
                         }
 
                         loops.emplace_back(make_pair(refNodeIndex, curNodeIndex));
                     }
                 }
 
-                Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
+                if(!loops.empty()) {
+                    viewGraph.print();
+                    Optimizer::poseGraphOptimizeCeres(viewGraph, loops);
+                }
             }
             prevConsistentGroups = std::move(consistentGroups);
         }
@@ -418,15 +412,8 @@ namespace rtf {
         if(n<1) return true;
 
         cout << "------------------------compute global transform for view graph------------------------" << endl;
-        vector<vector<int>> ccs = viewGraph.getConnectComponents();
-
-        for(int i=0; i<ccs.size(); i++) {
-            vector<int>& cc = ccs[i];
-            if(cc.size()>1) {
-                if(opt) {
-                    Optimizer::poseGraphOptimizeCeres(viewGraph);
-                }
-            }
+        if(opt) {
+            Optimizer::poseGraphOptimizeCeres(viewGraph);
         }
         cout << "invisible count:" << lostNum << endl;
         return lostNum;

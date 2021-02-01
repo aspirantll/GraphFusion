@@ -40,7 +40,7 @@ namespace rtf {
     ConnectionCandidate::ConnectionCandidate(bool unreachable) : unreachable(unreachable) {}
 
 
-    ConnectionCandidate::ConnectionCandidate() : ConnectionCandidate(false) {}
+    ConnectionCandidate::ConnectionCandidate() : ConnectionCandidate(true) {}
 
     ConnectionCandidate ConnectionCandidate::UNREACHABLE(true);
 
@@ -224,6 +224,10 @@ namespace rtf {
         return conVec;
     }
 
+    map<int, shared_ptr<Connection>> ViewCluster::getConnectionMap() {
+        return connections;
+    }
+
     void ViewCluster::setVisible(bool visible) {
         this->visible = visible;
     }
@@ -345,13 +349,12 @@ namespace rtf {
         map<int, vector<pair<int, double>>> costsMap;
         int lastIndex = sourceNodes.size()-1;
         shared_ptr<ViewCluster> lastNode = (*this)[lastIndex];
-        for(shared_ptr<Connection> edge: lastNode->getConnections()) {
-            int index = findNodeIndexByFrameIndex(edge->getViewCluster()->getIndex());
-            int root = rootIndexes[index];
+        for(auto& cit: lastNode->getConnectionMap()) {
+            int root = rootIndexes[cit.first];
             if(!costsMap.count(root)) {
                 costsMap.insert(map<int, vector<pair<int, double>>>::value_type(root, vector<pair<int, double>>()));
             }
-            costsMap[root].emplace_back(make_pair(index, edge->getCost()));
+            costsMap[root].emplace_back(make_pair(cit.first, cit.second->getCost()));
         }
 
         // select root for last frame
@@ -547,10 +550,9 @@ namespace rtf {
         typedef std::pair<int, int> WeightedView;
 
         std::vector<WeightedView> weighted_views;
-        vector<shared_ptr<Connection>> connections = (*this)[index]->getConnections();
-        for (shared_ptr<Connection> con: connections) {
-            int ind = findNodeIndexByFrameIndex(con->getViewCluster()->getIndex());
-            weighted_views.push_back( std::make_pair( (int)(*this)[ind]->getConnections().size(), ind));
+        auto connections = (*this)[index]->getConnectionMap();
+        for (auto& cit: connections) {
+            weighted_views.push_back( std::make_pair( (int)(*this)[cit.first]->getConnections().size(), cit.first));
         }
 
         // sort by the number of connections in descending order
@@ -661,7 +663,7 @@ namespace rtf {
             cout << "  |   ";
             for (auto con: sourceNodes[i]->getConnections()) {
                 int index = con->getViewCluster()->getIndex();
-                cout << "(" << findNodeIndexByFrameIndex(index) << " : " << index << "-" << con->getCost() << "), ";
+                cout << "(" << findNodeIndexByFrameIndex(index) << " : " << index << "-" << con->getCost() << "-" << con->getPointWeight()<< "), ";
             }
             cout  << endl;
         }
