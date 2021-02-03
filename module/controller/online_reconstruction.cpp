@@ -35,29 +35,19 @@ namespace rtf {
         extractor->extractFeatures(frameRGBD, frame->getKps());
         if(frame->getKps().empty()) return;
 
-        // track the keyframes database
-//        std::thread kfTracker(bind(&GlobalRegistration::trackKeyFrames, globalRegistration, placeholders::_1), frame);
         // track local frames
-        localRegistration->localTrack(frame);
-        // merging graph
+        float minScore = localRegistration->localTrack(frame);
         if(localRegistration->needMerge()) {
-            Timer merger = Timer::startTimer("merge frames");
-            shared_ptr<ViewCluster> kf = localRegistration->mergeFramesIntoKeyFrame();
-            merger.stopTimer();
-//            kfTracker.join();
-            Timer insertKF = Timer::startTimer("insert frames");
-            globalRegistration->insertKeyFrames(kf);
-            insertKF.stopTimer();
-        }else {
-//            kfTracker.join();
+            shared_ptr<ViewCluster> cluster = localRegistration->mergeFramesIntoCluster();
+            globalRegistration->insertViewCluster(cluster);
         }
-
+        globalRegistration->globalTrack(frame, minScore);
     }
 
     void OnlineReconstruction::finalOptimize(bool opt) {
         if(localRegistration->isRemain()) {
-            shared_ptr<ViewCluster> kf = localRegistration->mergeFramesIntoKeyFrame();
-            globalRegistration->insertKeyFrames(kf);
+            shared_ptr<ViewCluster> cluster = localRegistration->mergeFramesIntoCluster(false);
+            globalRegistration->insertViewCluster(cluster);
         }
 
         globalRegistration->registration(opt);

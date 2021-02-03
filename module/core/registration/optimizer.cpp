@@ -169,7 +169,7 @@ namespace rtf {
             if (p != -1) {
                 CeresPose &Ti = ceresPoseVector[p];
                 CeresPose &Tj = ceresPoseVector[i];
-                shared_ptr<Connection> connection = viewGraph(p, i);
+                shared_ptr<ViewConnection> connection = viewGraph(p, i);
                 ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(connection->getSE(), connection->getPointWeight());
 
                 problem.AddResidualBlock(cost_function, loss_function,
@@ -184,7 +184,7 @@ namespace rtf {
         for (int i = 0; i < loops.size(); i++) {
             int refIndex = loops[i].first;
             int curIndex = loops[i].second;
-            shared_ptr<Connection> connection = viewGraph(refIndex, curIndex);
+            shared_ptr<ViewConnection> connection = viewGraph(refIndex, curIndex);
             for (int j = 0; j < 3; j++) {
                 CeresPose &Ti = ceresPoseVector[refIndex];
                 CeresPose &Tj = ceresPoseVector[curIndex];
@@ -226,7 +226,7 @@ namespace rtf {
         for (int i = 0; i < viewGraph.getNodesNum(); i++) {
             for (int j = i + 1; j < viewGraph.getNodesNum(); j++) {
                 if (viewGraph.existEdge(i, j)) {
-                    shared_ptr<Connection> connection = viewGraph(i, j);
+                    shared_ptr<ViewConnection> connection = viewGraph(i, j);
                     ceres::CostFunction *cost_function = Averaging3dErrorTerm::Create(connection->getSE(), connection->getPointWeight());
 
                     CeresPose &T_W_i = ceresVectorPoses[i];

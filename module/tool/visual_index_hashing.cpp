@@ -440,7 +440,7 @@ namespace rtf {
 
 
             // --------------------------------------------------------------------
-            // Return all those keyframes with a score higher than 0.75*bestScore
+            // Return all those viewclusters with a score higher than 0.75*bestScore
             // --------------------------------------------------------------------
             double minScoreToRetain = 0.75f * bestAccScore;
 

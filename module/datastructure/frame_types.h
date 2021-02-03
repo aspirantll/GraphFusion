@@ -165,6 +165,8 @@ namespace rtf {
 
         Transform getTransform();
 
+        SE3 getSE();
+
         Rotation getRotation();
 
         Translation getTranslation();

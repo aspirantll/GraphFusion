@@ -200,26 +200,30 @@ namespace rtf {
         vector<int> overlapFrames;
         EigenVector(ConnectionCandidate) edges;
 
-        void updateCorrelations();
+        float computeMinScore(shared_ptr<Frame> frame);
 
-        void updateLocalEdges();
+        void updateCorrelations(int lastNodeIndex);
+
+        void updateLocalEdges(shared_ptr<Frame> frame);
+
+        void extendFrame(shared_ptr<Frame> frame);
 
         void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, ConnectionCandidate* edge, cudaStream_t curStream);
 
-        void registrationLocalEdges();
+        void registrationLocalEdges(shared_ptr<Frame> curFrame);
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         LocalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
         ViewGraph& getViewGraph();
 
-        void localTrack(shared_ptr<Frame> frame);
+        float localTrack(shared_ptr<Frame> frame);
 
         bool needMerge();
 
         bool isRemain();
 
-        shared_ptr<ViewCluster> mergeFramesIntoKeyFrame();
+        shared_ptr<ViewCluster> mergeFramesIntoCluster(bool remain=true);
 
         ~LocalRegistration();
     };
@@ -236,12 +240,7 @@ namespace rtf {
         SIFTVocabulary * siftVocabulary;
         mutex printMutex;
 
-        float3 lastPos;
-        bool notLost;// the status for tracking
         int lostNum;
-
-        vector<pair<int, int> > loops;
-        set<pair<int, int> > loopCandidates;
 
         typedef std::pair<std::set<int>, int> ConsistentGroup;
         std::vector<ConsistentGroup> prevConsistentGroups;
@@ -249,16 +248,10 @@ namespace rtf {
 
         void registrationPairEdge(FeatureMatches* featureMatches, ConnectionCandidate* edge, cudaStream_t curStream, float weight=1);
 
-        void registrationEdges(shared_ptr<ViewCluster> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes, EigenVector(ConnectionCandidate)& pairEdges);
-
-        void findOverlapping(shared_ptr<ViewCluster> keyframe, vector<int>& refKFIndexes, vector<int>& refInnerIndexes, vector<int>& curInnerIndexes);
-
         bool checkLoopConsistency(const std::vector<int> &candidates,
                                   std::vector<int> &consistentCandidates,
                                   std::vector<ConsistentGroup> &consistentGroups,
                                   const int covisibilityConsistencyTh=7);
-
-        bool loopClosureCorrection();
 
         void updateLostFrames();
 
@@ -266,7 +259,9 @@ namespace rtf {
 
         GlobalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
-        void insertKeyFrames(shared_ptr<ViewCluster> frame);
+        void insertViewCluster(shared_ptr<ViewCluster> cluster);
+
+        void globalTrack(shared_ptr<Frame> frame, float minScore);
 
         int registration(bool opt = true);
 

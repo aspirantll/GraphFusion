@@ -37,6 +37,31 @@ namespace rtf {
         Frame::visible = visible;
     }
 
+    bool Frame::existConnection(int v) {
+        return connections.count(v);
+    }
+
+    shared_ptr<FrameConnection> Frame::getConnection(int v) {
+        assert(existConnection(v));
+        return connections[v];
+    }
+
+    void Frame::addConnection(int v, shared_ptr<FrameConnection> con) {
+        connections.insert(map<int, shared_ptr<FrameConnection>>::value_type(v, con));
+    }
+
+    vector<shared_ptr<FrameConnection>> Frame::getConnections() {
+        vector<shared_ptr<FrameConnection>> conVec;
+        for(auto mit: connections) {
+            conVec.emplace_back(mit.second);
+        }
+        return conVec;
+    }
+
+    map<int, shared_ptr<FrameConnection>> Frame::getConnectionMap() {
+        return connections;
+    }
+
     ConnectionCandidate::ConnectionCandidate(bool unreachable) : unreachable(unreachable) {}
 
 
@@ -86,58 +111,6 @@ namespace rtf {
         return unreachable;
     }
 
-    Connection::Connection() {}
-
-    Connection::Connection(shared_ptr<ViewCluster> v, Vector3 p, float pointWeight, SE3 transform, double cost) : v(v), p(p), pointWeight(pointWeight), transform(transform), cost(cost) {}
-
-    shared_ptr<ViewCluster> Connection::getViewCluster() {
-        return v;
-    }
-
-    Vector3 Connection::getNormPoint() {
-        return p;
-    }
-
-    float Connection::getPointWeight() {
-        return pointWeight;
-    }
-
-    Transform Connection::getTransform() {
-        return transform.matrix();
-    }
-
-    SE3 Connection::getSE() {
-        return transform;
-    }
-
-    double Connection::getCost() {
-        return cost;
-    }
-
-    void Connection::setViewCluster(const shared_ptr<ViewCluster> &v) {
-        Connection::v = v;
-    }
-
-    void Connection::setNormPoint(const Vector3 &p) {
-        Connection::p = p;
-    }
-
-    void Connection::setPointWeight(float pointWeight) {
-        Connection::pointWeight = pointWeight;
-    }
-
-    void Connection::setTransform(const Transform &transform) {
-        Connection::transform = SE3(transform);
-    }
-
-    void Connection::setSE(const SE3 &transform) {
-        Connection::transform = transform;
-    }
-
-    void Connection::setCost(double cost) {
-        Connection::cost = cost;
-    }
-
     ViewCluster::ViewCluster(){
         transform = SE3(Transform::Identity());
         rootIndex = 0;
@@ -157,6 +130,10 @@ namespace rtf {
 
     Transform ViewCluster::getFrameTransform(int frameIndex) {
         return getFrame(frameIndex)->getTransform();
+    }
+
+    SE3 ViewCluster::getFrameSE(int frameIndex) {
+        return getFrame(frameIndex)->getSE();
     }
 
     void ViewCluster::setTransform(Transform trans) {
@@ -207,24 +184,24 @@ namespace rtf {
         return connections.count(v);
     }
 
-    shared_ptr<Connection> ViewCluster::getConnection(int v) {
+    shared_ptr<ViewConnection> ViewCluster::getConnection(int v) {
         assert(existConnection(v));
         return connections[v];
     }
 
-    void ViewCluster::addConnection(int v, shared_ptr<Connection> con) {
-        connections.insert(map<int, shared_ptr<Connection>>::value_type(v, con));
+    void ViewCluster::addConnection(int v, shared_ptr<ViewConnection> con) {
+        connections.insert(map<int, shared_ptr<ViewConnection>>::value_type(v, con));
     }
 
-    vector<shared_ptr<Connection>> ViewCluster::getConnections() {
-        vector<shared_ptr<Connection>> conVec;
+    vector<shared_ptr<ViewConnection>> ViewCluster::getConnections() {
+        vector<shared_ptr<ViewConnection>> conVec;
         for(auto mit: connections) {
             conVec.emplace_back(mit.second);
         }
         return conVec;
     }
 
-    map<int, shared_ptr<Connection>> ViewCluster::getConnectionMap() {
+    map<int, shared_ptr<ViewConnection>> ViewCluster::getConnectionMap() {
         return connections;
     }
 
@@ -234,14 +211,6 @@ namespace rtf {
 
     bool ViewCluster::isVisible() {
         return visible;
-    }
-
-    SIFTFeaturePoints &ViewCluster::getKps() {
-        return kps;
-    }
-
-    void ViewCluster::setKps(const SIFTFeaturePoints &kps) {
-        ViewCluster::kps = kps;
     }
 
     ViewGraph::ViewGraph(): ViewGraph(0) {
@@ -258,42 +227,43 @@ namespace rtf {
 
     void ViewGraph::reset(int nodesNum) {
         if(nodesNum <= 0) {
-            sourceNodes.clear();
+            sourceFrames.clear();
+            nodes.clear();
+            frameToInnerIndex.clear();
             frameNodeIndex.clear();
             parentIndexes.clear();
             rootIndexes.clear();
-            curMaxRoot = 0;
-        }else {
-            sourceNodes.resize(nodesNum);
-            parentIndexes.resize(nodesNum, -1);
-            rootIndexes.resize(nodesNum);
-            iota(rootIndexes.begin(), rootIndexes.end(), 0);
+            nodePathLens.clear();
             curMaxRoot = 0;
         }
     }
 
     int ViewGraph::getNodesNum() {
-        return sourceNodes.size();
+        return nodes.size();
+    }
+
+    int ViewGraph::getFramesNum() {
+        return sourceFrames.size();
     }
 
     Transform ViewGraph::getViewTransform(int frameIndex) {
-        int innerIndex = frameToInnerIndex[frameIndex];
-        return sourceNodes[innerIndex]->getTransform();
+        int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
+        return nodes[nodeIndex]->getTransform();
     }
 
     SE3 ViewGraph::computeTransform(int u, map<int, int>& innerMap, vector<int>& cc, vector<bool>& visited) {
         int nodeIndex = cc[u];
-        if(visited[u]) return sourceNodes[nodeIndex]->getSE();
+        if(visited[u]) return nodes[nodeIndex]->getSE();
         int parent = parentIndexes[cc[u]];
         if(parent==-1) {
-            sourceNodes[nodeIndex]->setTransform(Transform::Identity());
+            nodes[nodeIndex]->setTransform(Transform::Identity());
         }else {
             int v = innerMap[parent];
             SE3 trans = computeTransform(v, innerMap, cc, visited)*getEdgeSE(parent, nodeIndex);
-            sourceNodes[nodeIndex]->setSE(trans);
+            nodes[nodeIndex]->setSE(trans);
         }
         visited[u] = true;
-        return sourceNodes[nodeIndex]->getSE();
+        return nodes[nodeIndex]->getSE();
     }
 
     int ViewGraph::computePathLens(int index) {
@@ -304,7 +274,7 @@ namespace rtf {
         return nodePathLens[index];
     }
 
-    shared_ptr<Connection> ViewGraph::operator()(int i, int j) {
+    shared_ptr<ViewConnection> ViewGraph::operator()(int i, int j) {
         shared_ptr<ViewCluster> view = (*this)[i];
         LOG_ASSERT(view->existConnection(j)) << " connection no exist: " << to_string(i) << "->" << to_string(j) << endl;
         return view->getConnection(j);
@@ -312,17 +282,21 @@ namespace rtf {
 
     shared_ptr<ViewCluster> ViewGraph::operator[](int index) {
         LOG_ASSERT(index<getNodesNum()) << " view no exist: " << to_string(index) << endl;
-        return sourceNodes[index];
+        return nodes[index];
+    }
+
+    void ViewGraph::addSourceFrame(shared_ptr<Frame> frame) {
+        sourceFrames.emplace_back(frame);
+        frameNodeIndex.emplace_back(nodes.size());
+        frameToInnerIndex.insert(map<int, int>::value_type(frame->getFrameIndex(), sourceFrames.size()-1));
     }
 
     void ViewGraph::extendNode(shared_ptr<ViewCluster> node) {
-        sourceNodes.emplace_back(node);
+        nodes.emplace_back(node);
         node->setTransform(Transform::Identity());
 
-        frameNodeIndex.emplace_back(sourceNodes.size()-1);
-        frameToInnerIndex.insert(map<int, int>::value_type(node->getIndex(), sourceNodes.size() - 1));
         parentIndexes.emplace_back(-1);
-        rootIndexes.emplace_back(sourceNodes.size()-1);
+        rootIndexes.emplace_back(nodes.size() - 1);
         nodePathLens.emplace_back(0);
     }
 
@@ -335,19 +309,24 @@ namespace rtf {
     }
 
     int ViewGraph::findNodeIndexByFrameIndex(int frameIndex) {
-        assert(frameToInnerIndex.count(frameIndex));
+        LOG_ASSERT(frameToInnerIndex.count(frameIndex)) << " no frame:" << frameIndex << endl;
         int innerIndex = frameToInnerIndex[frameIndex];
         return frameNodeIndex[innerIndex];
     }
 
     shared_ptr<ViewCluster> ViewGraph::findNodeByFrameIndex(int frameIndex) {
-        return sourceNodes[findNodeIndexByFrameIndex(frameIndex)];
+        return nodes[findNodeIndexByFrameIndex(frameIndex)];
     }
 
-    int ViewGraph::updateSpanningTree() { // for last node
+    shared_ptr<Frame> ViewGraph::findFrameByIndex(int frameIndex) {
+        assert(frameToInnerIndex.count(frameIndex));
+        int innerIndex = frameToInnerIndex[frameIndex];
+        return sourceFrames[innerIndex];
+    }
+
+    int ViewGraph::updateSpanningTree(int lastIndex) { // for last node
         // collect all edges for last node
         map<int, vector<pair<int, double>>> costsMap;
-        int lastIndex = sourceNodes.size()-1;
         shared_ptr<ViewCluster> lastNode = (*this)[lastIndex];
         for(auto& cit: lastNode->getConnectionMap()) {
             int root = rootIndexes[cit.first];
@@ -500,9 +479,9 @@ namespace rtf {
 
         int lostCount = 0;
         for(int i=0; i<rootIndexes.size(); i++) {
-            sourceNodes[i]->setVisible(rootIndexes[i]==curMaxRoot);
-            if(!sourceNodes[i]->isVisible()) {
-                lostCount += sourceNodes[i]->getFrames().size();
+            nodes[i]->setVisible(rootIndexes[i] == curMaxRoot);
+            if(!nodes[i]->isVisible()) {
+                lostCount += nodes[i]->getFrames().size();
             }
         }
 
@@ -513,12 +492,24 @@ namespace rtf {
         return (*this)[0]->getCamera();
     }
 
+    shared_ptr<Frame> ViewGraph::getLastFrame() {
+        return sourceFrames.back();
+    }
+
+    shared_ptr<Frame> ViewGraph::getFirstFrame() {
+        return sourceFrames.front();
+    }
+
     int ViewGraph::getParent(int nodeIndex) {
         return parentIndexes[nodeIndex];
     }
 
-    int ViewGraph::getPathLen(int frameIndex) {
+    int ViewGraph::getPathLenByFrameIndex(int frameIndex) {
         int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
+        return getPathLenByNodeIndex(nodeIndex);
+    }
+
+    int ViewGraph::getPathLenByNodeIndex(int nodeIndex) {
         assert(nodePathLens[nodeIndex]<=getNodesNum());
         return nodePathLens[nodeIndex];
     }
@@ -526,7 +517,7 @@ namespace rtf {
 
     bool ViewGraph::isVisible(int frameIndex) {
         int nodeIndex = findNodeIndexByFrameIndex(frameIndex);
-        return sourceNodes[nodeIndex]->isVisible();
+        return nodes[nodeIndex]->isVisible();
     }
 
     vector<vector<int>> ViewGraph::getConnectComponents() {
@@ -550,9 +541,9 @@ namespace rtf {
         typedef std::pair<int, int> WeightedView;
 
         std::vector<WeightedView> weighted_views;
-        auto connections = (*this)[index]->getConnectionMap();
+        auto connections = findFrameByIndex(index)->getConnectionMap();
         for (auto& cit: connections) {
-            weighted_views.push_back( std::make_pair( (int)(*this)[cit.first]->getConnections().size(), cit.first));
+            weighted_views.push_back( std::make_pair( (int)findFrameByIndex(cit.first)->getConnections().size(), cit.first));
         }
 
         // sort by the number of connections in descending order
@@ -656,13 +647,13 @@ namespace rtf {
         cout << "nodes:" << n << endl;
         for (int i = 0; i < n; i++) {
             cout << i << ": ";
-            for (auto frame: sourceNodes[i]->getFrames()) {
+            for (auto frame: nodes[i]->getFrames()) {
                 cout << frame->getFrameIndex() << ",";
             }
             cout  << endl;
             cout << "  |   ";
-            for (auto con: sourceNodes[i]->getConnections()) {
-                int index = con->getViewCluster()->getIndex();
+            for (auto con: nodes[i]->getConnections()) {
+                int index = con->getTail()->getIndex();
                 cout << "(" << findNodeIndexByFrameIndex(index) << " : " << index << "-" << con->getCost() << "-" << con->getPointWeight()<< "), ";
             }
             cout  << endl;

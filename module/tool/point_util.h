@@ -20,7 +20,7 @@ using Mesh = pcl::PolygonMesh;
 
 namespace rtf {
     namespace PointUtil {
-        void meanFeatures(vector<Point3D> &kys, shared_ptr<Camera> camera, Vector3 &p, float& weight);
+        float computePointWeight(vector<Point3D> &kys, shared_ptr<Camera> camera);
 
         MatrixX vec2Matrix(const vector<Point3D> &pointVec);
 

@@ -14,32 +14,7 @@ using namespace std;
 
 namespace rtf {
     class Frame;
-    class Connection;
     class ViewCluster;
-
-
-    class Frame: public FrameRGBDT {
-    protected:
-        SIFTFeaturePoints kps;
-
-        bool visible;
-
-    public:
-
-        Frame(YAML::Node serNode);
-
-        Frame(shared_ptr<FrameRGBD> frameRGBD);
-
-        SIFTFeaturePoints &getKps();
-
-        void setKps(const SIFTFeaturePoints &kps);
-
-        void setFrameIndex(uint32_t frameIndex);
-
-        bool isVisible() const;
-
-        void setVisible(bool visible);
-    };
 
     class ConnectionCandidate {
     protected:
@@ -79,47 +54,103 @@ namespace rtf {
         bool isUnreachable();
     };
 
-
+    template <class V>
     class Connection {
     protected:
-        shared_ptr<ViewCluster> v;
-        Vector3 p;
+        shared_ptr<V> h;
+        shared_ptr<V> t;
         float pointWeight;
         SE3 transform;
         double cost;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-        Connection();
+        Connection() {}
 
-        Connection(shared_ptr<ViewCluster> v, Vector3 p, float pointWeight, SE3 transform, double cost);
+        Connection(const shared_ptr<V> &h, const shared_ptr<V> &t, float pointWeight, const SE3 &transform, double cost)
+                : h(h), t(t), pointWeight(pointWeight), transform(transform), cost(cost) {}
 
-        void setViewCluster(const shared_ptr<ViewCluster> &v);
+        shared_ptr<V> getHead() {
+            return h;
+        }
 
-        void setNormPoint(const Vector3 &p);
+        void setHead(const shared_ptr<V> &h) {
+            Connection::h = h;
+        }
 
-        void setPointWeight(float pointWeight);
+        shared_ptr<V> getTail() {
+            return t;
+        }
 
-        void setTransform(const Transform &transform);
+        void setTail(const shared_ptr<V> &t) {
+            Connection::t = t;
+        }
 
-        void setSE(const SE3 &transform);
+        float getPointWeight() {
+            return pointWeight;
+        }
 
-        void setCost(double cost);
+        void setPointWeight(float pointWeight) {
+            Connection::pointWeight = pointWeight;
+        }
 
+        Transform getTransform() {
+            return transform.matrix();
+        }
 
-        shared_ptr<ViewCluster> getViewCluster();
+        void setTransform(const Transform &transform) {
+            Connection::transform = SE3(transform);
+        }
 
-        Vector3 getNormPoint();
+        SE3 getSE() {
+            return transform;
+        }
 
-        float getPointWeight();
+        double getCost() {
+            return cost;
+        }
 
-        Transform getTransform();
-
-        SE3 getSE();
-
-        double getCost();
+        void setCost(double cost) {
+            Connection::cost = cost;
+        }
     };
 
+    typedef Connection<Frame> FrameConnection;
+    typedef Connection<ViewCluster> ViewConnection;
+
+    class Frame: public FrameRGBDT {
+    protected:
+        SIFTFeaturePoints kps;
+        map<int, shared_ptr<FrameConnection>> connections;
+
+        bool visible;
+
+    public:
+
+        Frame(YAML::Node serNode);
+
+        Frame(shared_ptr<FrameRGBD> frameRGBD);
+
+        SIFTFeaturePoints &getKps();
+
+        void setKps(const SIFTFeaturePoints &kps);
+
+        void setFrameIndex(uint32_t frameIndex);
+
+        bool isVisible() const;
+
+        void setVisible(bool visible);
+
+        bool existConnection(int v);
+
+        shared_ptr<FrameConnection> getConnection(int v);
+
+        void addConnection(int v, shared_ptr<FrameConnection> con);
+
+        vector<shared_ptr<FrameConnection>> getConnections();
+
+        map<int, shared_ptr<FrameConnection>> getConnectionMap();
+    };
 
     class ViewCluster {
     protected:
@@ -127,13 +158,11 @@ namespace rtf {
         vector<int> pathLengths;
 
         map<int, int> indexToInnerMap;
-        map<int, shared_ptr<Connection>> connections;
+        map<int, shared_ptr<ViewConnection>> connections;
 
         int rootIndex;
         SE3 transform;
         bool visible = true;
-
-        SIFTFeaturePoints kps;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -146,6 +175,8 @@ namespace rtf {
         shared_ptr<Camera> getCamera();
 
         Transform getFrameTransform(int frameIndex);
+
+        SE3 getFrameSE(int frameIndex);
 
         Transform getTransform();
 
@@ -169,27 +200,25 @@ namespace rtf {
 
         bool existConnection(int v);
 
-        shared_ptr<Connection> getConnection(int v);
+        shared_ptr<ViewConnection> getConnection(int v);
 
-        void addConnection(int v, shared_ptr<Connection> con);
+        void addConnection(int v, shared_ptr<ViewConnection> con);
 
-        vector<shared_ptr<Connection>> getConnections();
+        vector<shared_ptr<ViewConnection>> getConnections();
 
-        map<int, shared_ptr<Connection>> getConnectionMap();
+        map<int, shared_ptr<ViewConnection>> getConnectionMap();
 
         void setVisible(bool visible);
 
         bool isVisible();
 
-        SIFTFeaturePoints &getKps();
-
-        void setKps(const SIFTFeaturePoints &kps);
     };
 
 
     class ViewGraph {
     protected:
-        vector<shared_ptr<ViewCluster>> sourceNodes;
+        vector<shared_ptr<Frame>> sourceFrames;
+        vector<shared_ptr<ViewCluster>> nodes;
         vector<int> frameNodeIndex;
         map<int,int> frameToInnerIndex;
 
@@ -212,11 +241,15 @@ namespace rtf {
 
         int getNodesNum();
 
+        int getFramesNum();
+
         Transform getViewTransform(int frameIndex);
 
-        shared_ptr<Connection> operator()(int i, int j);
+        shared_ptr<ViewConnection> operator()(int i, int j);
 
         shared_ptr<ViewCluster> operator[](int index);
+
+        void addSourceFrame(shared_ptr<Frame> frame);
 
         void extendNode(shared_ptr<ViewCluster> node);
         
@@ -228,15 +261,23 @@ namespace rtf {
 
         shared_ptr<Camera> getCamera();
 
+        shared_ptr<Frame> getLastFrame();
+
+        shared_ptr<Frame> getFirstFrame();
+
         int getParent(int child);
 
-        int getPathLen(int frameIndex);
+        int getPathLenByFrameIndex(int frameIndex);
+
+        int getPathLenByNodeIndex(int nodeIndex);
 
         int findNodeIndexByFrameIndex(int frameIndex);
 
         shared_ptr<ViewCluster> findNodeByFrameIndex(int frameIndex);
 
-        int updateSpanningTree();
+        shared_ptr<Frame> findFrameByIndex(int frameIndex);
+
+        int updateSpanningTree(int lastIndex);
 
         vector<vector<int>> getConnectComponents();
 

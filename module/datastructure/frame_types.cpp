@@ -278,6 +278,10 @@ namespace rtf {
         return T.matrix();
     }
 
+    SE3 FrameRGBDT::getSE() {
+        return T;
+    }
+
     Rotation FrameRGBDT::getRotation() {
         return T.rotationMatrix();
     }

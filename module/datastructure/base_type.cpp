@@ -113,7 +113,7 @@ namespace rtf {
             // Tracking will see that Local Mapping is busy
             setAcceptRequest(false);
 
-            // Check if there are keyframes in the queue
+            // Check if there are viewclusters in the queue
             if(checkNewRequest())
             {
                 doTask();

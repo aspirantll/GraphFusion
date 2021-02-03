@@ -7,21 +7,18 @@
 
 namespace rtf {
     namespace PointUtil {
-        void meanFeatures(vector<Point3D> &kys, shared_ptr<Camera> camera, Vector3 &p, float& weight) {
-            p.setZero();
-            weight = 0;
+        float computePointWeight(vector<Point3D> &kys, shared_ptr<Camera> camera) {
+            float weight = 0;
 
             for (int i = 0; i < kys.size(); i++) {
                 Vector3 py = camera->getCameraModel()->unproject(kys[i].x, kys[i].y, kys[i].z);
-                p += py;
                 weight += py.norm();
             }
 
-            p /= kys.size();
             weight /= kys.size();
             assert(!isnan(weight));
 
-            p.normalize();
+            return weight;
         }
 
 
