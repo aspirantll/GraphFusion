@@ -36,17 +36,16 @@ namespace rtf {
         if(frame->getKps().empty()) return;
 
         // track local frames
-        float minScore = localRegistration->localTrack(frame);
+        localRegistration->localTrack(frame);
         if(localRegistration->needMerge()) {
             shared_ptr<ViewCluster> cluster = localRegistration->mergeFramesIntoCluster();
             globalRegistration->insertViewCluster(cluster);
         }
-        globalRegistration->globalTrack(frame, minScore);
     }
 
     void OnlineReconstruction::finalOptimize(bool opt) {
         if(localRegistration->isRemain()) {
-            shared_ptr<ViewCluster> cluster = localRegistration->mergeFramesIntoCluster(false);
+            shared_ptr<ViewCluster> cluster = localRegistration->mergeFramesIntoCluster();
             globalRegistration->insertViewCluster(cluster);
         }
 

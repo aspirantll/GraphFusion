@@ -201,29 +201,17 @@ namespace rtf {
 
     }
 
-    float LocalRegistration::computeMinScore(shared_ptr<Frame> frame) {
-        float minScore = 1;
-        for(auto& con: frame->getConnections()) {
-            float score = siftVocabulary->score(frame->getKps().getMBowVec(), con->getTail()->getKps().getMBowVec());
-            if(score < minScore) {
-                minScore = score;
-            }
-        }
 
-        return minScore;
-    }
 
-    float LocalRegistration::localTrack(shared_ptr<Frame> frame) {
+    void LocalRegistration::localTrack(shared_ptr<Frame> frame) {
         siftVocabulary->computeBow(frame->getKps());
-        if(frame->getFrameIndex()==10) {
-            cout << "debug" << endl;
-        }
+
         if (localViewGraph.getFramesNum() > 0) {
-            extendFrame(localViewGraph.getLastFrame());
             registrationLocalEdges(frame);
         }
+
         localViewGraph.addSourceFrame(frame);
-        return computeMinScore(frame);
+        extendFrame(frame);
     }
 
     void collectCorrespondences(vector<vector<pair<int, Point3D>>>& correlations, vector<bool>& visited, int u, vector<int>& corrIndexes, vector<Point3D>& corr) {
@@ -252,14 +240,10 @@ namespace rtf {
         return localViewGraph.getNodesNum()>0;
     }
 
-    shared_ptr<ViewCluster> LocalRegistration::mergeFramesIntoCluster(bool remain) {
+    shared_ptr<ViewCluster> LocalRegistration::mergeFramesIntoCluster() {
         localViewGraph.print();
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
-        int m = remain?n:n+1;
-        if(!remain&&n>1) {
-            extendFrame(localViewGraph.getLastFrame());
-        }
 //        localViewGraph.optimizeBestRootNode();
         Optimizer::poseGraphOptimizeCeres(localViewGraph);
         shared_ptr<Frame> lastFrame = localViewGraph.getLastFrame();
@@ -271,7 +255,7 @@ namespace rtf {
         shared_ptr<ViewCluster> viewcluster = allocate_shared<ViewCluster>(Eigen::aligned_allocator<ViewCluster>());
         viewcluster->setTransform(Transform::Identity());
         viewcluster->setRootIndex(localViewGraph.getMaxRoot());
-        for(int i=0; i<m; i++) {
+        for(int i=0; i<n; i++) {
             shared_ptr<Frame> frame = localViewGraph[i]->getRootFrame();
             frame->setVisible(visibleSet.count(i));
             frame->setTransform(localViewGraph[i]->getTransform());
@@ -292,9 +276,6 @@ namespace rtf {
         correlations.clear();
         overlapFrames.clear();
         edges.clear();
-        if(remain) {
-            localViewGraph.addSourceFrame(lastFrame);
-        }
 
         return viewcluster;
     }

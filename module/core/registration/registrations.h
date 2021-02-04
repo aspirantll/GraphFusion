@@ -200,8 +200,6 @@ namespace rtf {
         vector<int> overlapFrames;
         EigenVector(ConnectionCandidate) edges;
 
-        float computeMinScore(shared_ptr<Frame> frame);
-
         void updateCorrelations(int lastNodeIndex);
 
         void updateLocalEdges(shared_ptr<Frame> frame);
@@ -217,13 +215,13 @@ namespace rtf {
 
         ViewGraph& getViewGraph();
 
-        float localTrack(shared_ptr<Frame> frame);
+        void localTrack(shared_ptr<Frame> frame);
 
         bool needMerge();
 
         bool isRemain();
 
-        shared_ptr<ViewCluster> mergeFramesIntoCluster(bool remain=true);
+        shared_ptr<ViewCluster> mergeFramesIntoCluster();
 
         ~LocalRegistration();
     };
@@ -245,6 +243,7 @@ namespace rtf {
         typedef std::pair<std::set<int>, int> ConsistentGroup;
         std::vector<ConsistentGroup> prevConsistentGroups;
 
+        float computeMinScore(shared_ptr<Frame> frame);
 
         void registrationPairEdge(FeatureMatches* featureMatches, ConnectionCandidate* edge, cudaStream_t curStream, float weight=1);
 

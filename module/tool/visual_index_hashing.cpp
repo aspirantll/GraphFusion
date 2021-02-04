@@ -322,7 +322,7 @@ namespace rtf {
         return matchScore;
     }
 
-    vector<int> DBoWHashing::detectLoopClosures(SIFTFeaturePoints& sf, float minScore) {
+    map<int, double> DBoWHashing::findOverlappingFrames(SIFTFeaturePoints& sf, float minScore) {
         set<int> viInds;
         for (int i = vocTh - 1; i >= 0; i--) {
             viInds.insert(i);
@@ -338,7 +338,7 @@ namespace rtf {
             vocs.emplace_back(featureCatas + viInd);
         }
 
-        vector<int> loopCandidates;
+        map<int, double> loopCandidates;
         if (!vocs.empty()) {
             DBoW2::BowVector &bow = sf.getMBowVec();
             map<int, int> indexMap;
@@ -392,11 +392,13 @@ namespace rtf {
                     int vocInd = indexMap[ind];
                     ind = ind - startVec[vocInd];
                     auto item = (*vocs[vocInd]).cpuVoc[ind];
+                    int frameIndex = item.second->getFIndex();
                     DBoW2::BowVector &ibow = item.second->getMBowVec();
                     float score = siftVocabulary->score(bow, ibow);
-                    scores[ind] = score;
+
+                    scores[frameIndex] = score;
                     if (score >= minScore) {
-                        scoreAndViewPairs.push_back(std::make_pair(score, ind));
+                        scoreAndViewPairs.push_back(std::make_pair(score, frameIndex));
                     }
                 }
             }
@@ -422,7 +424,10 @@ namespace rtf {
 
                 int bestView = vi;
                 for (int coView: covisibility) {
-                    double coViewScore = scores.count(coView)?scores[coView]:1;
+                    if(!scores.count(coView)) {
+                        scores[coView] = siftVocabulary->score(sf.getMBowVec(), viewGraph->findFrameByIndex(coView)->getKps().getMBowVec());
+                    }
+                    double coViewScore = scores[coView];
                     if (sharedWordFrames.count(coView)&&sharedWordFrames[coView] > minCommonWords) {
                         accScore += coViewScore;
                         if (coViewScore > bestScore) {
@@ -451,7 +456,7 @@ namespace rtf {
                 if (score > minScoreToRetain) {
                     const auto &vi = pair.second;
                     if (!alreadyAddedViews.count(vi)) {
-                        loopCandidates.emplace_back(vi);
+                        loopCandidates.insert(map<int, double>::value_type(vi, scores[vi]));
                         alreadyAddedViews.insert(vi);
                     }
                 }
