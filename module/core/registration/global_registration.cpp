@@ -205,10 +205,22 @@ namespace rtf {
                       }
             );
 
-            for(int i=0; i<min(globalConfig.overlapNum, (int)nodeWeightsVec.size()); i++) {
-                int nodeIndex = nodeWeightsVec[i].first;
-                pair<int,int> bestPair = nodeBestPairs[nodeIndex];
+            set<int> selectedNodeIndexes;
+            vector<pair<int, int>> bestPairs;
+            int lastNodeIndex = viewGraph.getNodesNum()-1;
+            bestPairs.emplace_back(selectBestOverlappingFrame(viewGraph[lastNodeIndex], cluster, siftVocabulary));
+            selectedNodeIndexes.insert(lastNodeIndex);
 
+            for(int i=0; i<nodeWeightsVec.size()&&selectedNodeIndexes.size()<globalConfig.overlapNum; i++) {
+                int nodeIndex = nodeWeightsVec[i].first;
+                if(selectedNodeIndexes.count(nodeIndex)) continue;
+                bestPairs.emplace_back(nodeBestPairs[nodeIndex]);
+                selectedNodeIndexes.insert(nodeIndex);
+            }
+
+            // align pairwise frames
+            for(auto& bestPair: bestPairs) {
+                totalCount++;
                 shared_ptr<Frame> refFrame = viewGraph.findFrameByIndex(bestPair.first);
                 shared_ptr<Frame> curFrame = viewGraph.findFrameByIndex(bestPair.second);
                 FeatureMatches featureMatches = matcher->matchKeyPointsPair(refFrame->getKps(),
@@ -218,6 +230,7 @@ namespace rtf {
                 registrationPairEdge(&featureMatches, &candidate, stream,  1);
 
                 if(!candidate.isUnreachable()) {
+                    successCount++;
                     {
                         vector<Point3D> points(candidate.getKys().begin(), candidate.getKys().end());
 
@@ -326,23 +339,20 @@ namespace rtf {
         }*/
 
         Optimizer::poseGraphOptimizeCeres(viewGraph);
-        viewGraph.print();
-    }
-
-    void GlobalRegistration::globalTrack(shared_ptr<Frame> frame, float minScore) {
-
-
     }
 
     int GlobalRegistration::registration(bool opt) {
         int n = viewGraph.getNodesNum();
         if(n<1) return true;
 
-        cout << "------------------------compute global transform for view graph------------------------" << endl;
+        /*cout << "------------------------compute global transform for view graph------------------------" << endl;
         if(opt) {
             Optimizer::poseGraphOptimizeCeres(viewGraph);
-        }
+        }*/
         cout << "invisible count:" << lostNum << endl;
+        cout << "total registration count:" << totalCount << endl;
+        cout << "success registration count:" << successCount << endl;
+        cout << "fail registration count:" << totalCount-successCount << endl;
         return lostNum;
     }
 

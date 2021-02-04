@@ -243,6 +243,10 @@ namespace rtf {
         typedef std::pair<std::set<int>, int> ConsistentGroup;
         std::vector<ConsistentGroup> prevConsistentGroups;
 
+        vector<pair<int, int> > loops;
+        int totalCount = 0;
+        int successCount = 0;
+
         float computeMinScore(shared_ptr<Frame> frame);
 
         void registrationPairEdge(FeatureMatches* featureMatches, ConnectionCandidate* edge, cudaStream_t curStream, float weight=1);
@@ -259,8 +263,6 @@ namespace rtf {
         GlobalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);
 
         void insertViewCluster(shared_ptr<ViewCluster> cluster);
-
-        void globalTrack(shared_ptr<Frame> frame, float minScore);
 
         int registration(bool opt = true);
 
