@@ -322,10 +322,37 @@ namespace rtf {
         return matchScore;
     }
 
-    map<int, double> DBoWHashing::findOverlappingFrames(SIFTFeaturePoints& sf, float minScore) {
+    map<int, double> DBoWHashing::findOverlappingFrames(float3 wPos, SIFTFeaturePoints& sf, float minScore, bool notLost, bool hasLost) {
         set<int> viInds;
-        for (int i = vocTh - 1; i >= 0; i--) {
-            viInds.insert(i);
+        if(config.hashing&&notLost) {
+            viInds.clear();
+            int3 pos = worldToPos(wPos);
+            int deltas[3] = {-1, 0, 1};
+            for(auto i: deltas) {
+                for(auto j: deltas) {
+                    for(auto k: deltas) {
+                        int3 p = make_int3(pos.x+i, pos.y+j, pos.z+k);
+                        uint hashCode = hashFunction(p);
+                        HashItem* item = items+hashCode;
+                        bool find = true;
+                        while(item->ptr!=-1&&!EQUAL3(item->pos, pos)) {
+                            uint offset = (item-items+1)%config.maxVINum;
+                            if(offset==hashCode) {
+                                find = false;
+                                break;
+                            }
+                            item = items + offset;
+                        }
+                        if(find&&item->ptr!=-1) {
+                            viInds.insert(item->ptr);
+                        }
+                    }
+                }
+            }
+        }else if(!notLost&&config.hashing) {
+            for(int i=vocTh-1; i>=0; i--) {
+                viInds.insert(i);
+            }
         }
 
         // when lost pose, need to search all images; and if prepared, then search featureCata

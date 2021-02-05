@@ -241,6 +241,7 @@ namespace rtf {
     }
 
     shared_ptr<ViewCluster> LocalRegistration::mergeFramesIntoCluster() {
+        localViewGraph.print();
         //1. local optimization
         const int n = localViewGraph.getNodesNum();
 //        localViewGraph.optimizeBestRootNode();

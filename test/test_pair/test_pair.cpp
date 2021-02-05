@@ -29,26 +29,26 @@ void registrationPnPBA(FeatureMatches *featureMatches, ConnectionCandidate *edge
     if (pnp.success) {
         {
             vector<FeatureKeypoint> kxs, kys;
-            featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
-            featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
             BARegistration baRegistration(globalConfig);
-            ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
-            ba.printReport();
-        }
-        SIFTFeatureMatcher matcher;
-        FeatureMatches matches = matcher.matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
-        vector<FeatureKeypoint> kxs, kys;
-        featureMatchesToPoints(matches, kxs, kys);
+            if(pnp.inliers.size()<100) {
+                FeatureMatches matches = SIFTFeatureMatcher().matchKeyPointsWithProjection(featureMatches->getFp1(), featureMatches->getFp2(), pnp.T);
+                featureMatchesToPoints(matches, kxs, kys);
 
-        BARegistration baRegistration(globalConfig);
-        ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
-        if (ba.success) {
-            double cost = ba.avgCost();
-            if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
-                edge->setKxs(kxs);
-                edge->setKys(kys);
-                edge->setTransform(ba.T);
-                edge->setCost(cost);
+                ba = baRegistration.bundleAdjustment(pnp.T, matches.getCx(), matches.getCy(), kxs, kys, true);
+            }else {
+                featureIndexesToPoints(featureMatches->getKx(), pnp.kps1, kxs);
+                featureIndexesToPoints(featureMatches->getKy(), pnp.kps2, kys);
+
+                ba = baRegistration.bundleAdjustment(pnp.T, featureMatches->getCx(), featureMatches->getCy(), kxs, kys);
+            }
+            if (ba.success) {
+                double cost = ba.avgCost();
+                if (!isnan(cost) && cost < globalConfig.maxAvgCost) {
+                    edge->setKxs(kxs);
+                    edge->setKys(kys);
+                    edge->setTransform(ba.T);
+                    edge->setCost(cost);
+                }
             }
         }
     }
@@ -65,6 +65,9 @@ void registrationPairEdge(FeatureMatches featureMatches, ConnectionCandidate *ed
     cout << "time:" << double(clock()-start)/CLOCKS_PER_SEC << endl;
 }
 
+int refIndex = 1140;
+int curIndex = 1142;
+
 int main() {
     globalConfig.loadFromFile("test/test_online/online_pnp.yaml");
     BaseConfig::initInstance(globalConfig);
@@ -74,11 +77,11 @@ int main() {
     cout << "frame_num: " << fileInputSource->getFrameNum() << endl;
 
     SIFTFeatureExtractor extractor;
-    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 45));
+    auto ref = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, refIndex));
     ref->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(ref, ref->getKps());
 
-    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, 46));
+    auto cur = allocate_shared<Frame>(Eigen::aligned_allocator<Frame>(), fileInputSource->waitFrame(0, curIndex));
     cur->setDepthBounds(minDepth, maxDepth);
     extractor.extractFeatures(cur, cur->getKps());
     ImageUtil::drawKeypoints(cur->getKps(), cur, workspace+"/kp1.png");
@@ -104,12 +107,12 @@ int main() {
     }
 
     ofstream estimate(workspace+"/online_estimate_pair.txt", ios::out | ios::binary);
-    estimate << 45 << " " << setprecision(9) << 0 << " " << 0 << " " << 0 << " " << 0 << " " << 0 << " " << 0 << " " << 1 << endl;
+    estimate << refIndex << " " << setprecision(9) << 0 << " " << 0 << " " << 0 << " " << 0 << " " << 0 << " " << 0 << " " << 1 << endl;
     Rotation R;
     Translation t;
     GeoUtil::T2Rt(edge.getTransform(), R, t);
     Eigen::Quaternion<Scalar> q(R);
-    estimate << 46 << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+    estimate << curIndex << " " << setprecision(9) << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
 
     return 0;
 }

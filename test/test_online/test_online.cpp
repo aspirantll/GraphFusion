@@ -117,6 +117,7 @@ int main(int argc, char* argv[]) {
     cout << "finish to online reconstruction: " << ttrack << endl;
 
     saveATP(onlineRecon.getViewGraph(), globalConfig);
+    onlineRecon.getViewGraph().print();
 
 //    while(!onlineRecon.closed());
 

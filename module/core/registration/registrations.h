@@ -238,7 +238,9 @@ namespace rtf {
         SIFTVocabulary * siftVocabulary;
         mutex printMutex;
 
+        float3 lastPos;
         int lostNum;
+        bool notLost;
 
         typedef std::pair<std::set<int>, int> ConsistentGroup;
         std::vector<ConsistentGroup> prevConsistentGroups;

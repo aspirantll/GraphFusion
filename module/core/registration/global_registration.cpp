@@ -111,6 +111,7 @@ namespace rtf {
         dBoWHashing = new DBoWHashing(globalConfig, siftVocabulary, &viewGraph, true);
         matcher = new SIFTFeatureMatcher();
         pnpRegistration = new PnPRegistration(globalConfig);
+        notLost = true;
     }
 
     void GlobalRegistration::updateLostFrames() {
@@ -164,7 +165,7 @@ namespace rtf {
             if(viewGraph.getNodesNum()>0&&frame->isVisible()) {
                 int curFrameIndex = frame->getFrameIndex();
                 float minScore = computeMinScore(frame);
-                map<int, double> candidates = dBoWHashing->findOverlappingFrames(frame->getKps(), minScore);
+                map<int, double> candidates = dBoWHashing->findOverlappingFrames(lastPos, frame->getKps(), minScore, notLost);
                 vector<int> candidatesVec;
                 for(auto& mit: candidates) {
                     int frameIndex = mit.first;
@@ -190,11 +191,9 @@ namespace rtf {
 
         if(viewGraph.getNodesNum()>0) {
             // find best k pairwise from candidates
-            cout << "candidates:";
             vector<pair<int, int>> nodeWeightsVec;
             for (auto& mit: nodeWeights) {
                 nodeWeightsVec.emplace_back(make_pair(mit.first, mit.second));
-                cout << mit.first << "-" << mit.second << ", ";
             }
             cout << endl;
 
@@ -339,6 +338,14 @@ namespace rtf {
         }*/
 
         Optimizer::poseGraphOptimizeCeres(viewGraph);
+
+        if (viewGraph[curNodeIndex]->isVisible()) {
+            Transform trans = viewGraph[curNodeIndex]->getTransform()*viewGraph.getLastFrame()->getTransform();
+            Vector3 ow;
+            GeoUtil::computeOW(trans, ow);
+            lastPos = make_float3(ow.x(), ow.y(), ow.z());
+        }
+        notLost = viewGraph[curNodeIndex]->isVisible();
     }
 
     int GlobalRegistration::registration(bool opt) {

@@ -87,7 +87,7 @@ namespace rtf {
 
         vector<MatchScore> queryImages(float3 wPos, SIFTFeaturePoints& sf, bool notLost=true, bool hasLost=false);
 
-        map<int, double> findOverlappingFrames(SIFTFeaturePoints& sf, float minScore=1);
+        map<int, double> findOverlappingFrames(float3 wPos, SIFTFeaturePoints& sf, float minScore=1, bool notLost=true, bool hasLost=false);
 
         vector<int> lostImageIds();
 
