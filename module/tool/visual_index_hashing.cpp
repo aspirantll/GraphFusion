@@ -357,7 +357,7 @@ namespace rtf {
 
         // when lost pose, need to search all images; and if prepared, then search featureCata
         vector < DBoWVocabulary * > vocs;
-        if (prepared) {// hava image in visual index
+        if (prepared) { // hava image in visual index
             vocs.emplace_back(featureCata);
         }
 
@@ -421,7 +421,7 @@ namespace rtf {
                     auto item = (*vocs[vocInd]).cpuVoc[ind];
                     int frameIndex = item.second->getFIndex();
                     DBoW2::BowVector &ibow = item.second->getMBowVec();
-                    float score = siftVocabulary->score(bow, ibow);
+                    double score = siftVocabulary->score(bow, ibow);
 
                     scores[frameIndex] = score;
                     if (score >= minScore) {
@@ -439,7 +439,7 @@ namespace rtf {
             // --  Lets now accumulate score by covisibility
             // ---------------------------------------------------------
 
-            std::list <std::pair<double, int>> accScoreAndViewPairs;
+            std::list<std::pair<double, int>> accScoreAndViewPairs;
             double bestAccScore = minScore;
 
             for (const auto &pair: scoreAndViewPairs) {
@@ -472,7 +472,7 @@ namespace rtf {
 
 
             // --------------------------------------------------------------------
-            // Return all those viewclusters with a score higher than 0.75*bestScore
+            // Return all those view clusters with a score higher than 0.75*bestScore
             // --------------------------------------------------------------------
             double minScoreToRetain = 0.75f * bestAccScore;
 

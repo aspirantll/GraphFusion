@@ -11,5 +11,5 @@ overlapNum: 3
 minInlierRatio: 0.2
 vocTxtPath: /home/liulei/workspace/voc.txt
 useHashIndex: true
-chunkSize: 20
+chunkSize: 10
 matchFactorTh: 0.5

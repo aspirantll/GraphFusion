@@ -115,8 +115,34 @@ namespace rtf {
         }
     };
 
-    typedef Connection<Frame> FrameConnection;
     typedef Connection<ViewCluster> ViewConnection;
+
+    class FrameConnection {
+    protected:
+        shared_ptr<Frame> h;
+        shared_ptr<Frame> t;
+        int matchNum;
+        double matchScore;
+
+    public:
+        FrameConnection(const shared_ptr<Frame> &h, const shared_ptr<Frame> &t, int matchNum, double matchScore);
+
+        shared_ptr<Frame> getH();
+
+        void setH(const shared_ptr<Frame> &h);
+
+        shared_ptr<Frame> getT();
+
+        void setT(const shared_ptr<Frame> &t);
+
+        int getMatchNum();
+
+        void setMatchNum(int matchNum);
+
+        double getMatchScore();
+
+        void setMatchScore(double matchScore);
+    };
 
     class Frame: public FrameRGBDT {
     protected:

@@ -144,7 +144,7 @@ namespace rtf {
             }
         }else {
             for(auto& con: connections) {
-                float score = siftVocabulary->score(frame->getKps().getMBowVec(), con->getTail()->getKps().getMBowVec());
+                float score = siftVocabulary->score(frame->getKps().getMBowVec(), con->getT()->getKps().getMBowVec());
                 if(score < minScore) {
                     minScore = score;
                 }
@@ -156,21 +156,19 @@ namespace rtf {
 
     void GlobalRegistration::insertViewCluster(shared_ptr<ViewCluster> cluster) {
         // collect all candidates
-        map<shared_ptr<Frame>, vector<int>> frameCandidates;
+        map<shared_ptr<Frame>, map<int, double>> frameCandidates;
         map<int, int> nodeWeights;
         map<int, double> nodeBestScores;
         map<int, pair<int, int>> nodeBestPairs;
         for(shared_ptr<Frame> frame: cluster->getFrames()) {
             viewGraph.addSourceFrame(frame);
-            if(viewGraph.getNodesNum()>0&&frame->isVisible()) {
+            if(viewGraph.getNodesNum()>1&&frame->isVisible()) {
                 int curFrameIndex = frame->getFrameIndex();
                 float minScore = computeMinScore(frame);
                 map<int, double> candidates = dBoWHashing->findOverlappingFrames(lastPos, frame->getKps(), minScore, notLost);
-                vector<int> candidatesVec;
                 for(auto& mit: candidates) {
                     int frameIndex = mit.first;
                     if(frame->existConnection(frameIndex)) continue;
-                    candidatesVec.emplace_back(frameIndex);
                     int nodeIndex = viewGraph.findNodeIndexByFrameIndex(frameIndex);
                     if(!nodeWeights.count(nodeIndex)) {
                         nodeWeights.insert(map<int,int>::value_type(nodeIndex, 1));
@@ -185,17 +183,20 @@ namespace rtf {
                     }
                 }
 
-                frameCandidates.insert(map<shared_ptr<Frame>, vector<int>>::value_type(frame, candidatesVec));
+                frameCandidates.insert(map<shared_ptr<Frame>, map<int, double>>::value_type(frame, candidates));
             }
         }
+        viewGraph.extendNode(cluster);
 
-        if(viewGraph.getNodesNum()>0) {
+        int curNodeIndex = viewGraph.getNodesNum()-1;
+        shared_ptr<ViewCluster> curNode = viewGraph[curNodeIndex];
+
+        if(viewGraph.getNodesNum()>1) {
             // find best k pairwise from candidates
             vector<pair<int, int>> nodeWeightsVec;
             for (auto& mit: nodeWeights) {
                 nodeWeightsVec.emplace_back(make_pair(mit.first, mit.second));
             }
-            cout << endl;
 
             std::sort(nodeWeightsVec.begin(), nodeWeightsVec.end(),
                       [](const pair<int, int> &x, const pair<int, int> &y)
@@ -204,93 +205,66 @@ namespace rtf {
                       }
             );
 
-            set<int> selectedNodeIndexes;
+            set<int> alreadySelectedNodeIndexes;
+            vector<int> selectedNodeIndexes;
             vector<pair<int, int>> bestPairs;
-            int lastNodeIndex = viewGraph.getNodesNum()-1;
+            int lastNodeIndex = curNodeIndex-1;
+            alreadySelectedNodeIndexes.insert(lastNodeIndex);
+            selectedNodeIndexes.emplace_back(lastNodeIndex);
             bestPairs.emplace_back(selectBestOverlappingFrame(viewGraph[lastNodeIndex], cluster, siftVocabulary));
-            selectedNodeIndexes.insert(lastNodeIndex);
 
-            for(int i=0; i<nodeWeightsVec.size()&&selectedNodeIndexes.size()<globalConfig.overlapNum; i++) {
+            for(int i=0; i<nodeWeightsVec.size() && alreadySelectedNodeIndexes.size() < globalConfig.overlapNum; i++) {
                 int nodeIndex = nodeWeightsVec[i].first;
-                if(selectedNodeIndexes.count(nodeIndex)) continue;
-                bestPairs.emplace_back(nodeBestPairs[nodeIndex]);
-                selectedNodeIndexes.insert(nodeIndex);
+                if(alreadySelectedNodeIndexes.count(nodeIndex)) continue;
+                alreadySelectedNodeIndexes.insert(nodeIndex);
+                selectedNodeIndexes.emplace_back(nodeIndex);
+                bestPairs.emplace_back(selectBestOverlappingFrame(viewGraph[nodeIndex], cluster, siftVocabulary));
             }
 
             // align pairwise frames
-            for(auto& bestPair: bestPairs) {
+            for(int i=0; i<selectedNodeIndexes.size(); i++) {
                 totalCount++;
+
+                int refNodeIndex = selectedNodeIndexes[i];
+                pair<int, int> bestPair = bestPairs[i];
                 shared_ptr<Frame> refFrame = viewGraph.findFrameByIndex(bestPair.first);
                 shared_ptr<Frame> curFrame = viewGraph.findFrameByIndex(bestPair.second);
                 FeatureMatches featureMatches = matcher->matchKeyPointsPair(refFrame->getKps(),
                                                                             curFrame->getKps());
 
                 ConnectionCandidate candidate;
-                registrationPairEdge(&featureMatches, &candidate, stream,  1);
+                float weight = viewGraph.getPathLenByNodeIndex(refNodeIndex)+viewGraph[refNodeIndex]->getPathLength(bestPair.first)+cluster->getPathLength(bestPair.second)+1;
+                registrationPairEdge(&featureMatches, &candidate, stream,  weight);
 
                 if(!candidate.isUnreachable()) {
                     successCount++;
+                    shared_ptr<ViewCluster> refNode = viewGraph[refNodeIndex];
+
+                    SE3 finalSE = refFrame->getSE()*candidate.getSE()*curFrame->getSE().inverse();
                     {
                         vector<Point3D> points(candidate.getKys().begin(), candidate.getKys().end());
 
-                        float weight = PointUtil::computePointWeight(points, viewGraph.getCamera());
+                        float pointWeight = PointUtil::computePointWeight(points, viewGraph.getCamera());
 
-                        refFrame->addConnection(curFrame->getFrameIndex(), allocate_shared<FrameConnection>(Eigen::aligned_allocator<FrameConnection>(), refFrame, curFrame, weight, candidate.getSE(), candidate.getCost()));
+                        refNode->addConnection(curNodeIndex, allocate_shared<ViewConnection>(Eigen::aligned_allocator<ViewConnection>(), refNode, curNode, pointWeight, finalSE, candidate.getCost()));
                     }
 
                     {
-                        vector<Point3D> points(candidate.getKxs().begin(), candidate.getKxs().end());
+                        vector<Point3D> points(candidate.getKys().begin(), candidate.getKys().end());
 
-                        float weight = PointUtil::computePointWeight(points, viewGraph.getCamera());
+                        float pointWeight = PointUtil::computePointWeight(points, viewGraph.getCamera());
 
-                        curFrame->addConnection(refFrame->getFrameIndex(), allocate_shared<FrameConnection>(Eigen::aligned_allocator<FrameConnection>(), curFrame, refFrame, weight, candidate.getSE().inverse(), candidate.getCost()));
+                        curNode->addConnection(refNodeIndex, allocate_shared<ViewConnection>(Eigen::aligned_allocator<ViewConnection>(), curNode, refNode, pointWeight, finalSE.inverse(), candidate.getCost()));
                     }
+
+                    int matchNum = candidate.getKxs().size();
+                    curFrame->addConnection(refFrame->getFrameIndex(), allocate_shared<FrameConnection>(Eigen::aligned_allocator<FrameConnection>(), curFrame, refFrame, matchNum, 0));
+                    refFrame->addConnection(curFrame->getFrameIndex(), allocate_shared<FrameConnection>(Eigen::aligned_allocator<FrameConnection>(), refFrame, curFrame, matchNum, 0));
                 }
             }
-        }
 
-        viewGraph.extendNode(cluster);
-
-        int maxFrameIndex = cluster->getFrames().back()->getFrameIndex();
-        int curNodeIndex = viewGraph.getNodesNum()-1;
-        shared_ptr<ViewCluster> curNode = cluster;
-        for(auto frame: cluster->getFrames()) {
-            SE3 headSE = frame->getSE();
-            for(auto con: frame->getConnections()) {
-                int tailIndex = con->getTail()->getFrameIndex();
-                if(tailIndex>maxFrameIndex) continue;
-                int tailNodeIndex = viewGraph.findNodeIndexByFrameIndex(tailIndex);
-                if(tailNodeIndex==curNodeIndex) continue;
-
-                shared_ptr<ViewCluster> tailNode = viewGraph[tailNodeIndex];
-                SE3 tailSE = tailNode->getFrameSE(tailIndex);
-                SE3 finalSE = headSE*con->getSE()*tailSE.inverse();
-                double cost = (tailNode->getPathLength(tailIndex)+curNode->getPathLength(frame->getFrameIndex())+1)*con->getCost();
-                if(curNode->existConnection(tailNodeIndex)) {
-                    shared_ptr<ViewConnection> oCon = curNode->getConnection(tailNodeIndex);
-                    if(oCon->getCost()>cost) {
-                        oCon->setPointWeight(con->getPointWeight());
-                        oCon->setTransform(con->getTransform());
-                        oCon->setCost(cost);
-                    }
-                }else {
-                    curNode->addConnection(tailNodeIndex, allocate_shared<ViewConnection>(Eigen::aligned_allocator<ViewConnection>(), curNode, tailNode, con->getPointWeight(), finalSE, cost));
-                    tailNode->addConnection(curNodeIndex, allocate_shared<ViewConnection>(Eigen::aligned_allocator<ViewConnection>(), tailNode, curNode, con->getPointWeight(), finalSE.inverse(), cost));
-                }
-            }
-        }
-
-        lostNum = viewGraph.updateSpanningTree(curNodeIndex);
-        updateLostFrames();
-
-        for(auto frame: cluster->getFrames()) {
-            if(frame->isVisible()) {
-                Transform trans = (cluster->getSE()*frame->getSE()).matrix();
-                Vector3 ow;
-                GeoUtil::computeOW(trans, ow);
-                float3 pos = make_float3(ow.x(), ow.y(), ow.z());
-                dBoWHashing->addVisualIndex(pos, frame->getKps(), frame->getFrameIndex(), cluster->isVisible());
-            }
+            lostNum = viewGraph.updateSpanningTree(curNodeIndex);
+            updateLostFrames();
         }
 
         // loop correction
@@ -339,11 +313,42 @@ namespace rtf {
 
         Optimizer::poseGraphOptimizeCeres(viewGraph);
 
-        if (viewGraph[curNodeIndex]->isVisible()) {
-            Transform trans = viewGraph[curNodeIndex]->getTransform()*viewGraph.getLastFrame()->getTransform();
-            Vector3 ow;
-            GeoUtil::computeOW(trans, ow);
-            lastPos = make_float3(ow.x(), ow.y(), ow.z());
+        /*for(auto& mit: frameCandidates) {
+            shared_ptr<Frame> curFrame = mit.first;
+            for(auto& sit: mit.second) {
+                int refFrameIndex = sit.first;
+                int refNodeIndex = viewGraph.findNodeIndexByFrameIndex(refFrameIndex);
+                shared_ptr<ViewCluster> refNode = viewGraph[refNodeIndex];
+                shared_ptr<Frame> refFrame = viewGraph.findFrameByIndex(refFrameIndex);
+
+                if(refNode->isVisible()&&refFrame->isVisible()&&!curFrame->existConnection(refFrame->getFrameIndex())) {
+                    SE3 se = (refNode->getSE()*refFrame->getSE()).inverse()*(curNode->getSE()*curFrame->getSE());
+                    FeatureMatches matches = matcher->matchKeyPointsPair(refFrame->getKps(), curFrame->getKps());
+
+                    int count = 0;
+                    for(int i=0; i<matches.size(); i++) {
+                        FeatureMatch match = matches.getMatch(i);
+                        shared_ptr<FeatureKeypoint> px = matches.getKx()[match.getPX()];
+                        shared_ptr<FeatureKeypoint> py = matches.getKy()[match.getPY()];
+                        Point3D rePixel = PointUtil::transformPixel(*py, se.matrix(), viewGraph.getCamera());
+                        if((rePixel.toVector2()-px->toVector2()).squaredNorm()<globalConfig.maxPnPResidual) count++;
+                    }
+                    if(count>100) {
+                        curFrame->addConnection(refFrame->getFrameIndex(), allocate_shared<FrameConnection>(Eigen::aligned_allocator<FrameConnection>(), curFrame, refFrame, count, sit.second));
+                        refFrame->addConnection(curFrame->getFrameIndex(), allocate_shared<FrameConnection>(Eigen::aligned_allocator<FrameConnection>(), refFrame, curFrame, count, sit.second));
+                    }
+                }
+            }
+        }*/
+
+        for(auto frame: cluster->getFrames()) {
+            if(frame->isVisible()) {
+                Transform trans = (cluster->getSE()*frame->getSE()).matrix();
+                Vector3 ow;
+                GeoUtil::computeOW(trans, ow);
+                lastPos = make_float3(ow.x(), ow.y(), ow.z());
+                dBoWHashing->addVisualIndex(lastPos, frame->getKps(), frame->getFrameIndex(), cluster->isVisible());
+            }
         }
         notLost = viewGraph[curNodeIndex]->isVisible();
     }

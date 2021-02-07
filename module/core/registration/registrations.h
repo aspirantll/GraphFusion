@@ -199,16 +199,15 @@ namespace rtf {
 
         vector<int> overlapFrames;
         EigenVector(ConnectionCandidate) edges;
+        vector<MatchScore> imageScores;
 
         void updateCorrelations(int lastNodeIndex);
-
-        void updateLocalEdges(shared_ptr<Frame> frame);
-
-        void extendFrame(shared_ptr<Frame> frame);
 
         void registrationPairEdge(SIFTFeaturePoints* f1, SIFTFeaturePoints* f2, ConnectionCandidate* edge, cudaStream_t curStream);
 
         void registrationLocalEdges(shared_ptr<Frame> curFrame);
+
+        void updateCovisibility(shared_ptr<Frame> curFrame);
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         LocalRegistration(const GlobalConfig &config, SIFTVocabulary* siftVocabulary);

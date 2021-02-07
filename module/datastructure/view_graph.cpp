@@ -111,6 +111,41 @@ namespace rtf {
         return unreachable;
     }
 
+    FrameConnection::FrameConnection(const shared_ptr<Frame> &h, const shared_ptr<Frame> &t, int matchNum,
+                                     double matchScore) : h(h), t(t), matchNum(matchNum), matchScore(matchScore) {}
+
+    shared_ptr<Frame> FrameConnection::getH() {
+        return h;
+    }
+
+    void FrameConnection::setH(const shared_ptr<Frame> &h) {
+        FrameConnection::h = h;
+    }
+
+    shared_ptr<Frame> FrameConnection::getT() {
+        return t;
+    }
+
+    void FrameConnection::setT(const shared_ptr<Frame> &t) {
+        FrameConnection::t = t;
+    }
+
+    int FrameConnection::getMatchNum() {
+        return matchNum;
+    }
+
+    void FrameConnection::setMatchNum(int matchNum) {
+        FrameConnection::matchNum = matchNum;
+    }
+
+    double FrameConnection::getMatchScore() {
+        return matchScore;
+    }
+
+    void FrameConnection::setMatchScore(double matchScore) {
+        FrameConnection::matchScore = matchScore;
+    }
+
     ViewCluster::ViewCluster(){
         transform = SE3(Transform::Identity());
         rootIndex = 0;
@@ -270,6 +305,7 @@ namespace rtf {
         if(index == -1) return -1;
         assert(index<getNodesNum()&&index>=0);
         if(nodePathLens[index]>=0) return nodePathLens[index];
+        assert(parentIndexes[index]!=index);
         nodePathLens[index] = computePathLens(parentIndexes[index])+1;
         return nodePathLens[index];
     }
