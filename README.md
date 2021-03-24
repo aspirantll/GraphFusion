@@ -11,3 +11,10 @@ librealsense
 cuda
 
 ```
+
+## demo results
+![bf_office_1](https://github.com/aspirantll/GraphFusion/docs/bf_office_1.png)
+
+![bf_office_2](https://github.com/aspirantll/GraphFusion/docs/bf_office_3.png)
+
+![bf_office_3](https://github.com/aspirantll/GraphFusion/docs/bf_office_2.png)
