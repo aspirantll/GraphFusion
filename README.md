@@ -13,8 +13,8 @@ cuda
 ```
 
 ## demo results
-![bf_office_1](https://github.com/aspirantll/GraphFusion/tree/master/docs/bf_office_1.png)
+![bf_office_1](./docs/bf_office_1.png)
 
-![bf_office_2](https://github.com/aspirantll/GraphFusion/tree/master/docs/bf_office_3.png)
+![bf_office_2](./docs/bf_office_3.png)
 
-![bf_office_3](https://github.com/aspirantll/GraphFusion/tree/master/docs/bf_office_2.png)
+![bf_office_3](./docs/bf_office_2.png)
